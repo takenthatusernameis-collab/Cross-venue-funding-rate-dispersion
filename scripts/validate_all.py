@@ -25,6 +25,7 @@ def main() -> int:
         "scripts/validate_controller_progress.py",
         "scripts/validate_manifest_artifacts.py",
         "scripts/validate_validation_coverage.py",
+        "scripts/validate_blocked_manifest_claims.py",
     ]
     repo = Path(__file__).resolve().parents[1]
     env = dict(subprocess.os.environ)
