@@ -1,0 +1,102 @@
+{
+  "search_timestamp_utc": "2026-10-24T11:27:12Z",
+  "criteria": {
+    "point_in_time_market_cap_ranks": true,
+    "effective_as_of_timestamp": true,
+    "publication_availability_timestamp": true,
+    "min_years_history": 3,
+    "free_public_no_key_required": true
+  },
+  "candidates_checked": [
+    {
+      "source": "CoinGecko",
+      "endpoints_checked": [
+        "coins/markets (current)",
+        "coins/{id}/market_chart",
+        "coins/{id}/history"
+      ],
+      "free": true,
+      "no_key_required": true,
+      "history_available": "limited",
+      "history_years": "< 1 year on free tier per docs",
+      "effective_as_of_timestamp": "last_updated present on markets endpoint (per-snapshot effective time) but no historical archive of ranks with timestamps beyond limits",
+      "publication_availability_timestamp": "unknown/not provided as separate field; cannot verify from API",
+      "gate_assessment": "BLOCKED - insufficient history and missing verifiable publication timestamps"
+    },
+    {
+      "source": "CryptWatch",
+      "endpoints_checked": [
+        "api.cryptowat.ch/markets/summaries",
+        "historical snapshots mentioned in docs"
+      ],
+      "free": true,
+      "no_key_required": true,
+      "history_available": true,
+      "history_years": "~13.5 years (daily snapshots from 2013-04-28)",
+      "effective_as_of_timestamp": "snapshot date present",
+      "publication_availability_timestamp": "NOT_PRESENT - no per-snapshot publication/availability timestamp in API; evaluated with +1 day assumption fails gate (see cryptwatch_lag_evaluation_2026-10-24.json)",
+      "gate_assessment": "BLOCKED - missing publication/availability timestamps"
+    },
+    {
+      "source": "CoinPaprika",
+      "endpoints_checked": [
+        "tickers historical"
+      ],
+      "free": true,
+      "no_key_required": true,
+      "history_available": "limited",
+      "history_years": "~1 year on free tier, older returns HTTP 402",
+      "effective_as_of_timestamp": "present in responses",
+      "publication_availability_timestamp": "not clearly provided as separate verifiable field",
+      "gate_assessment": "BLOCKED - insufficient history"
+    },
+    {
+      "source": "CoinMarketCap",
+      "endpoints_checked": [
+        "public listings"
+      ],
+      "free": false,
+      "no_key_required": false,
+      "gate_assessment": "BLOCKED - requires API key / paid"
+    },
+    {
+      "source": "Binance/Bybit/OKX/Hyperliquid",
+      "endpoints_checked": [
+        "various market data endpoints"
+      ],
+      "free": true,
+      "no_key_required": true,
+      "purpose": "funding/rates/klines",
+      "market_cap_ranks_history": false,
+      "gate_assessment": "BLOCKED - no point-in-time market-cap ranking history"
+    },
+    {
+      "source": "CryptoDataDownload",
+      "endpoints_checked": [
+        "CSV downloads"
+      ],
+      "free": true,
+      "no_key_required": true,
+      "history_years": "since 2017",
+      "market_cap_ranks": false,
+      "gate_assessment": "BLOCKED - OHLCV only, no market cap ranks"
+    },
+    {
+      "source": "Coinranking",
+      "endpoints_checked": [
+        "v2/coins"
+      ],
+      "free": true,
+      "no_key_required": true,
+      "history_available": "current snapshot with listedAt; historical rank history unclear",
+      "effective_as_of_timestamp": "listedAt present but not clear if it's point-in-time rank history",
+      "publication_availability_timestamp": "not evident",
+      "gate_assessment": "BLOCKED - unclear if provides historical point-in-time ranks with publication timestamps"
+    }
+  ],
+  "conclusion": {
+    "gate_status": "BLOCKED_DATA_GATE",
+    "reason": "No free public source found that provides >=3 years of historical point-in-time market-cap ranks with both effective/as-of and publication/availability timestamps that can be independently verified.",
+    "recommendation": "Continue source-independent work. Do not run empirical grid."
+  }
+}
