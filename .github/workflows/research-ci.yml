@@ -1,0 +1,35 @@
+name: Research CI
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: research-ci-${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  offline-validation:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@v7.0.1
+      - uses: actions/setup-python@v6
+        with:
+          python-version: "3.12"
+          cache: false
+      - name: Compile Python
+        run: python3 -m compileall -q src scripts tests
+      - name: Run offline unit and adversarial tests
+        env:
+          PYTHONPATH: src
+        run: python3 -m unittest discover -s tests -v
+      - name: Validate frozen research contract
+        run: python3 scripts/validate_research.py
+      - name: Validate Agent Skills structure
+        run: python3 scripts/validate_skills.py
