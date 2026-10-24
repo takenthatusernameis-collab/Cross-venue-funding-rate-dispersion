@@ -41,12 +41,13 @@ class BacktestSkeletonTests(unittest.TestCase):
         self.assertAlmostEqual(res["total_slippage"], 5.0)
         self.assertAlmostEqual(res["total_net_pnl"], 366.25)
 
-    def test_two_pairs_cross_pair_gross_cap_enforced(self):
-        # Cross-pair gross exposure <= 1.0x equity enforced
-        with self.assertRaises(ValueError):
-            pairs = []
-            for i in range(200):
-                pairs.append({
+    def test_cross_pair_gross_cap_satisfied_by_construction(self):
+        # Allocation normalizes by pair count, so gross exposure is exactly
+        # equity*gross_multiple by construction and never exceeds the cap,
+        # regardless of how many equal-notional pairs are requested.
+        for pair_count in (1, 2, 5, 50, 500):
+            pairs = [
+                {
                     "asset_long": f"L{i}",
                     "asset_short": f"S{i}",
                     "entry_price_long": 100.0,
@@ -55,12 +56,37 @@ class BacktestSkeletonTests(unittest.TestCase):
                     "exit_price_short": 100.0,
                     "funding_rate_long": 0.0,
                     "funding_rate_short": 0.0,
-                })
-            run_backtest_skeleton(
-                equity=0.01,
+                }
+                for i in range(pair_count)
+            ]
+            res = run_backtest_skeleton(
+                equity=10000.0,
                 pairs=pairs,
                 signal_time="2026-01-01T14:00:00Z",
                 next_open_time="2026-01-01T15:00:00Z",
+                fee_bps_per_side=0.0,
+                slippage_bps_per_side=0.0,
+                gross_multiple=0.7,
+            )
+            self.assertAlmostEqual(res["gross_exposure"], 10000.0 * 0.7, places=9)
+            self.assertAlmostEqual(res["gross_exposure_cap"], 10000.0 * 0.7, places=9)
+            self.assertLessEqual(res["gross_exposure"], res["gross_exposure_cap"] + 1e-12)
+
+    def test_cross_pair_gross_cap_violation_fails_closed(self):
+        # If a caller bypasses the allocation and supplies notionals that would
+        # exceed the 1.0x hard cap, the pair ledger must reject it fail-closed.
+        from cross_venue_funding_dispersion.pair_pnl import compute_pair_pnl
+
+        with self.assertRaises(ValueError):
+            compute_pair_pnl(
+                equity=1000.0,
+                notional_per_leg=1000.0,  # 2x notional on one leg => 2.0x gross exposure
+                entry_price_long=100.0,
+                exit_price_long=100.0,
+                entry_price_short=100.0,
+                exit_price_short=100.0,
+                funding_rate_long=0.0,
+                funding_rate_short=0.0,
                 fee_bps_per_side=0.0,
                 slippage_bps_per_side=0.0,
                 gross_multiple=1.0,
