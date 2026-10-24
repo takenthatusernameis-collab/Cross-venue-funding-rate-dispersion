@@ -221,3 +221,12 @@ Continue source-independent deterministic work (hardening, tests, schemas, confo
 ## Next task: source-independent work while data gate remains blocked
 
 Continue source-independent deterministic work (hardening, tests, schemas, conformance checks) per AGENTS.md constraints. Do not run empirical grid or claim performance metrics until a free public source passes the historical point-in-time market-cap gate with verified publication/as-of timestamps. Preserve frozen grid, free-public-data-only rule, expanding historical point-in-time market-cap universe, and research-only/no-live-trading boundary.
+
+## Adaptive policy application — unlock path (2026-10-24)
+
+The original confirmatory track remains `BLOCKED_DATA_GATE`; this is not a backtest result. The recorded multi-source audit already attempted multiple independent free-source families and did not find >=3 years of historical point-in-time market-cap ranks with both effective/as-of and publication/availability timestamps. The adaptive-gate trigger is therefore met. **Do not repeat the same source search as the only next task.**
+
+**Next measurable task:** create a separately versioned exploratory protocol and manifest using the verified historical intersection of instruments/venues for which contract identity, actual funding settlements, hourly prices, timestamps and eligibility can be supported. Historical cap ranks may be omitted from this narrower exploratory estimand only; never substitute present-day ranks for historical ranks. Allocate a unique new experiment ID after checking the repository registry, freeze the selected universe rule and costs before evaluating outcomes, then run the smallest single-anchor feasibility/pilot only if the real-data gate for that exploratory sample passes. Report sample length, venue counts, missingness, excluded instruments, costs, funding/price-basis attribution and dependence-aware uncertainty. Any result is `EXPLORATORY_ONLY` or `INCONCLUSIVE`, never confirmation or permission to trade.
+
+Keep FVD001–FVD108, FVD053, the original protocol and original run manifest unchanged. Do not use paid services, credentials, paid endpoints, synthetic market history or live/paper trading. If a valid historical two-venue overlap still cannot be assembled from allowed free data, record the precise missing field/source and pivot to independent, source-free accounting/evaluation tests rather than retrying failed sources.
+
