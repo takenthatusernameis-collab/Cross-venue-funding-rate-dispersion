@@ -108,6 +108,34 @@ class TestOrchestration(unittest.TestCase):
             with self.assertRaises(ValueError):
                 load_run_artifact(path)
 
+    def test_run_configuration_rejects_empty_config_id(self):
+        with self.assertRaises(ValueError):
+            run_configuration(
+                config_id="",
+                equity=1000.0,
+                pairs=[
+                    {
+                        "asset_long": "BTC",
+                        "asset_short": "ETH",
+                        "entry_price_long": 100.0,
+                        "exit_price_long": 101.0,
+                        "entry_price_short": 50.0,
+                        "exit_price_short": 50.5,
+                        "funding_rate_long": 0.001,
+                        "funding_rate_short": -0.0005,
+                    }
+                ],
+                signal_time="2024-01-01T00:00:00Z",
+                next_open_time="2024-01-01T01:00:00Z",
+                fee_bps_per_side=1.0,
+                slippage_bps_per_side=0.5,
+            )
+
+    def test_aggregate_split_records_rejects_wrong_length(self):
+        recs = [{"x": 1}, {"x": 2}]
+        with self.assertRaises(ValueError):
+            aggregate_split_records(recs, total=5)
+
 
 if __name__ == "__main__":
     unittest.main()

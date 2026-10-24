@@ -1,0 +1,53 @@
+{
+  "search_date_utc": "2026-10-24T12:05:00Z",
+  "search_scope": "Free public sources for >=3 years of point-in-time market-cap ranks with effective/as-of and publication/availability timestamps; no paid APIs, keys, trials, or compute.",
+  "candidates": [
+    {
+      "source_id": "cmc_historical_pages_wayback",
+      "endpoint": "web.archive.org (CoinMarketCap historical snapshots)",
+      "method": "HTTP/HTML",
+      "request_example": "https://web.archive.org/web/20180107000000/https://coinmarketcap.com/historical/20180107",
+      "response_status": "varies",
+      "usable_range": "2013+ archives exist but coverage is sporadic",
+      "pagination": "by snapshot date/page",
+      "missingness": "Requires HTML scraping; no structured API; publication/availability time of snapshot is archive timestamp (when archived) not original publication time; no guaranteed daily coverage; terms of scraping not clearly 'free public API' for structured use; reproducibility difficult",
+      "units": "USD market cap",
+      "terms_limits": "Archive service public but scraping has operational/terms considerations; no stable API contract",
+      "retrieval_time_utc": "2026-10-24T12:04:00Z",
+      "response_sha256": null,
+      "gate_assessment": "FAIL: not a structured reproducible free API; publication timestamp provenance unclear (archive time != original publication); sporadic coverage"
+    },
+    {
+      "source_id": "coingecko_market_chart_range",
+      "endpoint": "https://api.coingecko.com/api/v3/coins/{id}/market_chart/range",
+      "method": "GET",
+      "request_example": "market_chart/range with from/to",
+      "response_status": 200/10012,
+      "usable_range": "< 2 years on free/public in practice; rate-limited",
+      "pagination": "range-based",
+      "missingness": "Free plan historically limited to ~365 days for some endpoints; range queries can be restricted; provides timestamps but as data availability from API, not verified original publication/availability timestamps of rankings; also per-coin not full market rankings snapshot in required form",
+      "units": "USD market cap/price",
+      "terms_limits": "Public rate-limited; free tier restrictions; terms prohibit some uses",
+      "retrieval_time_utc": "2026-10-24T12:02:09Z",
+      "response_sha256": null,
+      "gate_assessment": "FAIL: insufficient history on free tier (<3 years guaranteed), no publication-timestamped full-market rankings snapshot with provenance"
+    },
+    {
+      "source_id": "cmc_listings_historical_api_docs",
+      "endpoint": "https://pro-api.coinmarketcap.com/v1/cryptocurrency/listings/historical",
+      "method": "GET",
+      "request_example": "date param for snapshot",
+      "response_status": 401,
+      "usable_range": "API exists but requires paid/pro key",
+      "pagination": "limit/start",
+      "missingness": "Key required for historical listings; free/public keyless access not available per docs/errors",
+      "units": "USD market cap",
+      "terms_limits": "Paid/pro plans required",
+      "retrieval_time_utc": "2026-10-24T12:03:00Z",
+      "response_sha256": null,
+      "gate_assessment": "FAIL: not free/public without key/trial"
+    }
+  ],
+  "gate_result": "BLOCKED_DATA_GATE",
+  "reason": "No free public source found with >=3 years of point-in-time market-cap ranks AND both effective/as-of and publication/availability timestamps. CryptWatch provides long history but lacks per-snapshot publication timestamps (relies on retrieval time/assumptions). Wayback HTML requires scraping with unclear provenance. CMC historical API requires paid key. CoinGecko free history insufficient. Gate remains BLOCKED."
+}

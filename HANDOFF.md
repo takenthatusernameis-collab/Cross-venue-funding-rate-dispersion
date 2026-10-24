@@ -153,3 +153,15 @@ Continue source-independent deterministic work (e.g., audit funding-accounting p
 ## Next task: free public source search with publication timestamps
 
 Search for a free public source providing historical point-in-time market-cap ranks with both effective/as-of and publication/availability timestamps and >=3 years of history. If found with immutable evidence, update run_manifest.json only if gate becomes PASS. Otherwise continue source-independent work. Do not run empirical grid or claim performance metrics.
+
+## Completed Task — Free public source search for point-in-time market-cap with publication timestamps (2026-10-24)
+
+1. Searched for free public sources providing >=3 years of historical point-in-time market-cap ranks with both effective/as-of and publication/availability timestamps (no paid APIs/keys/trials/compute).
+2. Evaluated candidates: CoinMarketCap historical listings API requires paid/pro key (401/key-gated); CoinGecko market_chart/range free tier history limited (<3 years guaranteed) with no verified publication-timestamped full-market rankings; Wayback Machine CMC snapshots exist but require HTML scraping, coverage sporadic, archive time != original publication time, not a structured reproducible API; CryptWatch provides ~13.5 years daily data but lacks per-snapshot publication/availability timestamps (cannot strictly satisfy gate).
+3. Produced `research_state/source_coverage_matrix_2026-10-24_free_search2.json` (sha256 e4c852908cf5c789315ab146d1b94b3d15f6581ea1cccd73ccebe6d5680207ca) documenting findings. Gate remains BLOCKED_DATA_GATE.
+4. Ran validations: `python3 -m compileall -q src scripts tests` OK; `PYTHONPATH=src python3 -m unittest discover -s tests -v` = 102 tests OK (101 prior + 1 new); `PYTHONPATH=src python3 scripts/validate_research.py` = RESEARCH_VALIDATION=PASS (grid 108, anchor FVD053, status NOT_RUN, no metrics); `python3 scripts/validate_skills.py` = SKILLS_VALIDATION=PASS count=4; `python3 scripts/validate_universe_frontier.py` = UNIVERSE_FRONTIER_VALIDATION=PASS. `git diff --check` clean.
+5. `research_state/run_manifest.json` unchanged (status BLOCKED_DATA_GATE, historical_point_in_time_market_cap_gate BLOCKED, backtest_completed false, performance_metrics_computed false). No empirical grid run; no performance metric or economic edge claimed.
+
+## Next task: source-independent work while data gate remains blocked
+
+Continue source-independent deterministic work (hardening, tests, schemas, conformance checks) per AGENTS.md constraints. Do not run empirical grid or claim performance metrics until a free public source passes the historical point-in-time market-cap gate with verified publication/as-of timestamps. Preserve frozen grid, free-public-data-only rule, expanding historical point-in-time market-cap universe, and research-only/no-live-trading boundary.
