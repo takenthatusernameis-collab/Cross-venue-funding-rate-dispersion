@@ -1,0 +1,74 @@
+{
+  "retrieval_at_utc": "2026-10-24T14:00:12Z",
+  "okx_funding_pages": [
+    {
+      "url": "https://www.okx.com/api/v5/public/funding-rate-history?instId=BTC-USDT-SWAP&limit=100",
+      "status": 200,
+      "retrieval_at_utc": "2026-10-24T14:00:12Z",
+      "latency_ms": 228.9,
+      "error": null,
+      "response_sha256": "0d8a65248f4b94db10ec02ccab378a1350928fc673955cb6a61722f9fd13f79c",
+      "http_error": null
+    },
+    {
+      "url": "https://www.okx.com/api/v5/public/funding-rate-history?instId=BTC-USDT-SWAP&limit=100&before=1789977600000",
+      "status": 200,
+      "retrieval_at_utc": "2026-10-24T14:00:12Z",
+      "latency_ms": 151.6,
+      "error": null,
+      "response_sha256": "2f90069f629c8d932c7d4b98772a3c88fd28844d18adb1954993b24a51517e5f",
+      "http_error": null
+    }
+  ],
+  "hl_funding_page1": {
+    "url": "https://api.hyperliquid.xyz/info",
+    "payload": {
+      "type": "fundingHistory",
+      "coin": "BTC",
+      "startTime": 1789862400000,
+      "endTime": 1792886400000
+    },
+    "status": 200,
+    "retrieval_at_utc": "2026-10-24T14:00:12Z",
+    "latency_ms": 208.6,
+    "error": null,
+    "response_sha256": "166d11288124c84d70f8cdb793dbbf4bf89dee5d09d31a28f6abe1efdf87cdbc"
+  },
+  "hl_funding_page2": {
+    "url": "https://api.hyperliquid.xyz/info",
+    "payload": {
+      "type": "fundingHistory",
+      "coin": "BTC",
+      "startTime": 1791590400000,
+      "endTime": 1792886400000
+    },
+    "status": 200,
+    "retrieval_at_utc": "2026-10-24T14:00:12Z",
+    "latency_ms": 156.4,
+    "error": null,
+    "response_sha256": "8f64ee7e9a6443347e44b69e07ef88ba41ba94b8afbf5401558569a872e0700f"
+  },
+  "okx_candles": {
+    "url": "https://www.okx.com/api/v5/market/candles?instId=BTC-USDT-SWAP&bar=1H&limit=100",
+    "status": 200,
+    "retrieval_at_utc": "2026-10-24T14:00:12Z",
+    "latency_ms": 145.2,
+    "error": null,
+    "response_sha256": "235f6f0e93b8e0fe8e6af85dbbcd5546d8fcfdaccdf4e44c653815067b8d1786"
+  },
+  "hl_candles_attempt": {
+    "url": "https://api.hyperliquid.xyz/info",
+    "payload": {
+      "type": "candle",
+      "coin": "BTC",
+      "interval": "1h",
+      "startTime": 1789862400000,
+      "endTime": 1792886400000
+    },
+    "status": 422,
+    "retrieval_at_utc": "2026-10-24T14:00:12Z",
+    "latency_ms": 145.1,
+    "error": "HTTPError 422",
+    "response_sha256": "6448c95b4fb0147552cb0c95b53f9b5e5ff810da3c115d9e61c7c49430894a31"
+  }
+}

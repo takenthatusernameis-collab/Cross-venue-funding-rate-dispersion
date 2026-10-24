@@ -1,0 +1,100 @@
+{
+  "schema_version": "1.0",
+  "experiment_id": "FVD-EXPLORATORY-001",
+  "run_id": "FVD-EXPLORATORY-001-run-2026-10-24",
+  "date_utc": "2026-10-24",
+  "retrieval_at_utc": "2026-10-24T13:55:16Z",
+  "status": "EXPLORATORY_ONLY",
+  "confirmatory_status_preserved": "BLOCKED_DATA_GATE",
+  "purpose": "Exploratory pre-outcome coverage stage: verify free historical funding, prices, contract identity and settlement coverage for the overlap of >=2 venues before any outcome calculation. No market claim implied.",
+  "instrument_list": ["BTC"],
+  "venue_set": ["OKX", "Hyperliquid"],
+  "contract_mapping": {
+    "OKX": "BTC-USDT-SWAP",
+    "Hyperliquid": "BTC"
+  },
+  "contract_mapping_basis": "underlying symbol match (BTC) only; instrument metadata cross-check / delisting lifecycle not independently verified",
+  "coverage": {
+    "OKX_funding": {
+      "endpoint": "https://www.okx.com/api/v5/public/funding-rate-history",
+      "params": {"instId": "BTC-USDT-SWAP", "limit": "100", "pagination": "before"},
+      "http_status": 200,
+      "terms": "public, no key",
+      "interval": "8h (settled funding events)",
+      "response_sha256_pages": ["0d8a65248f4b...", "2f90069f629c..."],
+      "rows": 199,
+      "time_range_utc": ["2026-09-21T08:00:00Z", "2026-10-24T08:00:00Z"],
+      "publication_timestamp_field": "fundingTime (ms epoch)",
+      "notes": "OKX public funding history retains ~33 days for BTC-USDT-SWAP; cursor pagination via before param."
+    },
+    "Hyperliquid_funding": {
+      "endpoint": "https://api.hyperliquid.xyz/info",
+      "params": [{"type":"fundingHistory","coin":"BTC","startTime":1789862400000,"endTime":1792963200000},{"type":"fundingHistory","coin":"BTC","startTime":1791676800000,"endTime":1792963200000}],
+      "http_status": 200,
+      "terms": "public, no key",
+      "interval": "1h (settled funding events)",
+      "response_sha256_pages": ["166d11288124...", "8f64ee7e9a64..."],
+      "rows": 850,
+      "time_range_utc": ["2026-09-20T00:00:00Z", "2026-10-24T13:00:00Z"],
+      "publication_timestamp_field": "time (ms epoch)",
+      "notes": "Hyperliquid fundingHistory capped at 500 records/page; two pages cover 2026-09-20 to 2026-10-24T13:00."
+    },
+    "OKX_prices": {
+      "endpoint": "https://www.okx.com/api/v5/market/candles",
+      "params": {"instId": "BTC-USDT-SWAP", "bar": "1H", "limit": "100"},
+      "http_status": 200,
+      "response_sha256": "235f6f0e93b8...",
+      "rows": 100,
+      "time_range_utc": ["2026-10-20T10:00:00Z", "2026-10-24T13:00:00Z"],
+      "notes": "Public 1H candles retain only ~4 days; older history not accessible via this free endpoint (before/after pagination did not extend range)."
+    },
+    "Hyperliquid_prices": {
+      "endpoint": "https://api.hyperliquid.xyz/info",
+      "params": {"type":"candle","coin":"BTC","interval":"1h","startTime":1789862400000,"endTime":1792963200000},
+      "http_status": 422,
+      "error": "Failed to deserialize the JSON body into the target type",
+      "notes": "Historical candle endpoint not confirmed via /info; Hyperliquid price history not verified for this run."
+    }
+  },
+  "common_overlap": {
+    "funding_both_venues_utc": ["2026-09-21T08:00:00Z", "2026-10-24T08:00:00Z"],
+    "funding_events_okx": 199,
+    "funding_events_hyperliquid": 850,
+    "actionable_overlap_with_prices_utc": ["2026-10-20T10:00:00Z", "2026-10-24T13:00:00Z"],
+    "actionable_days": 4,
+    "limiting_factor": "OKX public 1H candle retention (~4 days); Hyperliquid price history not confirmed"
+  },
+  "signal_accounting_params": {
+    "anchor": "FVD053",
+    "dispersion_lookback_hours": 24,
+    "entry_percentile": 80,
+    "holding_hours": 24,
+    "portfolio_tail_fraction": 0.1,
+    "minimum_eligible_venues": 2,
+    "cost_scenario": {"id": "base", "fee_bps_per_side": 5, "slippage_bps_per_side": 5, "note": "frozen grid base scenario; sensitivity assumption, not a venue fee claim"},
+    "gross_exposure_cap": "1.0x equity",
+    "settlement_timed_funding": true,
+    "no_forward_fill": true,
+    "no_invented_fills": true,
+    "no_current_date_threshold": true
+  },
+  "data_gate_assessment": "PARTIAL. Funding + settlement verified for both venues over 2026-09-21 to 2026-10-24 (~33 days). Price history verified for OKX only (~4 days); Hyperliquid prices unconfirmed (422). Contract identity is underlying-symbol match only, not independently verified. Actionable overlap (<= ~4 days) is below the FVD053 threshold requirement of >=30 valid prior daily observations; no threshold-valid signal episode can be formed.",
+  "implementation_gate_assessment": "Source-independent primitives (signals, accounting, pair_pnl, portfolio, evaluation, orchestration, universe frontier) are covered by known-answer/adversarial tests and conformance validators. Real-data signal construction was NOT exercised because the actionable sample is too short.",
+  "conclusion": "The exploratory sample does not pass the full data gate (price history and contract identity gaps; actionable overlap <= ~4 days). The frozen FVD053 anchor cannot be exercised on this sample (requires >=30 prior daily observations). No backtest run, no performance metric, no economic edge claimed. Status: EXPLORATORY_ONLY / INCONCLUSIVE for inference. Preserving confirmatory gate BLOCKED_DATA_GATE.",
+  "stop_rule": "Per exploratory protocol section 6, do not fabricate or substitute data. Proceed to a bounded source-independent task rather than retrying failed sources.",
+  "backtest_completed": false,
+  "performance_metrics_computed": false,
+  "output_artifacts": [
+    {"path": "research_state/exploratory_coverage_verified_2026-10-24.json", "sha256": "abe96e5fe51569faee596c4bb244475ca70b1438fedda933e5ed34a3bb4c981d"},
+    {"path": "research_state/exploratory_run_manifest_2026-10-24.json", "sha256": "a395803cf8cd853cf47ae53ffd027685e1a4380cd3ed8a8fca5bdfadb481f328"},
+    {"path": "research_state/coverage_collection_2026-10-24.json", "sha256": "9962daa39a78b5e8cc6a1c85f171646b72e7fcb98ad0c69e4889a7203f2cde63"}
+  ],
+  "caveats": [
+    "Free public sources lack >=3 years of historical point-in-time market-cap ranks with publication timestamps; confirmatory gate remains BLOCKED_DATA_GATE.",
+    "CryptWatch (~13.5 yrs) lacks per-snapshot publication/availability timestamps; does not satisfy gate.",
+    "OKX funding retention ~33 days; OKX 1H public candles ~4 days; Hyperliquid price endpoint not confirmed via /info (422).",
+    "Current cap snapshots are discovery-only; no market-cap rank used in this exploratory estimand.",
+    "Modeled slippage/fees are sensitivity assumptions (grid base 5/5 bps), not measured venue costs.",
+    "No performance metric or economic edge is claimed; EXPLORATORY_ONLY does not authorize trading."
+  ]
+}
