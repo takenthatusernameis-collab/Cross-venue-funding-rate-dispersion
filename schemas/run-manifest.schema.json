@@ -1,0 +1,121 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "title": "Funding dispersion run manifest",
+  "type": "object",
+  "required": [
+    "schema_version",
+    "experiment_id",
+    "run_id",
+    "status",
+    "backtest_completed",
+    "performance_metrics_computed",
+    "historical_point_in_time_market_cap_gate",
+    "output_artifacts",
+    "caveats"
+  ],
+  "properties": {
+    "schema_version": {
+      "type": "string"
+    },
+    "experiment_id": {
+      "type": "string"
+    },
+    "run_id": {
+      "type": "string"
+    },
+    "status": {
+      "enum": [
+        "NOT_RUN",
+        "BLOCKED_DATA_GATE",
+        "BLOCKED_SPECIFICATION_GATE",
+        "IMPLEMENTATION_FAILED",
+        "EXPLORATORY_ONLY",
+        "INCONCLUSIVE",
+        "REJECTED",
+        "SUPPORTED_FOR_FURTHER_RESEARCH"
+      ]
+    },
+    "backtest_completed": {
+      "type": "boolean"
+    },
+    "performance_metrics_computed": {
+      "type": "boolean"
+    },
+    "historical_point_in_time_market_cap_gate": {
+      "enum": [
+        "NOT_VERIFIED",
+        "PASS",
+        "BLOCKED"
+      ]
+    },
+    "grid_config_sha256": {
+      "type": [
+        "string",
+        "null"
+      ]
+    },
+    "source_manifest_sha256": {
+      "type": [
+        "string",
+        "null"
+      ]
+    },
+    "started_at_utc": {
+      "type": [
+        "string",
+        "null"
+      ],
+      "format": "date-time"
+    },
+    "completed_at_utc": {
+      "type": [
+        "string",
+        "null"
+      ],
+      "format": "date-time"
+    },
+    "output_artifacts": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "required": [
+          "path",
+          "sha256"
+        ],
+        "properties": {
+          "path": {
+            "type": "string"
+          },
+          "sha256": {
+            "type": "string"
+          }
+        }
+      }
+    },
+    "caveats": {
+      "type": "array",
+      "items": {
+        "type": "string"
+      }
+    }
+  },
+  "allOf": [
+    {
+      "if": {
+        "properties": {
+          "backtest_completed": {
+            "const": false
+          }
+        }
+      },
+      "then": {
+        "properties": {
+          "performance_metrics_computed": {
+            "const": false
+          }
+        }
+      }
+    }
+  ],
+  "additionalProperties": false
+}
