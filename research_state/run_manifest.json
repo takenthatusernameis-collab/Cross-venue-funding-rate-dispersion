@@ -1,0 +1,17 @@
+{
+  "schema_version": "1.0",
+  "experiment_id": "FVD-DISPERSION-V1",
+  "run_id": "setup-not-run",
+  "status": "NOT_RUN",
+  "backtest_completed": false,
+  "performance_metrics_computed": false,
+  "historical_point_in_time_market_cap_gate": "NOT_VERIFIED",
+  "grid_config_sha256": null,
+  "source_manifest_sha256": null,
+  "started_at_utc": null,
+  "completed_at_utc": null,
+  "output_artifacts": [],
+  "caveats": [
+    "Repository setup and offline validation do not establish historical data completeness or strategy performance."
+  ]
+}
