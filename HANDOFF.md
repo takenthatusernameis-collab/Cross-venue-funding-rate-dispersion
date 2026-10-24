@@ -143,6 +143,13 @@ Continue source-independent deterministic work (e.g., audit funding-accounting p
 
 5. `git diff --check` exit 0; `git status --short` showed only the two new untracked files before commit; frozen grid sha `6be218bc84bf118cf67c238ad1c13ef1e445658db3b1346cd64ccaccc7aa5f07` unchanged; `research_state/run_manifest.json` sha256 4f162ce128c741434addf6aa2fa7c7dbf1bf189d4a81b8893ed96899412c7aaf unchanged (status BLOCKED_DATA_GATE, historical_point_in_time_market_cap_gate BLOCKED, backtest_completed false, performance_metrics_computed false). Committed as `3e69bb9` after verifying local HEAD `cd92c13` matched remote HEAD `73c4c13` (ancestor); remote HEAD now `3e69bb9` after push. No empirical grid run; no performance metric or economic edge claimed.
 
-## Next task: source-independent run-orchestration harness or free source search
+## Completed Task — Source-independent run-orchestration harness (2026-10-24)
 
-Continue source-independent deterministic work while data gate remains BLOCKED_DATA_GATE. Highest-priority bounded option: add a source-independent run-orchestration harness that wires the frozen grid (108 configs) through the signal, pair-ledger, backtest-skeleton and evaluation primitives into a deterministic per-configuration event ledger with split-aware aggregation, Holm-corrected validation family reporting and immutable artifact persistence — with known-answer and adversarial tests. Alternative: find a free public source providing historical point-in-time market-cap ranks with both effective/as-of and publication/availability timestamps and >=3 years of history; if found with immutable evidence, update run_manifest.json only if the gate can become PASS. Do not run the empirical grid or claim performance metrics.
+1. Added `src/cross_venue_funding_dispersion/orchestration.py`: `run_configuration` (per-config event ledger over backtest skeleton), `aggregate_split_records` (60/20/20 split-aware aggregation), `validation_family_report` (Holm-corrected validation family over 108 configs), `persist_run_artifact`/`load_run_artifact` (atomic fsync + sha256). Standard library only; no network calls; no economic result.
+2. Added `tests/test_orchestration.py`: 9 known-answer/adversarial tests (all pass).
+3. Ran validations: compileall OK; 101 tests OK; RESEARCH_VALIDATION=PASS (grid 108, anchor FVD053, status NOT_RUN, no metrics); SKILLS_VALIDATION=PASS count=4; UNIVERSE_FRONTIER_VALIDATION=PASS; `git diff --check` clean.
+4. `research_state/run_manifest.json` retains status BLOCKED_DATA_GATE; no empirical grid run; no performance metric claimed.
+
+## Next task: free public source search with publication timestamps
+
+Search for a free public source providing historical point-in-time market-cap ranks with both effective/as-of and publication/availability timestamps and >=3 years of history. If found with immutable evidence, update run_manifest.json only if gate becomes PASS. Otherwise continue source-independent work. Do not run empirical grid or claim performance metrics.
