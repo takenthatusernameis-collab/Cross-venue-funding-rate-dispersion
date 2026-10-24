@@ -4,7 +4,21 @@ import sys
 from pathlib import Path
 
 ROOT = Path(__file__).resolve().parents[1]
-FORBIDDEN = ("sharpe", "annualized_return", "max_drawdown", "pnl_total", "equity_curve", "edge_detected", "profit_factor")
+FORBIDDEN = (
+    "sharpe",
+    "annualized_return",
+    "max_drawdown",
+    "pnl_total",
+    "equity_curve",
+    "edge_detected",
+    "profit_factor",
+    "sortino",
+    "calmar",
+    "cagr",
+    "win_rate",
+    "hit_rate",
+    "information_ratio",
+)
 
 def main() -> int:
     targets = [ROOT / "HANDOFF.md", ROOT / "README.md", ROOT / "SKILLS.md"]
