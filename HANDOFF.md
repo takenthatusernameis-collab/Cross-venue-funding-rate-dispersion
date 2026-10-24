@@ -27,6 +27,12 @@ Data gate remains `BLOCKED_DATA_GATE`; do not run the empirical grid or claim pe
 2. Validation: compileall OK; 129 tests OK; `validate_research.py` RESEARCH_VALIDATION=PASS (grid 108, anchor FVD053, NOT_RUN, no metrics); `validate_skills.py` SKILLS_VALIDATION=PASS count=4; `validate_all.py` ALL_VALIDATIONS=PASS count=21; `git diff --check` clean.
 3. Frozen artifacts unchanged; confirmatory campaign remains BLOCKED_DATA_GATE; exploratory track remains EXPLORATORY_ONLY/INCONCLUSIVE.
 
+## Completed Task — Extend no-performance-claims scan to all markdown outside docs (2026-10-24)
+
+1. Extended `scripts/validate_no_performance_claims.py` to scan every `*.md` under the repository root except `docs/` protocol specifications (which legitimately define reporting metrics), in addition to `HANDOFF.md`, `README.md`, `SKILLS.md`, and `research_state/*.json`.
+2. Validation: compileall OK; 129 tests OK; `validate_research.py` RESEARCH_VALIDATION=PASS (grid 108, anchor FVD053, NOT_RUN, no metrics); `validate_skills.py` SKILLS_VALIDATION=PASS count=4; `validate_all.py` ALL_VALIDATIONS=PASS count=21; `validate_no_performance_claims.py` NO_PERFORMANCE_CLAIMS_VALIDATION=PASS; `git diff --check` clean.
+3. Frozen artifacts unchanged; confirmatory campaign remains BLOCKED_DATA_GATE; exploratory track remains EXPLORATORY_ONLY/INCONCLUSIVE.
+
 ## Next measurable task
 
 Continue source-independent deterministic hardening (tests, schemas, conformance checks) while data gate remains BLOCKED_DATA_GATE. Preserve frozen grid (FVD001–FVD108, anchor FVD053), free-public-data-only rule, expanding historical point-in-time market-cap universe, and research-only/no-live-trading boundary. The confirmatory campaign remains `BLOCKED_DATA_GATE`; the exploratory track remains `EXPLORATORY_ONLY` / `INCONCLUSIVE` and does not authorize promotion or trading.

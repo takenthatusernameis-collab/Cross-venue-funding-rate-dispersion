@@ -9,6 +9,12 @@ FORBIDDEN = ("sharpe", "annualized_return", "max_drawdown", "pnl_total", "equity
 def main() -> int:
     targets = [ROOT / "HANDOFF.md", ROOT / "README.md", ROOT / "SKILLS.md"]
     targets += sorted((ROOT / "research_state").glob("*.json"))
+    # Close remaining documentation surfaces (exclude docs/ protocol specs that legitimately define metrics).
+    for p in sorted(ROOT.rglob("*.md")):
+        if "docs" in p.relative_to(ROOT).parts:
+            continue
+        if p not in targets:
+            targets.append(p)
     for p in targets:
         if not p.is_file():
             continue
