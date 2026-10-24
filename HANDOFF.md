@@ -165,3 +165,13 @@ Search for a free public source providing historical point-in-time market-cap ra
 ## Next task: source-independent work while data gate remains blocked
 
 Continue source-independent deterministic work (hardening, tests, schemas, conformance checks) per AGENTS.md constraints. Do not run empirical grid or claim performance metrics until a free public source passes the historical point-in-time market-cap gate with verified publication/as-of timestamps. Preserve frozen grid, free-public-data-only rule, expanding historical point-in-time market-cap universe, and research-only/no-live-trading boundary.
+
+## Completed Task — Source-independent orchestration conformance validation (2026-10-24)
+
+1. Added `scripts/validate_orchestration.py`: offline conformance check over `run_configuration`, `aggregate_split_records`, `validation_family_report`, and `persist_run_artifact`/`load_run_artifact` — asserts run output, 60/20/20 split counts (65/22/21), Holm family report over 108 configs, artifact round-trip, and fail-closed rejection of bad config_id/total/non-list/missing file.
+2. Ran all validations: compileall OK; 103 tests OK; RESEARCH_VALIDATION=PASS (grid 108, anchor FVD053, status NOT_RUN, no metrics); SKILLS_VALIDATION=PASS count=4; UNIVERSE_FRONTIER_VALIDATION=PASS; ORCHESTRATION_VALIDATION=PASS; `git diff --check` clean.
+3. `research_state/run_manifest.json` retains status BLOCKED_DATA_GATE, backtest_completed false, performance_metrics_computed false; no empirical grid run; no performance metric claimed.
+
+## Next task: source-independent work while data gate remains blocked
+
+Continue source-independent deterministic work (hardening, tests, schemas, conformance checks) per AGENTS.md constraints. Do not run empirical grid or claim performance metrics until a free public source passes the historical point-in-time market-cap gate with verified publication/as-of timestamps. Preserve frozen grid, free-public-data-only rule, expanding historical point-in-time market-cap universe, and research-only/no-live-trading boundary.
