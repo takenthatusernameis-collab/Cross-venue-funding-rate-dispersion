@@ -44,6 +44,7 @@ A successful preflight means only that an endpoint responded at that time. It do
 - `HANDOFF.md`: durable Kilo task, evidence ledger and next measurable deliverable.
 - `configs/`: frozen parameter grid and research controls.
 - `docs/research_protocol.md`: full hypothesis, timing, costs, splits, inference and gate definitions.
+- `docs/exploratory_protocol_v1.md`: separate, explicitly non-confirmatory path for verified historical cross-venue overlap when the market-cap-rank gate blocks the original study.
 - `prompts/`: iteratively refined self-contained research-agent prompt.
 - `src/cross_venue_funding_dispersion/`: deterministic grid, signal/threshold, funding/price accounting, portfolio exposure and point-in-time universe primitives.
 - `tests/`: offline known-answer and workflow-contract tests.
