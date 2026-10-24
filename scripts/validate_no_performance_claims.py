@@ -7,7 +7,7 @@ ROOT = Path(__file__).resolve().parents[1]
 FORBIDDEN = ("sharpe", "annualized_return", "max_drawdown", "pnl_total", "equity_curve", "edge_detected", "profit_factor")
 
 def main() -> int:
-    targets = [ROOT / "HANDOFF.md"]
+    targets = [ROOT / "HANDOFF.md", ROOT / "README.md"]
     targets += sorted((ROOT / "research_state").glob("*.json"))
     for p in targets:
         if not p.is_file():
