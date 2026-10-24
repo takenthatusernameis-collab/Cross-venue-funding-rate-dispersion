@@ -72,7 +72,8 @@ def main():
                 continue
             actual = sha256_file(target)
             if actual != digest:
-                print("WARN:", mf, "sha256 mismatch:", rel, "expected", digest, "got", actual)
+                print("FAIL:", mf, "sha256 mismatch:", rel, "expected", digest, "got", actual)
+                ok = False
             else:
                 print("OK:", rel)
     if ok:

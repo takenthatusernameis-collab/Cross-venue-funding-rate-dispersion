@@ -38,7 +38,7 @@
   "conclusion": "EXPLORATORY_ONLY / INCONCLUSIVE for inference. The exploratory sample does not pass the full data gate (price history and contract identity gaps; insufficient actionable overlap). The frozen FVD053 anchor was not exercised. No backtest, no performance metric, no economic edge claimed. Confirmatory gate BLOCKED_DATA_GATE preserved.",
   "next_step": "Per exploratory protocol section 6 stop rule: do not fabricate or substitute data; preserve confirmatory gate; proceed to a bounded source-independent task rather than retrying failed sources.",
   "output_artifacts": [
-    {"path": "research_state/exploratory_coverage_verified_2026-10-24.json", "sha256": "abe96e5fe51569faee596c4bb244475ca70b1438fedda933e5ed34a3bb4c981d"},
+    {"path": "research_state/exploratory_coverage_verified_2026-10-24.json", "sha256": "9ee31984f97ded6925e9e8f55d18ebb483679ec673ece23c7448da6c657a147e"},
     {"path": "research_state/coverage_collection_2026-10-24.json", "sha256": "9962daa39a78b5e8cc6a1c85f171646b72e7fcb98ad0c69e4889a7203f2cde63"}
   ],
   "source_code_hashes": {
