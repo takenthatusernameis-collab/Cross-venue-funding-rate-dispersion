@@ -185,3 +185,13 @@ Continue source-independent deterministic work (hardening, tests, schemas, confo
 ## Next task: source-independent work while data gate remains blocked
 
 Continue source-independent deterministic work (hardening, tests, schemas, conformance checks) per AGENTS.md constraints. Do not run empirical grid or claim performance metrics until a free public source passes the historical point-in-time market-cap gate with verified publication/as-of timestamps. Preserve frozen grid, free-public-data-only rule, expanding historical point-in-time market-cap universe, and research-only/no-live-trading boundary.
+
+## Completed Task — Source-independent evaluation conformance validation (2026-10-24)
+
+1. Added `scripts/validate_evaluation.py`: offline conformance check over `GRID_FAMILY_SIZE`, `chronological_split_indices`, `holm_bonferroni`, `block_bootstrap_samples`, and `bootstrap_confidence_interval` — asserts split slices for 108, Holm range, bootstrap reproducibility and fail-closed bad inputs, confidence interval ordered bounds.
+2. Ran all validations: compileall OK; 103 tests OK; RESEARCH_VALIDATION=PASS (grid 108, anchor FVD053, status NOT_RUN, no metrics); SKILLS_VALIDATION=PASS count=4; UNIVERSE_FRONTIER_VALIDATION=PASS; ORCHESTRATION_VALIDATION=PASS; PAIR_PNL_VALIDATION=PASS; EVALUATION_VALIDATION=PASS. `git diff --check` clean.
+3. `research_state/run_manifest.json` retains status BLOCKED_DATA_GATE; no empirical grid run; no performance metric or economic edge claimed.
+
+## Next task: source-independent work while data gate remains blocked
+
+Continue source-independent deterministic work (hardening, tests, schemas, conformance checks) per AGENTS.md constraints. Do not run empirical grid or claim performance metrics until a free public source passes the historical point-in-time market-cap gate with verified publication/as-of timestamps. Preserve frozen grid, free-public-data-only rule, expanding historical point-in-time market-cap universe, and research-only/no-live-trading boundary.
