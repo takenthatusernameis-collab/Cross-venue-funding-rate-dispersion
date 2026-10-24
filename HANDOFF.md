@@ -212,6 +212,12 @@ Continue source-independent deterministic work (hardening, tests, schemas, confo
 
 4. `research_state/run_manifest.json` retains status BLOCKED_DATA_GATE, historical_point_in_time_market_cap_gate BLOCKED, backtest_completed false, performance_metrics_computed false; no empirical grid run; no performance metric or economic edge claimed.
 
-## Next task: source-independent backtest conformance validation (data gate remains blocked)
+## Completed Task — Source-independent backtest conformance validation (2026-10-24)
 
-Add `scripts/validate_backtest.py`: an offline conformance check (standard library only, no network) over `run_backtest_skeleton` — asserts closed-bar/next-open entry (signal_time <= next_open_time), settlement-timed funding with missed-settlement fail-close, cross-pair gross exposure <= 1.0x equity enforced fail-closed, equal-notional legs, deterministic allocation, and fail-closed rejection of missing/invalid pair data and bad cost/gross_multiple inputs. Run all AGENTS.md validation commands plus the new validator; keep run status BLOCKED_DATA_GATE; do not run the empirical grid or claim performance metrics until a free public source passes the historical point-in-time market-cap gate with verified publication/as-of timestamps.
+1. Added `scripts/validate_backtest.py`: offline conformance check (standard library only, no network) over `run_backtest_skeleton` — asserts closed-bar/next-open entry (signal_time <= next_open_time), settlement-timed funding with missed-settlement fail-close, cross-pair gross exposure <= 1.0x equity enforced fail-closed, equal-notional legs, deterministic allocation, and fail-closed rejection of missing/invalid pair data and bad cost/gross_multiple inputs.
+2. Ran all AGENTS.md validation commands plus the new validator: compileall OK; 103 tests OK; RESEARCH_VALIDATION=PASS (grid 108, anchor FVD053, status NOT_RUN, no metrics); SKILLS_VALIDATION=PASS count=4; UNIVERSE_FRONTIER_VALIDATION=PASS; ORCHESTRATION_VALIDATION=PASS; PAIR_PNL_VALIDATION=PASS; EVALUATION_VALIDATION=PASS; ACCOUNTING_VALIDATION=PASS; SIGNALS_VALIDATION=PASS; BACKTEST_VALIDATION=PASS. `git diff --check` clean.
+3. `research_state/run_manifest.json` retains status BLOCKED_DATA_GATE, backtest_completed false, performance_metrics_computed false; no empirical grid run; no performance metric claimed.
+
+## Next task: source-independent work while data gate remains blocked
+
+Continue source-independent deterministic work (hardening, tests, schemas, conformance checks) per AGENTS.md constraints. Do not run empirical grid or claim performance metrics until a free public source passes the historical point-in-time market-cap gate with verified publication/as-of timestamps. Preserve frozen grid, free-public-data-only rule, expanding historical point-in-time market-cap universe, and research-only/no-live-trading boundary.
