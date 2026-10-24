@@ -300,3 +300,14 @@ Continue source-independent deterministic work (hardening, tests, schemas, confo
 ## Next task: source-independent work while data gate remains blocked
 
 Continue source-independent deterministic work (hardening, tests, schemas, conformance checks) per AGENTS.md constraints. Do not run empirical grid or claim performance metrics until a free public source passes the historical point-in-time market-cap gate with verified publication/as-of timestamps. Preserve frozen grid (FVD001–FVD108, anchor FVD053), free-public-data-only rule, expanding historical point-in-time market-cap universe, and research-only/no-live-trading boundary. The confirmatory campaign remains BLOCKED_DATA_GATE; the exploratory track remains EXPLORATORY_ONLY / INCONCLUSIVE and does not authorize promotion or trading.
+
+## Completed Task — Source-independent status/performance-claim conformance validation (2026-10-24)
+
+1. Added `scripts/validate_status.py`: offline conformance check over `ResearchStatus` and `performance_claim_allowed` — asserts `NOT_RUN`, `BLOCKED_DATA_GATE`, and unknown statuses fail-closed; `SUPPORTED_FOR_FURTHER_RESEARCH` requires all three gates (backtest, audit, final holdout); missing any gate blocks; StrEnum round-trip. Standard library only, no network.
+2. Registered `scripts/validate_status.py` in `scripts/validate_all.py` (count now 13).
+3. Ran all validations: `python3 -m compileall -q src scripts tests` OK; `PYTHONPATH=src python3 -m unittest discover -s tests -v` = 122 tests OK; `PYTHONPATH=src python3 scripts/validate_research.py` = RESEARCH_VALIDATION=PASS (grid 108, anchor FVD053, status NOT_RUN, no metrics); `python3 scripts/validate_skills.py` = SKILLS_VALIDATION=PASS count=4; `PYTHONPATH=src python3 scripts/validate_all.py` = ALL_VALIDATIONS=PASS count=13. `git diff --check` clean.
+4. `research_state/run_manifest.json` retains status BLOCKED_DATA_GATE, historical_point_in_time_market_cap_gate BLOCKED, backtest_completed false, performance_metrics_computed false. Frozen grid sha `6be218bc84bf118cf67c238ad1c13ef1e445658db3b1346cd64ccaccc7aa5f07` unchanged. No empirical grid run; no performance metric or economic edge claimed.
+
+## Next task: source-independent work while data gate remains blocked
+
+Continue source-independent deterministic work (hardening, tests, schemas, conformance checks) per AGENTS.md constraints. Do not run empirical grid or claim performance metrics until a free public source passes the historical point-in-time market-cap gate with verified publication/as-of timestamps. Preserve frozen grid (FVD001–FVD108, anchor FVD053), free-public-data-only rule, expanding historical point-in-time market-cap universe, and research-only/no-live-trading boundary. The confirmatory campaign remains BLOCKED_DATA_GATE; the exploratory track remains EXPLORATORY_ONLY / INCONCLUSIVE and does not authorize promotion or trading.

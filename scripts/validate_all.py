@@ -18,6 +18,7 @@ def main() -> int:
         "scripts/validate_universe.py",
         "scripts/validate_portfolio.py",
         "scripts/validate_recompute.py",
+        "scripts/validate_status.py",
     ]
     repo = Path(__file__).resolve().parents[1]
     env = dict(subprocess.os.environ)
