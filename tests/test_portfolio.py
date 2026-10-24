@@ -13,10 +13,20 @@ class PortfolioTests(unittest.TestCase):
         self.assertAlmostEqual(sum(allocation.values())*2,1000)
         self.assertTrue(all(x==1000/6 for x in allocation.values()))
 
+    def test_gross_multiple_one_x_hard_cap(self):
+        allocation = allocate_equal_notional_pairs(5000, ["BTC", "ETH", "SOL"], gross_multiple=1.0)
+        self.assertAlmostEqual(sum(allocation.values()) * 2.0, 5000.0)
+        for v in allocation.values():
+            self.assertAlmostEqual(v, 5000.0 / 6.0)
+
     def test_no_assets_and_invalid_inputs(self):
         self.assertEqual(allocate_equal_notional_pairs(1000,[]),{})
+        self.assertEqual(allocate_equal_notional_pairs(0, ["A"]), {})
+        self.assertEqual(allocate_equal_notional_pairs(1000, ["A"], gross_multiple=0.0), {})
         with self.assertRaises(ValueError): allocate_equal_notional_pairs(1000,["A","A"])
         with self.assertRaises(ValueError): allocate_equal_notional_pairs(1000,["A"],gross_multiple=1.1)
+        with self.assertRaises(ValueError): allocate_equal_notional_pairs(1000,["A"],gross_multiple=-0.1)
+        with self.assertRaises(ValueError): allocate_equal_notional_pairs(-1,["A"])
 
 
 if __name__=="__main__":
