@@ -1,17 +1,32 @@
 {
   "schema_version": "1.0",
   "experiment_id": "FVD-DISPERSION-V1",
-  "run_id": "setup-not-run",
-  "status": "NOT_RUN",
+  "run_id": "source-coverage-2026-10-24",
+  "status": "BLOCKED_DATA_GATE",
   "backtest_completed": false,
   "performance_metrics_computed": false,
-  "historical_point_in_time_market_cap_gate": "NOT_VERIFIED",
-  "grid_config_sha256": null,
-  "source_manifest_sha256": null,
-  "started_at_utc": null,
-  "completed_at_utc": null,
-  "output_artifacts": [],
+  "historical_point_in_time_market_cap_gate": "BLOCKED",
+  "grid_config_sha256": "6be218bc84bf118cf67c238ad1c13ef1e445658db3b1346cd64ccaccc7aa5f07",
+  "source_manifest_sha256": "9a6c4d0969743de953059ea78baae517317b40cc84128598f65bd9f2ff420501",
+  "started_at_utc": "2026-10-24T06:06:15Z",
+  "completed_at_utc": "2026-10-24T06:08:47Z",
+  "output_artifacts": [
+    {
+      "path": "research_state/source_coverage_matrix_2026-10-24.json",
+      "sha256": "pending"
+    }
+  ],
   "caveats": [
-    "Repository setup and offline validation do not establish historical data completeness or strategy performance."
+    "No free public source meets the >=3-year historical point-in-time market-cap gate.",
+    "CoinGecko free tier: 365-day history only; paid plans required for older data.",
+    "CoinPaprika free tier: 1 year daily history only; older data returns HTTP 402.",
+    "CoinMarketCap keyless public API: latest listings only; historical listings require API key (HTTP 403).",
+    "CoinCap: DNS resolution fails (api.coincap.io unreachable).",
+    "Binance USD-M futures: HTTP 451 (legal restriction).",
+    "Bybit: HTTP 403.",
+    "OKX and Hyperliquid: reachable but no point-in-time market-cap ranking history found.",
+    "CryptoDataDownload: free OHLCV CSVs since 2017 but no point-in-time market-cap ranking snapshots.",
+    "Wayback Machine archives CMC historical snapshots but requires HTML scraping; not a structured, reproducible, point-in-time ranking API.",
+    "No performance metrics or economic edge are claimed."
   ]
 }

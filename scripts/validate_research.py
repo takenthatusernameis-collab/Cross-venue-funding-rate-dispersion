@@ -29,10 +29,12 @@ def main() -> int:
         if phrase not in combined:
             errors.append(f"protocol/prompt missing required phrase: {phrase}")
     manifest = json.loads(required[3].read_text(encoding="utf-8"))
-    if manifest.get("status") != "NOT_RUN":
-        errors.append("initial manifest must remain NOT_RUN until empirical evidence exists")
+    allowed_gate_statuses = {"NOT_RUN", "BLOCKED_DATA_GATE", "BLOCKED_SPECIFICATION_GATE",
+                             "IMPLEMENTATION_FAILED", "EXPLORATORY_ONLY", "INCONCLUSIVE", "REJECTED"}
+    if manifest.get("status") not in allowed_gate_statuses:
+        errors.append("manifest status must be a registered non-performance status")
     if manifest.get("backtest_completed") is not False or manifest.get("performance_metrics_computed") is not False:
-        errors.append("initial manifest must not claim a backtest or computed performance metrics")
+        errors.append("manifest must not claim a backtest or computed performance metrics")
     workflow = required[4].read_text(encoding="utf-8")
     for phrase in ("kilo/kilo-auto/free", "HANDOFF.md", "checkpoint_reserve_seconds=300", "scripts/controller_progress.py"):
         if phrase not in workflow:
