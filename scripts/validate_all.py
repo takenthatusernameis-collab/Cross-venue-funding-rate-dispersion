@@ -24,6 +24,7 @@ def main() -> int:
         "scripts/validate_grid.py",
         "scripts/validate_controller_progress.py",
         "scripts/validate_manifest_artifacts.py",
+        "scripts/validate_manifest_schema.py",
         "scripts/validate_validation_coverage.py",
         "scripts/validate_blocked_manifest_claims.py",
         "scripts/validate_no_performance_claims.py",

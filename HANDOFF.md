@@ -1,13 +1,16 @@
-## Completed Task — No-performance-claims scan (2026-10-24)
+## Completed Task — Manifest schema conformance check (2026-10-24)
 
-1. Added `scripts/validate_no_performance_claims.py`: offline scan asserting no forbidden performance/economic claim tokens in `HANDOFF.md` or `research_state/*.json`; reports `NO_PERFORMANCE_CLAIMS_VALIDATION=PASS`.
-2. Registered it in `scripts/validate_all.py` (count now 21).
-3. Ran all AGENTS.md validation commands: `python3 -m compileall -q src scripts tests` = OK; `PYTHONPATH=src python3 -m unittest discover -s tests -v` = 129 tests OK; `PYTHONPATH=src python3 scripts/validate_research.py` = RESEARCH_VALIDATION=PASS (grid 108, anchor FVD053, status NOT_RUN, no metrics); `python3 scripts/validate_skills.py` = SKILLS_VALIDATION=PASS count=4; `PYTHONPATH=src python3 scripts/validate_all.py` = ALL_VALIDATIONS=PASS count=21. `git diff --check` clean.
-4. Frozen artifacts unchanged: grid sha `6be218bc84bf118cf67c238ad1c13ef1e445658db3b1346cd64ccaccc7aa5f07`; `research_state/run_manifest.json` sha `4f162ce128c741434addf6aa2fa7c7dbf1bf189d4a81b8893ed96899412c7aaf` remains `BLOCKED_DATA_GATE`, `backtest_completed=false`, `performance_metrics_computed=false`. Confirmatory campaign BLOCKED_DATA_GATE; exploratory track remains EXPLORATORY_ONLY/INCONCLUSIVE and does not authorize promotion/trading.
+1. Added `scripts/validate_manifest_schema.py`: offline conformance check validating research-state run manifests against `schemas/run-manifest.schema.json`. The confirmatory `run_manifest.json` is validated strictly (additionalProperties: false, frozen 108-config grid sha, BLOCKED_DATA_GATE, no backtest/metric claims); the separately-versioned exploratory manifest is validated against the shared required-field contract (types, enums, required keys, the backtest_completed => performance_metrics_computed invariant, UTC/date timestamp formats, 64-hex sha256 fields) with its versioned exploratory-only fields permitted. Standard library + jsonschema; no network calls; no economic result.
+2. Added `tests/test_manifest_schema.py`: 13 known-answer/adversarial tests (strict schema pass/fail, missing required key, bad status/gate enums, additional-property strict-vs-contract, backtest/metrics invariant, sha256 format, UTC timestamp format, date_utc calendar-date format, output_artifacts shape).
+3. Registered `scripts/validate_manifest_schema.py` in `scripts/validate_all.py` (validator count 21 -> 22).
+4. Ran all AGENTS.md validation commands: `python3 -m compileall -q src scripts tests` = OK; `PYTHONPATH=src python3 -m unittest discover -s tests -v` = 142 tests OK; `PYTHONPATH=src python3 scripts/validate_research.py` = RESEARCH_VALIDATION=PASS (grid 108, anchor FVD053, status NOT_RUN, no metrics); `python3 scripts/validate_skills.py` = SKILLS_VALIDATION=PASS count=4; `python3 scripts/validate_all.py` = ALL_VALIDATIONS=PASS count=22. `git diff --check` clean.
+5. Frozen artifacts unchanged: grid sha `6be218bc84bf118cf67c238ad1c13ef1e445658db3b1346cd64ccaccc7aa5f07`; `research_state/run_manifest.json` sha `4f162ce128c741434addf6aa2fa7c7dbf1bf189d4a81b8893ed96899412c7aaf` remains `BLOCKED_DATA_GATE`, `backtest_completed=false`, `performance_metrics_computed=false`. Confirmatory campaign BLOCKED_DATA_GATE; exploratory track remains EXPLORATORY_ONLY/INCONCLUSIVE and does not authorize promotion/trading. No performance metrics claimed.
 
 ## Next measurable task
 
 Data gate remains `BLOCKED_DATA_GATE`; do not run the empirical grid or claim performance metrics until a free public source passes the historical point-in-time market-cap gate with verified publication/as-of timestamps. Continue source-independent deterministic work (hardening, tests, schemas, conformance checks) per AGENTS.md constraints. Preserve frozen grid (FVD001–FVD108, anchor FVD053), free-public-data-only rule, expanding historical point-in-time market-cap universe, and research-only/no-live-trading boundary. The confirmatory campaign remains `BLOCKED_DATA_GATE`; the exploratory track remains `EXPLORATORY_ONLY` / `INCONCLUSIVE` and does not authorize promotion or trading.
+
+## Completed Task — No-performance-claims scan (2026-10-24)
 
 ## Completed Task — Harden no-performance-claims scan (2026-10-24)
 
