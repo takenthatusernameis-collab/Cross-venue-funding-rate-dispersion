@@ -21,6 +21,14 @@ Investigate the cross-venue funding-rate dispersion hypothesis in `docs/research
 
 Repository baseline includes the frozen grid, protocol, deterministic grid/accounting/universe/status primitives, offline tests, bounded source preflight, Agent Skills, and Kilo/CI workflow scaffolding. No live source probe or historical backtest has been run as part of setup.
 
+## Completed Task — Repository quality baseline (2026-10-24)
+
+- Established the repository from an empty remote state with 70 tree entries, a concise AGENTS.md, CLAUDE.md shim, skill index, four Agent Skills, architecture/protocol/source documentation, ADRs, frozen config, run manifest, universe frontier, Python package, validators, bounded no-secret source preflight, CI and the full Kilo controller workflow.
+- Kilo push-validation run **#40049658390** completed successfully: offline validation step passed, **28 unit/adversarial tests passed**, research validator reported `RESEARCH_VALIDATION=PASS`, grid count 108, anchor FVD053, initial status NOT_RUN, and skills validator passed for four skills. JSON syntax checks for grid, manifest and schema also passed.
+- The push-triggered run correctly skipped the Kilo worker; this was a validation activation, not a completed research session. Do not report a backtest or strategy metrics.
+- The separate Research CI workflow has an older run that remains in progress and a newer run queued. Its final status is not claimed here; the same test and validation commands did pass in the Kilo push-validation run. Check the workflow queue before claiming separate CI completion.
+- Latest known Kilo validation commit: `08941d64284ec9b5d99f74b31a9ab2a8a0da8d19`. The main branch subsequently received the workflow diagnostics ledger and CI path-ignore refinement. Research status remains NOT_RUN.
+
 ## Next task: prove or block historical source coverage
 
 1. Read AGENTS.md, SKILLS.md, the historical-universe and research-orchestration skills, and docs/sources.md.
