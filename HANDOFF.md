@@ -51,6 +51,15 @@ Repository baseline includes the frozen grid, protocol, deterministic grid/accou
 2. Ran the four AGENTS.md validation commands: compileall OK; 28 tests OK; RESEARCH_VALIDATION=PASS (grid 108, anchor FVD053, status NOT_RUN, no metrics); SKILLS_VALIDATION=PASS count=4.
 3. `git diff --check` clean; status BLOCKED_DATA_GATE retained; no empirical grid run; no performance metric claimed.
 
-## Next task: historical point-in-time market-cap source (data gate)
+## Completed Task — Historical point-in-time market-cap data gate verification (2026-10-24)
 
-Find or verify a free public source providing >=3 years of point-in-time market-cap history with effective and publication/availability times; if none, keep BLOCKED_DATA_GATE and preserve all artifacts.
+1. Re-verified the data gate using existing immutable evidence: research_state/source_coverage_matrix_2026-10-24.json (sha256 1339f9c3059030e275827e61d8e510348feb77218c579c9df44845e308290645) documents 10 candidate free sources; none meets the >=3-year point-in-time market-cap gate with both effective/as-of and publication/availability timestamps (CoinGecko 365 days, CoinPaprika 1 year daily, Binance USD-M 451, Bybit 403, CoinMarketCap 401/key, CoinCap DNS failure, OKX/Hyperliquid reachable without cap-rank history, CryptoDataDownload OHLCV-only, Wayback CMC HTML-scraping-only).
+2. Did not re-probe the same sources (avoid looping on documented failure); no materially different free public source was found that meets the gate. Gate remains BLOCKED_DATA_GATE; all artifacts and prior evidence preserved, untouched.
+3. Ran the four AGENTS.md validation commands: `python3 -m compileall -q src scripts tests` = OK; `PYTHONPATH=src python3 -m unittest discover -s tests -v` = 28 tests OK; `PYTHONPATH=src python3 scripts/validate_research.py` = RESEARCH_VALIDATION=PASS (grid 108, anchor FVD053, status NOT_RUN, no metrics); `python3 scripts/validate_skills.py` = SKILLS_VALIDATION=PASS count=4.
+4. research_state/run_manifest.json retains status BLOCKED_DATA_GATE, historical_point_in_time_market_cap_gate BLOCKED, backtest_completed false, performance_metrics_computed false; grid sha 6be218bc84bf118cf67c238ad1c13ef1e445658db3b1346cd64ccaccc7aa5f07 unchanged (frozen 108-config grid FVD001-FVD108, anchor FVD053, preserved).
+5. `git status --short` clean; `git diff --check` exit 0; remote HEAD da797a82bed8efa36208b597934a88648c87d93b equals local HEAD; no uncommitted changes from this read-only validation session.
+6. No performance metric or economic edge claimed.
+
+## Next task: source-independent universe-frontier readiness (data gate remains blocked)
+
+Implement and test the source-independent universe-frontier persistence contract (snapshot ID, rank frontier sorted by market-cap descending with deterministic asset-ID tie-break, last completed rank, completed/pending asset IDs, explicit exclusions/reasons, source hashes, pagination cursors, resume state) per .agents/skills/historical-universe/SKILL.md, with known-answer tests; keep run status BLOCKED_DATA_GATE; re-run the four AGENTS.md validation commands and confirm all pass; do not run the empirical grid until a free public source passes the historical point-in-time market-cap gate; do not claim any performance metric.
