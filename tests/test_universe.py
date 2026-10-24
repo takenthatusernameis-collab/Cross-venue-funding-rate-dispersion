@@ -35,6 +35,10 @@ class UniverseTests(unittest.TestCase):
         c=next_ranked_cohort(ranked,b[-1]["rank"],3)
         self.assertEqual([x["asset"] for x in a+b+c],[f"A{i}" for i in range(1,8)])
 
+    def test_rank_frontier_gap_fails_closed(self):
+        with self.assertRaisesRegex(ValueError, "rank frontier gap"):
+            next_ranked_cohort([{"rank":1,"asset":"A1"},{"rank":3,"asset":"A3"}], 1, 2)
+
     def test_bad_cursor_and_batch_fail(self):
         with self.assertRaises(ValueError): next_ranked_cohort([], -1, 2)
         with self.assertRaises(ValueError): next_ranked_cohort([], 0, 0)
