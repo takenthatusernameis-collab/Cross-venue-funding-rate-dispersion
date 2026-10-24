@@ -97,5 +97,14 @@ Search for a free public source providing historical point-in-time market-cap ra
 4. Produced `research_state/source_coverage_matrix_2026-10-24_cryptwatch.json` documenting the candidate (endpoint, status, range, pagination, missingness, units, terms, retrieval time, sha256). `research_state/run_manifest.json` unchanged (gate not PASS).
 5. Ran validation: compileall OK; 45 tests OK; RESEARCH_VALIDATION=PASS (grid 108, anchor FVD053, status NOT_RUN, no metrics); SKILLS_VALIDATION=PASS count=4; UNIVERSE_FRONTIER_VALIDATION=PASS. `git diff --check` clean. No empirical grid run; no performance metric claimed.
 
-## Next task: evaluate CryptWatch for point-in-time usability under a conservative publication lag
-Determine whether CryptWatch daily snapshots can satisfy the point-in-time gate by adopting a conservative publication lag (e.g., snapshot available only from snapshot_date + 1 day) and recording an explicit availability timestamp per snapshot; if yes, update run_manifest.json to PASS with immutable evidence and begin universe construction; if not, document the blocking reason and continue source-independent work. Do not run the empirical grid or claim performance metrics until the gate is PASS.
+## Completed Task — CryptWatch conservative publication-lag evaluation (2026-10-24)
+
+1. Evaluated whether CryptWatch daily snapshots can satisfy the point-in-time gate under a conservative publication lag (snapshot available only from snapshot_date + 1 day, with an explicit availability timestamp recorded per snapshot).
+2. Conclusion: FAILS_GATE. CryptWatch provides no per-snapshot publication/availability timestamp. A +1-day lag is an unverified assumption, not source evidence; it cannot rule out late publication, retroactive revision/backfill, or restatement. The historical-universe skill requires publication-time availability derived from source metadata. Gate remains BLOCKED_DATA_GATE; run_manifest.json unchanged.
+3. Artifact: research_state/cryptwatch_lag_evaluation_2026-10-24.json (gate_result BLOCKED_DATA_GATE, backtest_completed false, performance_metrics_computed false, run_manifest_updated false).
+4. Ran the four AGENTS.md validation commands plus the frontier validator: compileall OK; 45 tests OK; RESEARCH_VALIDATION=PASS (grid 108, anchor FVD053, status NOT_RUN, no metrics); SKILLS_VALIDATION=PASS count=4; UNIVERSE_FRONTIER_VALIDATION=PASS. `git diff --check` clean.
+5. No empirical grid run; no performance metric or economic edge claimed.
+
+## Next task: source-independent work while data gate remains blocked
+
+Continue source-independent deterministic work (e.g., audit funding-accounting primitives, add known-answer/adversarial tests for cash-flow signs, price/basis PnL separation, per-leg costs, exposure cap) while the gate remains BLOCKED_DATA_GATE. Do not run the empirical grid or claim performance metrics until a free public source passes the historical point-in-time market-cap gate with verified publication timestamps.

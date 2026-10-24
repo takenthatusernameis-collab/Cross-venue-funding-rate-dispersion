@@ -1,0 +1,14 @@
+{
+  "evaluation_date_utc": "2026-10-24",
+  "source_id": "cryptwatch_snapshots",
+  "source_coverage_matrix_ref": "research_state/source_coverage_matrix_2026-10-24_cryptwatch.json",
+  "source_coverage_matrix_sha256": "9a6c4d0969743de953059ea78baae517317b40cc84128598f65bd9f2ff420501",
+  "proposal": "Adopt a conservative publication lag: each daily snapshot is treated as available only from snapshot_date + 1 day (00:00 UTC), recording an explicit availability timestamp per snapshot.",
+  "assessment": "FAILS_GATE",
+  "reason": "CryptWatch provides no per-snapshot publication/availability timestamp. A +1-day lag is an unverified assumption, not source evidence; it cannot distinguish (a) snapshots published later than the assumed lag, (b) retroactive revisions/backfills, or (c) restatements. The historical-universe skill requires publication-time availability derived from source metadata, not an invented lag. Therefore the gate cannot be flipped to PASS on this basis; status remains BLOCKED_DATA_GATE.",
+  "mitigation_noted": "The +1-day lag may be used only as a research-side conservative filter AFTER a source with verified publication timestamps is found; it is not itself gate evidence.",
+  "gate_result": "BLOCKED_DATA_GATE",
+  "backtest_completed": false,
+  "performance_metrics_computed": false,
+  "run_manifest_updated": false
+}
