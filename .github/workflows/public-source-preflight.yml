@@ -1,0 +1,27 @@
+name: Public Source Preflight (No Secrets)
+
+on:
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  probe:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 5
+    steps:
+      - uses: actions/checkout@v7.0.1
+      - uses: actions/setup-python@v6
+        with:
+          python-version: "3.12"
+          cache: false
+      - name: Probe bounded public endpoints
+        run: python3 scripts/preflight_public_sources.py --output "${{ runner.temp }}/funding-source-preflight.json"
+      - name: Upload source reachability report
+        uses: actions/upload-artifact@v7.0.2
+        with:
+          name: funding-source-preflight-${{ github.run_id }}
+          path: ${{ runner.temp }}/funding-source-preflight.json
+          if-no-files-found: error
+          retention-days: 7
