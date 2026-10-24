@@ -13,7 +13,7 @@
   "output_artifacts": [
     {
       "path": "research_state/source_coverage_matrix_2026-10-24.json",
-      "sha256": "pending"
+      "sha256": "1339f9c3059030e275827e61d8e510348feb77218c579c9df44845e308290645"
     }
   ],
   "caveats": [
@@ -27,6 +27,7 @@
     "OKX and Hyperliquid: reachable but no point-in-time market-cap ranking history found.",
     "CryptoDataDownload: free OHLCV CSVs since 2017 but no point-in-time market-cap ranking snapshots.",
     "Wayback Machine archives CMC historical snapshots but requires HTML scraping; not a structured, reproducible, point-in-time ranking API.",
-    "No performance metrics or economic edge are claimed."
+    "No performance metrics or economic edge are claimed.",
+    "2026-10-24 reverify: generated research_state/source_coverage_matrix_2026-10-24.json (sha256 1339f9c3059030e275827e61d8e510348feb77218c579c9df44845e308290645) and research_state/preflight_2026-10-24_reverify.json (3/5 endpoints reachable: OKX, CoinGecko, Hyperliquid; Binance 451, Bybit 403). All candidate free sources fail the >=3-year point-in-time market-cap gate: CoinGecko 365 days, CoinPaprika 1 year daily, Binance/Bybit/CMC access denied, CoinCap DNS failure, OKX/Hyperliquid reachable without cap rank history. Gate remains BLOCKED_DATA_GATE."
   ]
 }

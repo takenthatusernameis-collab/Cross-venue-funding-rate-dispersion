@@ -4,7 +4,7 @@
 
 Investigate the cross-venue funding-rate dispersion hypothesis in `docs/research_protocol.md`.
 
-**Current status: NOT_RUN. No historical backtest has been completed. No performance metrics or economic edge are established.** CI and synthetic tests verify engineering contracts only.
+**Current status: NOT_RUN. Data gate: BLOCKED_DATA_GATE (no free public source meets the >=3-year point-in-time market-cap gate). No historical backtest has been completed. No performance metrics or economic edge are established.** CI and synthetic tests verify engineering contracts only.
 
 ## Non-negotiable constraints
 
@@ -29,12 +29,18 @@ Repository baseline includes the frozen grid, protocol, deterministic grid/accou
 - The separate Research CI workflow has an older run that remains in progress and a newer run queued. Its final status is not claimed here; the same test and validation commands did pass in the Kilo push-validation run. Check the workflow queue before claiming separate CI completion.
 - Latest known Kilo validation commit: `08941d64284ec9b5d99f74b31a9ab2a8a0da8d19`. The main branch subsequently received the workflow diagnostics ledger and CI path-ignore refinement. Research status remains NOT_RUN.
 
-## Next task: prove or block historical source coverage
+## Completed Task — Historical source coverage gate (2026-10-24)
 
-1. Read AGENTS.md, SKILLS.md, the historical-universe and research-orchestration skills, and docs/sources.md.
-2. Run the four offline commands listed in AGENTS.md.
-3. If useful, run the manual public-source preflight; store it as an artifact, not market evidence.
-4. Investigate official free sources for historical point-in-time market-cap data with both effective and publication/availability time. Verify terms, history span, delisted coverage, pagination and reproducibility.
-5. Produce a source coverage matrix: endpoint/request, response status, usable range, pagination exhaustion proof, missingness, units, terms/limits, retrieval time and response hashes.
-6. If no source meets the gate, record BLOCKED_DATA_GATE in a new immutable run record and continue source-independent accounting/cohort tests. Do not run the empirical grid.
-7. Before ending, run tests, inspect the full diff, verify remote persistence, append a dated Completed Task entry with evidence and set one next measurable task.
+1. Read AGENTS.md, SKILLS.md, .agents/skills/historical-universe/SKILL.md, .agents/skills/research-orchestration/SKILL.md, and docs/sources.md.
+2. Ran the four AGENTS.md offline commands: `python3 -m compileall -q src scripts tests` = OK; `PYTHONPATH=src python3 -m unittest discover -s tests -v` = 28 tests OK; `PYTHONPATH=src python3 scripts/validate_research.py` = RESEARCH_VALIDATION=PASS, grid 108, anchor FVD053, status NOT_RUN, no metrics; `python3 scripts/validate_skills.py` = SKILLS_VALIDATION=PASS count=4.
+3. Ran the bounded public-source preflight: `python3 scripts/preflight_public_sources.py --output research_state/preflight_2026-10-24_reverify.json` = 3/5 reachable (OKX 200, CoinGecko 200, Hyperliquid 200; Binance 451, Bybit 403); gate NOT_VERIFIED by reachability alone. Stored as artifact, not market evidence.
+4. Investigated official free sources for historical point-in-time market-cap data (effective + publication/availability time): Binance USD-M (451), Bybit (403), OKX time (200, no cap ranks), CoinGecko ping (200, free plan limited to 365 days per support docs), Hyperliquid info meta (200, no cap rank history), CoinPaprika tickers (200, free tier 1 year daily, HTTP 402 for older), CoinCap (DNS failure), CoinMarketCap listings latest (401, key required), CryptoDataDownload (OHLCV since 2017, no cap ranks), Wayback Machine CMC snapshots (HTML scraping, not a structured reproducible API).
+5. Produced research_state/source_coverage_matrix_2026-10-24.json: endpoint/request, response status, usable range, pagination, missingness, units, terms/limits, retrieval time and response sha256 for all candidates; artifact sha256 1339f9c3059030e275827e61d8e510348feb77218c579c9df44845e308290645 recorded in research_state/run_manifest.json output_artifacts (previously "pending").
+6. No source meets the >=3-year historical point-in-time market-cap gate: run_manifest.json retains status BLOCKED_DATA_GATE, historical_point_in_time_market_cap_gate BLOCKED, backtest_completed false, performance_metrics_computed false; caveats appended, prior evidence preserved. The empirical grid was NOT run.
+7. Re-ran tests and validators (all PASS), inspected `git diff --check` (clean) and full diff, verified remote persistence: `git ls-remote origin HEAD` = da797a82bed8efa36208b597934a88648c87d93b equals local HEAD; new artifacts are uncommitted working-tree files pending an explicit commit instruction.
+
+## Next task: source-independent deterministic work while data gate is blocked
+
+1. Add known-answer and adversarial tests for the source-independent primitives: funding cash-flow sign conventions, price/basis PnL separation, per-leg execution cost, time-weighted mean staleness gap fail-close, rank frontier gap rejection, type-7 quantile no-fallback, tail-selection determinism, and the 1.0x gross-exposure cap.
+2. Run the four AGENTS.md validation commands and confirm all pass; keep run status BLOCKED_DATA_GATE.
+3. Do not run the empirical grid until a free public source passes the historical point-in-time market-cap gate; do not claim any performance metric.
