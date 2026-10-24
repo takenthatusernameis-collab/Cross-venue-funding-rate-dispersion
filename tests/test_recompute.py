@@ -98,7 +98,7 @@ class RecomputeTests(unittest.TestCase):
             {"records": "not-a-list", "published": published},
             {"records": [], "published": published},
             {"records": records, "published": "not-a-dict"},
-            {"records": records, "published": {}}:
+            {"records": records, "published": {}},
         ]:
             with self.assertRaises(ValueError):
                 verify_artifact_consistency(bad)
@@ -113,12 +113,12 @@ class RecomputeTests(unittest.TestCase):
 
     def test_attribution_known_answer(self):
         # net = basis + funding - fees - slippage
-        records = [_record(net=1.03, funding=0.1, fees=0.05, slippage=0.02, basis=0.95)]
+        records = [_record(net=0.98, funding=0.1, fees=0.05, slippage=0.02, basis=0.95)]
         published = recompute_ledger_totals(records)
         artifact = {"records": records, "published": published}
         result = attribution_check(artifact)
         self.assertTrue(result["consistent"])
-        self.assertAlmostEqual(result["derived_total_net_pnl"], 1.03)
+        self.assertAlmostEqual(result["derived_total_net_pnl"], 0.98)
 
     def test_attribution_detects_mismatch(self):
         records = [_record(net=1.0, funding=0.1, fees=0.05, slippage=0.02, basis=0.95)]
