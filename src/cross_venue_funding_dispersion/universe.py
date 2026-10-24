@@ -33,8 +33,6 @@ def rank_point_in_time(records: Iterable[dict[str, Any]], snapshot_at: str | dat
             continue
         if effective > snapshot or published > snapshot or not math.isfinite(cap) or cap <= 0:
             continue
-        if record.get("eligible", True) is False:
-            continue
         candidate = (effective, published, cap)
         prior = latest.get(asset)
         if prior is None or candidate[:2] > prior[:2]:
@@ -52,4 +50,11 @@ def next_ranked_cohort(ranked_assets: list[dict[str, Any]], last_completed_rank:
     ranks = [int(item["rank"]) for item in ranked_assets]
     if len(set(ranks)) != len(ranks):
         raise ValueError("ranked universe contains duplicate ranks")
-    return sorted((item for item in ranked_assets if int(item["rank"]) > last_completed_rank), key=lambda item:int(item["rank"]))[:batch_size]
+    remaining = sorted((item for item in ranked_assets if int(item["rank"]) > last_completed_rank), key=lambda item:int(item["rank"]))
+    expected = last_completed_rank + 1
+    for item in remaining:
+        rank = int(item["rank"])
+        if rank != expected:
+            raise ValueError(f"rank frontier gap: expected rank {expected}, found {rank}")
+        expected += 1
+    return remaining[:batch_size]
