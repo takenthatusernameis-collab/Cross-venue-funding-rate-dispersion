@@ -25,7 +25,7 @@ def main() -> int:
     grid = load_grid(required[0])
     errors.extend(validate_grid(grid))
     combined = (required[1].read_text(encoding="utf-8") + "\n" + required[2].read_text(encoding="utf-8")).lower()
-    for phrase in ("23:00 utc", "no fallback threshold", "fvd053", "point-in-time", "no paid", "live trading"):
+    for phrase in ("23:00 utc", "no fallback threshold", "fvd053", "point-in-time", "no paid", "never trade"):
         if phrase not in combined:
             errors.append(f"protocol/prompt missing required phrase: {phrase}")
     manifest = json.loads(required[3].read_text(encoding="utf-8"))
