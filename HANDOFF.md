@@ -195,3 +195,13 @@ Continue source-independent deterministic work (hardening, tests, schemas, confo
 ## Next task: source-independent work while data gate remains blocked
 
 Continue source-independent deterministic work (hardening, tests, schemas, conformance checks) per AGENTS.md constraints. Do not run empirical grid or claim performance metrics until a free public source passes the historical point-in-time market-cap gate with verified publication/as-of timestamps. Preserve frozen grid, free-public-data-only rule, expanding historical point-in-time market-cap universe, and research-only/no-live-trading boundary.
+
+## Completed Task — Source-independent accounting conformance validation (2026-10-24)
+
+1. Added `scripts/validate_accounting.py`: offline conformance check over `funding_cash_flow`, `pair_funding_cash_flow`, `price_pnl`, and `execution_cost` — asserts funding sign conventions for long/short, pair funding, price PnL known answers, execution-cost scaling, zero cases, and fail-closed rejection of invalid inputs (bad side, negative notional, non-finite values, non-positive prices, negative bps).
+2. Ran all validations: compileall OK; 103 tests OK; RESEARCH_VALIDATION=PASS (grid 108, anchor FVD053, status NOT_RUN, no metrics); SKILLS_VALIDATION=PASS count=4; UNIVERSE_FRONTIER_VALIDATION=PASS; ORCHESTRATION_VALIDATION=PASS; PAIR_PNL_VALIDATION=PASS; EVALUATION_VALIDATION=PASS; ACCOUNTING_VALIDATION=PASS. `git diff --check` clean.
+3. `research_state/run_manifest.json` retains status BLOCKED_DATA_GATE; frozen grid sha unchanged; no empirical grid run; no performance metric or economic edge claimed.
+
+## Next task: source-independent work while data gate remains blocked
+
+Continue source-independent deterministic work (hardening, tests, schemas, conformance checks) per AGENTS.md constraints. Do not run empirical grid or claim performance metrics until a free public source passes the historical point-in-time market-cap gate with verified publication/as-of timestamps. Preserve frozen grid, free-public-data-only rule, expanding historical point-in-time market-cap universe, and research-only/no-live-trading boundary.
