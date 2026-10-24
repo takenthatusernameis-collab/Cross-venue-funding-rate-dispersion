@@ -1,0 +1,31 @@
+{
+  "schema_version": "1.0",
+  "experiment_id": "FVD-EXPLORATORY-001",
+  "status": "EXPLORATORY_ONLY",
+  "confirmatory_status_preserved": "BLOCKED_DATA_GATE",
+  "date_utc": "2026-10-24",
+  "venues_probed": ["OKX", "Hyperliquid"],
+  "probe_instrument": "BTC",
+  "okx": {
+    "endpoint": "https://www.okx.com/api/v5/public/funding-rate-history",
+    "http_status": 200,
+    "fields": ["fundingRate", "fundingTime", "realizedRate", "instId", "instType", "method"],
+    "interval_observed": "8h (28800000 ms)",
+    "publication_timestamp_field": "fundingTime (ms epoch)",
+    "historical_depth": "paginated; cursor via before param",
+    "terms": "public, no key"
+  },
+  "hyperliquid": {
+    "endpoint": "https://api.hyperliquid.xyz/info (fundingHistory)",
+    "http_status": 200,
+    "fields": ["coin", "fundingRate", "premium", "time"],
+    "interval_observed": "1h (3600000 ms)",
+    "publication_timestamp_field": "time (ms epoch)",
+    "historical_depth": "startTime param; paginated by time",
+    "terms": "public, no key"
+  },
+  "findings": "Both venues expose historical funding rates with per-event timestamps. Funding intervals differ (OKX 8h, Hyperliquid 1h), requiring normalization via actual settlement cadence. Contract identity mapping between OKX BTC-USDT-SWAP and Hyperliquid BTC perpetual is by underlying symbol only; full instrument universe, price history at next-open, and listing/delisting lifecycle remain to be verified.",
+  "next_gate": "Verify contract identity + price history overlap for >=2 venues across a common instrument set; then freeze run ID/manifest and run FVD053 anchor only.",
+  "performance_metrics_computed": false,
+  "backtest_completed": false
+}
