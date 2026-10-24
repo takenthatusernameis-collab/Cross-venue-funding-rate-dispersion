@@ -221,3 +221,13 @@ Continue source-independent deterministic work (hardening, tests, schemas, confo
 ## Next task: source-independent work while data gate remains blocked
 
 Continue source-independent deterministic work (hardening, tests, schemas, conformance checks) per AGENTS.md constraints. Do not run empirical grid or claim performance metrics until a free public source passes the historical point-in-time market-cap gate with verified publication/as-of timestamps. Preserve frozen grid, free-public-data-only rule, expanding historical point-in-time market-cap universe, and research-only/no-live-trading boundary.
+
+## Completed Task — Source-independent universe validator correction (2026-10-24)
+
+1. Repaired two incorrect assertions in `scripts/validate_universe.py`: the expected descending-cap order is `["AAA", "BBB", "CCC"]` (AAA's latest effective record has cap 250 > BBB's 200), not `["BBB", "AAA", "CCC"]`. The point-in-time supersession logic in `rank_point_in_time` was correct; the validator expectations were stale. No source code changed.
+2. Ran all AGENTS.md validation commands: `python3 -m compileall -q src scripts tests` OK; `PYTHONPATH=src python3 -m unittest discover -s tests -v` = 103 tests OK; `PYTHONPATH=src python3 scripts/validate_research.py` = RESEARCH_VALIDATION=PASS (grid 108, anchor FVD053, status NOT_RUN, no metrics); `python3 scripts/validate_skills.py` = SKILLS_VALIDATION=PASS count=4; `python3 scripts/validate_universe.py` = UNIVERSE_VALIDATION=PASS. `git diff --check` clean.
+3. `research_state/run_manifest.json` retains status BLOCKED_DATA_GATE, historical_point_in_time_market_cap_gate BLOCKED, backtest_completed false, performance_metrics_computed false; frozen grid sha `6be218bc84bf118cf67c238ad1c13ef1e445658db3b1346cd64ccaccc7aa5f07` unchanged. No empirical grid run; no performance metric or economic edge claimed.
+
+## Next task: source-independent work while data gate remains blocked
+
+Continue source-independent deterministic work (hardening, tests, schemas, conformance checks) per AGENTS.md constraints. Do not run empirical grid or claim performance metrics until a free public source passes the historical point-in-time market-cap gate with verified publication/as-of timestamps. Preserve frozen grid, free-public-data-only rule, expanding historical point-in-time market-cap universe, and research-only/no-live-trading boundary.

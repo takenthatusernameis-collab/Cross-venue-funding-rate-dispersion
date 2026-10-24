@@ -46,7 +46,7 @@ def main():
 
     # Descending cap, ranks from 1, deterministic asset-id tie-break
     check([x["rank"] for x in ranked] == [1, 2, 3], "ranks not from 1")
-    check(assets == ["BBB", "AAA", "CCC"], "not descending cap with asset-id tie-break")
+    check(assets == ["AAA", "BBB", "CCC"], "not descending cap with asset-id tie-break")
     check(ranked[2]["market_cap_usd"] == 150, "tie-break cap value wrong")
 
     # Record-order immateriality
@@ -55,7 +55,7 @@ def main():
 
     # Latest effective/published supersession per asset
     ranked_later = rank_point_in_time(records, "2024-02-20T00:00:00Z")
-    check([x["asset"] for x in ranked_later] == ["BBB", "AAA", "CCC"], "supersession not applied")
+    check([x["asset"] for x in ranked_later] == ["AAA", "BBB", "CCC"], "supersession not applied")
 
     # next_ranked_cohort: batch windows, no rank gaps, cursor resume
     full = [{"rank": i, "asset": f"A{i}"} for i in range(1, 11)]
