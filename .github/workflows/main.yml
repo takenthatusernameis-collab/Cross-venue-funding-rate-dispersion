@@ -1,0 +1,1562 @@
+name: Cross-Venue Funding Dispersion Kilo Agent Loop
+
+on:
+  # Validate workflow changes immediately, without needing a pull request or a manual dispatch.
+  push:
+    branches:
+      - main
+    paths:
+      - ".github/workflows/main.yml"
+  schedule:
+    - cron: "*/5 * * * *"
+  workflow_dispatch:
+    inputs:
+      agents:
+        description: "Maximum sequential Kilo worker sessions for this activation"
+        required: false
+        default: "1000"
+        type: number
+      diagnostics_only:
+        description: "Collect and verify completed-run diagnostics without starting Kilo"
+        required: false
+        default: false
+        type: boolean
+
+# The repository-scoped token can persist ordinary repository changes, but it
+# cannot authorize changes to GitHub Actions workflow files.
+permissions:
+  actions: read
+  contents: write
+
+# Prevent overlapping activations of this workflow in the same repository.
+concurrency:
+  group: kilo-repository
+  cancel-in-progress: false
+
+jobs:
+  kilo:
+    runs-on: ubuntu-24.04
+    # Leave five minutes of margin below GitHub's six-hour job ceiling.
+    timeout-minutes: 360
+
+    steps:
+      - name: Checkout latest default branch
+        uses: actions/checkout@v7.0.1
+        with:
+          # A queued workflow_dispatch retains the commit SHA from dispatch time.
+          # Resolve the default branch when the job actually starts instead.
+          ref: ${{ github.event.repository.default_branch }}
+          fetch-depth: 0
+          token: ${{ secrets.GITHUB_TOKEN }}
+          persist-credentials: true
+
+      - name: Run offline research and controller validation
+        id: controller_tests
+        if: ${{ github.event_name == 'push' || inputs.diagnostics_only == true }}
+        shell: bash
+        run: |
+          set -Eeuo pipefail
+          export PYTHONPATH="$GITHUB_WORKSPACE/src"
+          python3 -m compileall -q src scripts tests
+          python3 -m unittest discover -s tests -v
+          python3 scripts/validate_research.py
+          python3 scripts/validate_skills.py
+
+      # Sole durable workflow-level diagnostics collector and ledger writer.
+      # Do not add a parallel collector workflow, helper script, or second ledger
+      # writer. The worker retry/watchdog below handles execution resilience only;
+      # this step classifies completed runs and persists their diagnostic records.
+      # The current run's own terminal result is picked up on a later manual activation.
+      - name: Inspect completed runs and update the diagnostics ledger
+        id: collect
+        if: always()
+        continue-on-error: true
+        shell: bash
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          REPOSITORY: ${{ github.repository }}
+          DEFAULT_BRANCH: ${{ github.event.repository.default_branch }}
+          # The current run is still in progress during this scan. Its terminal
+          # result is collected during the next scheduled/manual activation.
+        run: |
+          set -Eeuo pipefail
+          umask 077
+
+          python3 <<'PYTHON'
+          import datetime as dt
+          import io
+          import json
+          import os
+          import re
+          import time
+          import urllib.error
+          import urllib.request
+          import zipfile
+          from pathlib import Path
+
+          REPOSITORY = os.environ["REPOSITORY"]
+          TOKEN = os.environ["GITHUB_TOKEN"]
+          API = f"https://api.github.com/repos/{REPOSITORY}"
+          LEDGER = Path("research_state/workflow_run_diagnostics.jsonl")
+
+          # Bounded work prevents historical backfill from overrunning the job.
+          PAGE_SIZE = 100
+          MAX_RUN_PAGES = 10
+          MAX_NEW_RUNS_PER_INVOCATION = 50
+          MAX_ARCHIVE_BYTES = 30 * 1024 * 1024
+          MAX_LOG_FILE_BYTES = 5 * 1024 * 1024
+          MAX_ERROR_LINES_PER_RUN = 20
+          # Keep candidate buffers bounded; explicit Kilo failures outrank generic matches.
+          MAX_ERROR_CANDIDATES_PER_RUN = 200
+          MAX_PRIORITY_ERROR_CANDIDATES = 50
+          MAX_EXCERPT_CHARS = 500
+          MAX_CAPTURE_ATTEMPTS = 3
+
+          class NoRedirectHandler(urllib.request.HTTPRedirectHandler):
+              """Prevent auth headers from being forwarded to temporary log storage URLs."""
+              def redirect_request(self, req, fp, code, msg, headers, newurl):
+                  return None
+
+          NO_REDIRECT_OPENER = urllib.request.build_opener(NoRedirectHandler)
+
+          ANSI_RE = re.compile(r"\x1b\[[0-?]*[ -/]*[@-~]")
+          # GitHub Actions wraps echoed inline shell/source lines in cyan ANSI. Filter these
+          # before stripping ANSI so code containing words like "failed" is not misclassified.
+          COMMAND_ECHO_RE = re.compile(
+              r"^(?:\d{4}-\d{2}-\d{2}T\S+Z\s+)?\x1b\[36;1m.*\x1b\[0m\s*$"
+          )
+          KILO_INVALID_ARGUMENT_ABORT_RE = re.compile(
+              r"""(?i)stopped after\s+\d+\s+consecutive invalid[- ]argument failures for the ["']edit["'] tool"""
+          )
+          KILO_EDIT_INVALID_ARGUMENT_RE = re.compile(
+              r"""(?i)\b(?:the\s+)?edit tool was called with invalid arguments\b"""
+          )
+          ERROR_RE = re.compile(
+              r"(?i)(::error::|\bexception\b|\btraceback\b|\bfatal\b|"
+              r"\b(?:[A-Za-z_][A-Za-z0-9_.]*(?:Error|Exception)|Error)\s*:\s*|"
+              r"\bfailed\b|\bfailure\b|\bpermission denied\b|\btimed out\b|"
+              r"\btimeout\b|\bModuleNotFoundError\b|\bAssertionError\b|"
+              r"\bHTTP(?:/[\d.]+)?\s+(?:4\d\d|5\d\d)\b|\b(?:429|500|502|503|504)\b|"
+              r"\brate.?limit(?:ed|ing)?\b|\bresource.?exhausted\b)"
+          )
+          BEARER_RE = re.compile(r"(?i)\bBearer\s+[A-Za-z0-9._~+/=-]+")
+          GH_TOKEN_RE = re.compile(
+              r"\b(?:gh[pousr]_[A-Za-z0-9_]{20,}|github_pat_[A-Za-z0-9_]{20,})\b"
+          )
+          JWT_RE = re.compile(
+              r"\beyJ[A-Za-z0-9_-]{10,}\.[A-Za-z0-9_-]{10,}\.[A-Za-z0-9_-]{8,}\b"
+          )
+          SECRET_ASSIGN_RE = re.compile(
+              r"""(?i)\b(token|password|secret|api[_-]?key|client[_-]?secret|"""
+              r"""authorization)\b(\s*[:=]\s*)(["']?)[^\s,"';]+"""
+          )
+          URL_SECRET_RE = re.compile(
+              r"(?i)([?&](?:token|sig|signature|x-amz-credential|x-amz-signature)=)[^&\s]+"
+          )
+          LONG_VALUE_RE = re.compile(r"(?<![A-Za-z0-9])[A-Za-z0-9_+/=-]{100,}(?![A-Za-z0-9])")
+
+          def utc_now():
+              return dt.datetime.now(dt.timezone.utc).replace(microsecond=0).isoformat()
+
+          def redact(text):
+              text = ANSI_RE.sub("", str(text))
+              text = BEARER_RE.sub("Bearer [REDACTED]", text)
+              text = GH_TOKEN_RE.sub("[REDACTED_GITHUB_TOKEN]", text)
+              text = JWT_RE.sub("[REDACTED_JWT]", text)
+              text = SECRET_ASSIGN_RE.sub(r"\1\2[REDACTED]", text)
+              text = URL_SECRET_RE.sub(r"\1[REDACTED]", text)
+              text = LONG_VALUE_RE.sub("[REDACTED_LONG_VALUE]", text)
+              return text[:MAX_EXCERPT_CHARS]
+
+          def api_request(path):
+              """Retry transient GitHub API errors; never print authorization headers."""
+              url = path if path.startswith("https://") else API + path
+              last_error = None
+
+              for attempt in range(4):
+                  request = urllib.request.Request(
+                      url,
+                      headers={
+                          "Authorization": f"Bearer {TOKEN}",
+                          "Accept": "application/vnd.github+json",
+                          "X-GitHub-Api-Version": "2022-11-28",
+                          "User-Agent": "completed-workflow-run-error-capture",
+                      },
+                  )
+                  try:
+                      with urllib.request.urlopen(request, timeout=45) as response:
+                          return json.loads(response.read().decode("utf-8"))
+                  except urllib.error.HTTPError as exc:
+                      last_error = f"HTTP {exc.code}"
+                      retry_after = exc.headers.get("Retry-After")
+                      if exc.code not in (403, 429, 500, 502, 503, 504):
+                          raise RuntimeError(f"GitHub API request failed: {last_error}") from None
+                      if attempt == 3:
+                          break
+                      try:
+                          delay = min(30, max(1, int(retry_after))) if retry_after else 2 ** attempt
+                      except ValueError:
+                          delay = 2 ** attempt
+                      time.sleep(delay)
+                  except (urllib.error.URLError, TimeoutError, OSError, json.JSONDecodeError) as exc:
+                      last_error = type(exc).__name__
+                      if attempt == 3:
+                          break
+                      time.sleep(2 ** attempt)
+
+              raise RuntimeError(f"GitHub API request failed after retries: {last_error}")
+
+          def download_log_archive(run):
+              """Follow the API's signed redirect without forwarding the GitHub token."""
+              run_id = int(run["id"])
+              attempt_number = int(run.get("run_attempt", 1))
+              url = f"{API}/actions/runs/{run_id}/attempts/{attempt_number}/logs"
+              last_error = None
+
+              for attempt in range(4):
+                  request = urllib.request.Request(
+                      url,
+                      headers={
+                          "Authorization": f"Bearer {TOKEN}",
+                          "Accept": "application/vnd.github+json",
+                          "X-GitHub-Api-Version": "2022-11-28",
+                          "User-Agent": "completed-workflow-run-error-capture",
+                      },
+                  )
+                  try:
+                      with NO_REDIRECT_OPENER.open(request, timeout=45) as response:
+                          body = response.read(MAX_ARCHIVE_BYTES + 1)
+                          return body, len(body) > MAX_ARCHIVE_BYTES
+                  except urllib.error.HTTPError as exc:
+                      if exc.code in (301, 302, 303, 307, 308):
+                          location = exc.headers.get("Location")
+                          if not location:
+                              raise RuntimeError("log API redirect did not include a Location header")
+                          # Critical: do not attach TOKEN or any other authorization header here.
+                          redirect_request = urllib.request.Request(
+                              location,
+                              headers={"User-Agent": "completed-workflow-run-error-capture"},
+                          )
+                          try:
+                              with urllib.request.urlopen(redirect_request, timeout=60) as response:
+                                  body = response.read(MAX_ARCHIVE_BYTES + 1)
+                                  return body, len(body) > MAX_ARCHIVE_BYTES
+                          except Exception as redirect_exc:
+                              raise RuntimeError(
+                                  f"temporary log download failed: {type(redirect_exc).__name__}"
+                              ) from None
+
+                      last_error = f"HTTP {exc.code}"
+                      retry_after = exc.headers.get("Retry-After")
+                      if exc.code not in (403, 429, 500, 502, 503, 504):
+                          raise RuntimeError(f"log archive request failed: {last_error}") from None
+                      if attempt == 3:
+                          break
+                      try:
+                          delay = min(30, max(1, int(retry_after))) if retry_after else 2 ** attempt
+                      except ValueError:
+                          delay = 2 ** attempt
+                      time.sleep(delay)
+                  except (urllib.error.URLError, TimeoutError, OSError) as exc:
+                      last_error = type(exc).__name__
+                      if attempt == 3:
+                          break
+                      time.sleep(2 ** attempt)
+
+              raise RuntimeError(f"log archive request failed after retries: {last_error}")
+
+          def run_key(run):
+              run_id = run.get("id") or run.get("run_id")
+              if run_id is None:
+                  return None
+              attempt = run.get("run_attempt") or 1
+              return f"{run_id}:{attempt}"
+
+          def load_ledger():
+              records = {}
+              if not LEDGER.exists():
+                  return records
+
+              with LEDGER.open("r", encoding="utf-8") as handle:
+                  for line_number, line in enumerate(handle, 1):
+                      if not line.strip():
+                          continue
+                      try:
+                          record = json.loads(line)
+                          key = run_key(record)
+                          if key is not None:
+                              records[key] = record
+                          else:
+                              # Keep non-run diagnostic events distinct; several may lack run IDs.
+                              records[f"non-run-diagnostic:{line_number}"] = record
+                      except (json.JSONDecodeError, TypeError):
+                          raise RuntimeError(
+                              f"Existing diagnostics ledger is invalid at line {line_number}; "
+                              "refusing to overwrite or discard records."
+                          )
+
+              return records
+
+          def fetch_all_completed_runs():
+              """Fetch up to the REST API's 1,000-result search window."""
+              all_runs = []
+              hit_page_limit = False
+
+              for page in range(1, MAX_RUN_PAGES + 1):
+                  payload = api_request(
+                      f"/actions/runs?status=completed&per_page={PAGE_SIZE}&page={page}"
+                  )
+                  page_runs = payload.get("workflow_runs", [])
+                  all_runs.extend(page_runs)
+
+                  if len(page_runs) < PAGE_SIZE:
+                      break
+                  if page == MAX_RUN_PAGES:
+                      hit_page_limit = True
+
+              return all_runs, hit_page_limit
+
+          def fetch_jobs(run):
+              run_id = int(run["id"])
+              attempt_number = int(run.get("run_attempt", 1))
+              jobs = []
+              page = 1
+
+              while page <= 10:
+                  payload = api_request(
+                      f"/actions/runs/{run_id}/attempts/{attempt_number}/jobs"
+                      f"?per_page=100&page={page}"
+                  )
+                  page_jobs = payload.get("jobs", [])
+                  jobs.extend(page_jobs)
+
+                  if len(page_jobs) < 100:
+                      break
+                  page += 1
+
+              if page > 10:
+                  raise RuntimeError("job listing exceeded 1,000 jobs for this run attempt")
+
+              return jobs
+
+          def classify_jobs(jobs):
+              errors = []
+              allowed = {"success", "skipped", "neutral"}
+
+              for job in jobs:
+                  job_name = job.get("name") or "(unnamed job)"
+                  job_id = job.get("id")
+                  conclusion = job.get("conclusion")
+
+                  if conclusion not in allowed:
+                      errors.append({
+                          "type": "job_conclusion",
+                          "job_id": job_id,
+                          "job_name": job_name,
+                          "conclusion": conclusion or "missing",
+                          "html_url": job.get("html_url"),
+                      })
+
+                  for step_number, step in enumerate(job.get("steps") or [], start=1):
+                      outcome = step.get("outcome")
+                      step_conclusion = step.get("conclusion")
+
+                      # Step outcome can be failure while conclusion is success when
+                      # continue-on-error is configured. Preserve that evidence.
+                      bad_outcome = outcome not in (None, "success", "skipped", "neutral")
+                      bad_conclusion = step_conclusion not in (
+                          None, "success", "skipped", "neutral"
+                      )
+
+                      if bad_outcome or bad_conclusion:
+                          errors.append({
+                              "type": "step_outcome_or_conclusion",
+                              "job_id": job_id,
+                              "job_name": job_name,
+                              "step_number": step.get("number", step_number),
+                              "step_name": step.get("name") or "(unnamed step)",
+                              "outcome": outcome,
+                              "conclusion": step_conclusion,
+                          })
+
+              return errors
+
+          def scan_log_archive(run):
+              """Scan completed-run logs, filter echoed source, and prioritize actionable errors."""
+              archive_bytes, truncated = download_log_archive(run)
+              if truncated:
+                  return [], "archive_exceeded_30MiB_limit"
+
+              abort_candidates = []
+              edit_argument_candidates = []
+              ordinary_candidates = []
+              candidate_overflow = False
+              try:
+                  with zipfile.ZipFile(io.BytesIO(archive_bytes)) as archive:
+                      files = sorted(
+                          (
+                              item for item in archive.infolist()
+                              if not item.is_dir() and item.filename.lower().endswith(".txt")
+                          ),
+                          key=lambda item: item.filename,
+                      )
+
+                      for item in files:
+                          if item.file_size > MAX_LOG_FILE_BYTES:
+                              continue
+                          try:
+                              raw = archive.read(item)
+                              log_text = raw.decode("utf-8", errors="replace")
+                          except (OSError, RuntimeError, zipfile.BadZipFile):
+                              continue
+
+                          for line_number, raw_line in enumerate(log_text.splitlines(), start=1):
+                              # Suppress GitHub's cyan echo of inline workflow source before
+                              # ANSI removal; otherwise source code fills the excerpt budget.
+                              if COMMAND_ECHO_RE.match(raw_line):
+                                  continue
+
+                              line = ANSI_RE.sub("", raw_line)
+                              abort_match = KILO_INVALID_ARGUMENT_ABORT_RE.search(line)
+                              edit_match = KILO_EDIT_INVALID_ARGUMENT_RE.search(line)
+                              if not abort_match and not edit_match and not ERROR_RE.search(line):
+                                  continue
+
+                              candidate = {
+                                  "type": "log_signal",
+                                  "log_file": item.filename[:180],
+                                  "line_number": line_number,
+                                  "excerpt": redact(line),
+                              }
+                              if abort_match:
+                                  candidate["signal_kind"] = "kilo_invalid_argument_turn_abort"
+                                  bucket = abort_candidates
+                                  bucket_limit = MAX_PRIORITY_ERROR_CANDIDATES
+                              elif edit_match:
+                                  candidate["signal_kind"] = "kilo_edit_tool_invalid_arguments"
+                                  bucket = edit_argument_candidates
+                                  bucket_limit = MAX_ERROR_CANDIDATES_PER_RUN
+                              else:
+                                  bucket = ordinary_candidates
+                                  bucket_limit = MAX_ERROR_CANDIDATES_PER_RUN
+
+                              if len(bucket) < bucket_limit:
+                                  bucket.append(candidate)
+                              else:
+                                  candidate_overflow = True
+              except (zipfile.BadZipFile, OSError, ValueError):
+                  return [], "archive_not_readable_as_zip"
+
+              # The terminal Kilo abort signal comes first, then its underlying tool errors,
+              # then generic errors. This prevents unrelated matches from hiding the key event.
+              candidates = abort_candidates + edit_argument_candidates + ordinary_candidates
+              excerpt_limit_reached = candidate_overflow or len(candidates) > MAX_ERROR_LINES_PER_RUN
+              status = "scanned_with_excerpt_limit" if excerpt_limit_reached else "scanned"
+              return candidates[:MAX_ERROR_LINES_PER_RUN], status
+
+          def summarize_run(run, previous=None):
+              previous_attempts = int((previous or {}).get("capture_attempts", 0))
+              record = {
+                  "schema_version": 1,
+                  "run_id": run.get("id"),
+                  "run_attempt": run.get("run_attempt", 1),
+                  "workflow_id": run.get("workflow_id"),
+                  "workflow_name": run.get("name") or "(unnamed workflow)",
+                  "workflow_path": (run.get("path") or "").split("@", 1)[0],
+                  "event": run.get("event"),
+                  "status": run.get("status"),
+                  "conclusion": run.get("conclusion"),
+                  "branch": run.get("head_branch"),
+                  "head_sha": run.get("head_sha"),
+                  "actor": (run.get("actor") or {}).get("login"),
+                  "created_at": run.get("created_at"),
+                  "run_started_at": run.get("run_started_at"),
+                  "run_completed_at": run.get("updated_at"),
+                  "html_url": run.get("html_url"),
+                  "captured_at_utc": utc_now(),
+                  "capture_attempts": previous_attempts + 1,
+                  "jobs_total": 0,
+                  "potential_errors": [],
+                  "log_capture_status": "not_needed",
+                  "capture_status": "complete",
+              }
+
+              allowed_run_conclusions = {"success", "neutral", "skipped"}
+              if run.get("conclusion") not in allowed_run_conclusions:
+                  record["potential_errors"].append({
+                      "type": "workflow_conclusion",
+                      "conclusion": run.get("conclusion") or "missing",
+                  })
+
+              try:
+                  jobs = fetch_jobs(run)
+                  record["jobs_total"] = len(jobs)
+                  record["potential_errors"].extend(classify_jobs(jobs))
+              except Exception as exc:
+                  record["capture_status"] = (
+                      "partial"
+                      if record["capture_attempts"] < MAX_CAPTURE_ATTEMPTS
+                      else "incomplete_final"
+                  )
+                  record["potential_errors"].append({
+                      "type": "diagnostic_capture_error",
+                      "stage": "list_jobs",
+                      "detail": str(exc)[:300],
+                  })
+                  return record
+
+              # Scan logs even when the run appears successful; failures can be handled or suppressed.
+              try:
+                  log_signals, log_status = scan_log_archive(run)
+                  record["log_capture_status"] = log_status
+                  record["potential_errors"].extend(log_signals)
+
+                  if log_status in ("archive_not_readable_as_zip", "archive_exceeded_30MiB_limit"):
+                      record["potential_errors"].append({
+                          "type": "diagnostic_capture_warning",
+                          "stage": "read_log_archive",
+                          "detail": log_status,
+                      })
+              except Exception as exc:
+                  record["log_capture_status"] = "unavailable"
+                  record["potential_errors"].append({
+                      "type": "diagnostic_capture_error",
+                      "stage": "download_or_scan_logs",
+                      "detail": str(exc)[:300],
+                  })
+                  record["capture_status"] = (
+                      "partial"
+                      if record["capture_attempts"] < MAX_CAPTURE_ATTEMPTS
+                      else "incomplete_final"
+                  )
+
+              return record
+
+          def select_runs_for_processing(runs, records):
+              """Select new/partial records and repair terminal metadata left stale by an active-run snapshot."""
+              candidates = []
+              for run in runs:
+                  key = run_key(run)
+                  existing = records.get(key)
+
+                  # A worker can write a ledger entry while its own run is still active.
+                  # When that run later appears in this completed-run query, refresh it even
+                  # if log capture was previously marked complete. Terminal metadata is
+                  # authoritative only when status, conclusion, and completion timestamp exist.
+                  missing_terminal_metadata = existing is not None and (
+                      existing.get("status") != "completed"
+                      or not existing.get("conclusion")
+                      or not existing.get("run_completed_at")
+                  )
+
+                  if (
+                      existing is None
+                      or existing.get("capture_status") == "partial"
+                      or missing_terminal_metadata
+                  ):
+                      candidates.append((run, existing))
+
+              # Prioritize recent completed runs so fresh failures are recorded promptly.
+              # Older unrecorded runs still drain on later activations once recent runs
+              # have ledger entries; the cap prevents a historical backfill from overrunning.
+              candidates.sort(key=lambda pair: (
+                  pair[0].get("updated_at") or pair[0].get("created_at") or "",
+                  int(pair[0].get("id") or 0),
+                  int(pair[0].get("run_attempt", 1)),
+              ), reverse=True)
+              return candidates[:MAX_NEW_RUNS_PER_INVOCATION]
+
+
+          def preserve_additional_fields(record, previous):
+              """Refresh known API fields while preserving repository-specific ledger metadata."""
+              for key, value in (previous or {}).items():
+                  record.setdefault(key, value)
+              return record
+
+
+          LEDGER.parent.mkdir(parents=True, exist_ok=True)
+          records = load_ledger()
+          runs, hit_page_limit = fetch_all_completed_runs()
+          candidates = select_runs_for_processing(runs, records)
+
+          error_records_added = 0
+          partial_records = 0
+
+          for run, previous in candidates:
+              key = run_key(run)
+              record = preserve_additional_fields(summarize_run(run, previous), previous)
+              records[key] = record
+
+              if record["potential_errors"]:
+                  error_records_added += 1
+              if record["capture_status"] == "partial":
+                  partial_records += 1
+
+              print(
+                  f"Processed run={record['run_id']} attempt={record['run_attempt']} "
+                  f"conclusion={record['conclusion']} "
+                  f"capture_status={record['capture_status']} "
+                  f"potential_errors={len(record['potential_errors'])}"
+              )
+
+          # Stable ordering and compact JSON make the file deterministic and reviewable.
+          ordered = sorted(
+              records.values(),
+              key=lambda item: (
+                  item.get("run_completed_at") or item.get("created_at") or "",
+                  int(item.get("run_id") or item.get("id") or 0),
+                  int(item.get("run_attempt") or 1),
+              ),
+          )
+
+          temp_path = LEDGER.with_suffix(".jsonl.tmp")
+          with temp_path.open("w", encoding="utf-8", newline="\n") as handle:
+              for record in ordered:
+                  handle.write(json.dumps(
+                      record, sort_keys=True, separators=(",", ":"), ensure_ascii=False
+                  ) + "\n")
+              handle.flush()
+              os.fsync(handle.fileno())
+          os.replace(temp_path, LEDGER)
+
+          summary = [
+              "## Completed workflow-run diagnostics",
+              f"- Completed runs visible to the scan: {len(runs)}",
+              f"- New/retried run attempts processed: {len(candidates)}",
+              f"- Run records in ledger: {len(records)}",
+              f"- Records with potential errors: {sum(bool(r.get('potential_errors')) for r in records.values())}",
+              f"- Records still awaiting capture recovery: {sum(r.get('capture_status') == 'partial' for r in records.values())}",
+              f"- Records reaching the retry limit with capture gaps: {sum(r.get('capture_status') == 'incomplete_final' for r in records.values())}",
+          ]
+          if hit_page_limit:
+              summary.append(
+                  "- Warning: the GitHub REST search returned 1,000 runs; "
+                  "polling remains enabled to keep future completions in the recent window."
+              )
+          if len(candidates) == MAX_NEW_RUNS_PER_INVOCATION:
+              summary.append(
+                  "- The per-invocation processing limit was reached; remaining unseen runs "
+                  "will be handled by a later scheduled/triggered scan."
+              )
+
+          summary_text = "\n".join(summary) + "\n"
+          print(summary_text)
+          with open(os.environ["GITHUB_STEP_SUMMARY"], "a", encoding="utf-8") as handle:
+              handle.write(summary_text)
+
+          with open(os.environ["GITHUB_OUTPUT"], "a", encoding="utf-8") as handle:
+              handle.write(f"processed={len(candidates)}\n")
+              handle.write(f"error_records={error_records_added}\n")
+              handle.write(f"partial_records={partial_records}\n")
+          PYTHON
+
+      - name: Commit and verify the diagnostics ledger
+        id: persist_diagnostics
+        if: always() && steps.collect.outcome == 'success'
+        continue-on-error: true
+        shell: bash
+        env:
+          DEFAULT_BRANCH: ${{ github.event.repository.default_branch }}
+        run: |
+          set -Eeuo pipefail
+
+          git config user.name "workflow-error-capture"
+          git config user.email "workflow-error-capture@users.noreply.github.com"
+
+          ledger="research_state/workflow_run_diagnostics.jsonl"
+          test -f "$ledger" || {
+            echo "::error::Diagnostics ledger was not generated."
+            exit 1
+          }
+
+          git add -- "$ledger"
+          git diff --cached --check
+
+          if git diff --cached --quiet; then
+            echo "Diagnostics ledger is unchanged; no commit is needed."
+            exit 0
+          fi
+
+          git commit -m "chore: capture completed workflow run diagnostics"
+
+          backoff=2
+          for attempt in 1 2 3 4 5 6; do
+            if ! timeout --kill-after=3s 10s git fetch origin \
+              "+refs/heads/${DEFAULT_BRANCH}:refs/remotes/origin/${DEFAULT_BRANCH}"; then
+              echo "::warning::Diagnostics fetch attempt ${attempt}/6 failed or timed out."
+            elif ! timeout --kill-after=3s 15s git rebase "origin/${DEFAULT_BRANCH}"; then
+              git rebase --abort >/dev/null 2>&1 || true
+              echo "::error::Diagnostics reconciliation conflicted or timed out; skipping further retries so Kilo can start."
+              exit 1
+            elif timeout --kill-after=5s 20s git push origin "HEAD:refs/heads/${DEFAULT_BRANCH}"; then
+              local_sha="$(git rev-parse HEAD)"
+              if remote_output="$(timeout --kill-after=2s 8s git ls-remote origin "refs/heads/${DEFAULT_BRANCH}")"; then
+                remote_sha="$(awk 'NR == 1 { print $1 }' <<< "$remote_output")"
+              else
+                remote_sha=""
+                echo "::warning::Diagnostics remote-SHA verification failed or timed out on attempt ${attempt}/6."
+              fi
+
+              if [[ -n "$remote_sha" && "$remote_sha" == "$local_sha" ]]; then
+                echo "Verified diagnostics ledger at remote SHA ${remote_sha}."
+                exit 0
+              fi
+
+              echo "::warning::Diagnostics push/verification attempt ${attempt}/6 was inconclusive; bounded reconciliation will continue."
+            else
+              echo "::warning::Diagnostics push attempt ${attempt}/6 failed or timed out."
+            fi
+
+            if (( attempt < 6 )); then
+              sleep "$backoff"
+              (( backoff < 30 )) && backoff=$((backoff * 2))
+              (( backoff > 30 )) && backoff=30
+            fi
+          done
+
+          echo "::error::Diagnostics ledger could not be pushed and remotely verified."
+          exit 1
+
+      - name: Run general-purpose Kilo agent loop
+        id: kilo
+        # A workflow-file push is a diagnostics/test activation only: never launch
+        # the default 1,000-session worker just because maintainer workflow code changed.
+        if: ${{ github.event_name != 'push' && inputs.diagnostics_only != true }}
+        shell: bash
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          KILO_DEFAULT_BRANCH: ${{ github.event.repository.default_branch }}
+          KILO_INPUT_AGENTS: ${{ inputs.agents || '1000' }}
+          KILO_IDLE_TIMEOUT_SECONDS: "900"
+        run: |
+          set -Eeuo pipefail
+          umask 077
+
+          # The watchdog is generated in RUNNER_TEMP. The repository needs only
+          # this workflow file; no controller/helper scripts need to be copied.
+          cat > "$RUNNER_TEMP/kilo-idle-timeout.py" <<'PYTHON'
+          #!/usr/bin/env python3
+          """Run a child command with an idle timeout and secret-conscious diagnostics."""
+          from __future__ import annotations
+          import argparse
+          import io
+          import os
+          import selectors
+          import shutil
+          import signal
+          import subprocess
+          import sys
+          import time
+          from datetime import datetime, timezone
+          from typing import Sequence
+
+          _requested_signal: int | None = None
+
+          def _handle_signal(signum: int, _frame: object) -> None:
+              global _requested_signal
+              _requested_signal = signum
+
+          def _signal_process_group(process: subprocess.Popen[bytes], signum: int) -> None:
+              try:
+                  os.killpg(process.pid, signum)
+              except ProcessLookupError:
+                  pass
+              except OSError as exc:
+                  print(f"[idle-watchdog] Unable to signal child process group: {exc}", file=sys.stderr, flush=True)
+
+          def _terminate_process_group(process: subprocess.Popen[bytes]) -> None:
+              _signal_process_group(process, signal.SIGTERM)
+              try:
+                  process.wait(timeout=5)
+              except subprocess.TimeoutExpired:
+                  pass
+              _signal_process_group(process, signal.SIGKILL)
+              try:
+                  process.wait(timeout=2)
+              except subprocess.TimeoutExpired:
+                  print("[idle-watchdog] Child process did not exit after SIGKILL.", file=sys.stderr, flush=True)
+
+          def _run_diagnostic_command(args: list[str], timeout: float = 2.0) -> str:
+              try:
+                  result = subprocess.run(args, stdin=subprocess.DEVNULL, stdout=subprocess.PIPE,
+                      stderr=subprocess.STDOUT, text=True, errors="replace", timeout=timeout, check=False)
+                  output = result.stdout.strip()
+                  if result.returncode != 0:
+                      return f"(exit {result.returncode})\n{output}"
+                  return output or "(no output)"
+              except FileNotFoundError:
+                  return f"(unavailable: {args[0]} not installed)"
+              except subprocess.TimeoutExpired:
+                  return f"(diagnostic command timed out after {timeout:.1f}s)"
+              except OSError as exc:
+                  return f"(diagnostic command failed: {exc})"
+
+          def _capture_snapshot(history: io.StringIO, pgid: int, label: str) -> None:
+              now = datetime.now(timezone.utc).isoformat()
+              history.write(f"\n--- snapshot={label} utc={now} kilo_pgid={pgid} ---\n")
+              for path, title in (("/proc/loadavg", "loadavg"), ("/proc/uptime", "uptime")):
+                  try:
+                      with open(path, encoding="utf-8") as handle:
+                          history.write(f"{title}: {handle.read().strip()}\n")
+                  except OSError as exc:
+                      history.write(f"{title}: unavailable ({exc})\n")
+              try:
+                  with open("/proc/meminfo", encoding="utf-8") as handle:
+                      for line in handle:
+                          if line.startswith(("MemTotal:", "MemAvailable:", "SwapTotal:", "SwapFree:")):
+                              history.write(f"memory: {line.strip()}\n")
+              except OSError as exc:
+                  history.write(f"memory: unavailable ({exc})\n")
+
+              ps_output = _run_diagnostic_command(["ps", "-eo", "pid=,ppid=,pgid=,stat=,etime=,time=,%cpu=,%mem=,wchan:24=,comm="])
+              members: list[tuple[int, str]] = []
+              for line in ps_output.splitlines():
+                  columns = line.split(None, 9)
+                  if len(columns) >= 3 and columns[2] == str(pgid):
+                      try:
+                          members.append((int(columns[0]), line))
+                      except ValueError:
+                          continue
+              history.write("process_group_members: pid ppid pgid stat elapsed cpu_time cpu_pct mem_pct wait_channel command_name\n")
+              if members:
+                  for _pid, line in members:
+                      history.write(f"  {line}\n")
+                  selected = ("Name:", "State:", "Pid:", "PPid:", "Threads:", "VmRSS:",
+                      "voluntary_ctxt_switches:", "nonvoluntary_ctxt_switches:")
+                  for pid, _line in members:
+                      history.write(f"proc_status pid={pid}: ")
+                      try:
+                          values = []
+                          with open(f"/proc/{pid}/status", encoding="utf-8") as handle:
+                              for row in handle:
+                                  if row.startswith(selected):
+                                      values.append(row.strip())
+                          history.write(" | ".join(values) if values else "(selected fields unavailable)")
+                      except OSError as exc:
+                          history.write(f"(unavailable: {exc})")
+                      try:
+                          history.write(f" | open_fd_count={len(os.listdir(f'/proc/{pid}/fd'))}")
+                      except OSError as exc:
+                          history.write(f" | open_fd_count=unavailable ({exc})")
+                      history.write("\n")
+              else:
+                  history.write("  (no processes currently found in the Kilo process group)\n")
+                  history.write(f"  ps_diagnostic: {ps_output[:1200]}\n")
+
+              ss_path = shutil.which("ss")
+              if ss_path and members:
+                  socket_output = _run_diagnostic_command([ss_path, "-tpn"], timeout=2.0)
+                  member_ids = [pid for pid, _line in members]
+                  socket_lines = [line for line in socket_output.splitlines()
+                                  if any(f"pid={pid}," in line for pid in member_ids)]
+                  history.write("process_group_tcp_sockets:\n")
+                  for line in socket_lines[:40]:
+                      history.write(f"  {line}\n")
+                  if not socket_lines:
+                      history.write("  (no TCP sockets attributed to this process group, or socket ownership unavailable)\n")
+              else:
+                  history.write("process_group_tcp_sockets: unavailable (ss missing or process group empty)\n")
+
+          def _emit_diagnostics(history: io.StringIO) -> None:
+              print("\n=== KILO_IDLE_DIAGNOSTICS_BEGIN ===", flush=True)
+              print("Samples collected while child output was silent. Process names/states, selected counters, system load/memory, and process-attributed TCP socket summaries are included; argv and environment are omitted.", flush=True)
+              print(history.getvalue().strip() or "(no process snapshots were collected)", flush=True)
+              print("=== KILO_IDLE_DIAGNOSTICS_END ===\n", flush=True)
+
+          def _parse_args(argv: Sequence[str]) -> tuple[int, int, list[str]]:
+              try:
+                  divider = list(argv).index("--")
+              except ValueError as exc:
+                  raise SystemExit("usage: kilo-idle-timeout.py --idle-timeout-seconds N [--diagnostic-sample-interval-seconds N] -- COMMAND [ARGS...]") from exc
+              parser = argparse.ArgumentParser(add_help=True)
+              parser.add_argument("--idle-timeout-seconds", type=int, default=900)
+              parser.add_argument("--diagnostic-sample-interval-seconds", type=int, default=60)
+              options = parser.parse_args(list(argv[:divider]))
+              command = list(argv[divider + 1:])
+              if options.idle_timeout_seconds < 1:
+                  parser.error("--idle-timeout-seconds must be at least 1")
+              if options.diagnostic_sample_interval_seconds < 1:
+                  parser.error("--diagnostic-sample-interval-seconds must be at least 1")
+              if not command:
+                  parser.error("a command is required after --")
+              return options.idle_timeout_seconds, options.diagnostic_sample_interval_seconds, command
+
+          def main(argv: Sequence[str] | None = None) -> int:
+              global _requested_signal
+              idle_timeout, sample_interval, command = _parse_args(sys.argv[1:] if argv is None else argv)
+              signal.signal(signal.SIGTERM, _handle_signal)
+              signal.signal(signal.SIGINT, _handle_signal)
+              try:
+                  process = subprocess.Popen(command, stdin=subprocess.DEVNULL, stdout=subprocess.PIPE,
+                      stderr=subprocess.STDOUT, bufsize=0, start_new_session=True)
+              except OSError as exc:
+                  print(f"[idle-watchdog] Could not start child command: {exc}", file=sys.stderr, flush=True)
+                  return 127
+              assert process.stdout is not None
+              last_output = time.monotonic()
+              last_snapshot = last_output
+              history = io.StringIO()
+              selector = selectors.DefaultSelector()
+              selector.register(process.stdout, selectors.EVENT_READ)
+              _capture_snapshot(history, process.pid, "started")
+              try:
+                  while True:
+                      now = time.monotonic()
+                      if _requested_signal is not None:
+                          print(f"[idle-watchdog] Received signal {_requested_signal}; collecting diagnostics before termination.", flush=True)
+                          _capture_snapshot(history, process.pid, "termination-signal")
+                          _emit_diagnostics(history)
+                          _terminate_process_group(process)
+                          return 128 + _requested_signal
+                      idle_for = now - last_output
+                      remaining_idle = idle_timeout - idle_for
+                      if remaining_idle <= 0:
+                          print(f"[idle-watchdog] Kilo invocation idle timeout: no child output for {idle_timeout} seconds; collecting diagnostics before terminating this invocation.", flush=True)
+                          _capture_snapshot(history, process.pid, "idle-timeout")
+                          _emit_diagnostics(history)
+                          _terminate_process_group(process)
+                          print("[idle-watchdog] Child process group termination attempted; controller may preserve the session log and checkpoint.", flush=True)
+                          return 124
+                      remaining_sample = sample_interval - (now - last_snapshot)
+                      select_timeout = min(1.0, remaining_idle, max(0.0, remaining_sample))
+                      if not selector.get_map():
+                          if process.poll() is not None:
+                              return process.wait()
+                          time.sleep(max(0.01, select_timeout))
+                          events = []
+                      else:
+                          events = selector.select(timeout=select_timeout)
+                      for key, _mask in events:
+                          try:
+                              chunk = os.read(key.fileobj.fileno(), 65536)
+                          except OSError as exc:
+                              print(f"[idle-watchdog] Error reading child output: {exc}", file=sys.stderr, flush=True)
+                              chunk = b""
+                          if not chunk:
+                              selector.unregister(key.fileobj)
+                              continue
+                          try:
+                              sys.stdout.buffer.write(chunk)
+                              sys.stdout.buffer.flush()
+                          except BrokenPipeError:
+                              _capture_snapshot(history, process.pid, "parent-pipe-closed")
+                              _terminate_process_group(process)
+                              return 141
+                          last_output = time.monotonic()
+                      if process.poll() is not None and not selector.get_map():
+                          return process.wait()
+                      now = time.monotonic()
+                      if now - last_snapshot >= sample_interval:
+                          _capture_snapshot(history, process.pid, "silent-period")
+                          last_snapshot = now
+              finally:
+                  selector.close()
+                  if process.poll() is None:
+                      _terminate_process_group(process)
+                  process.stdout.close()
+
+          if __name__ == "__main__":
+              raise SystemExit(main())
+          PYTHON
+          chmod 700 "$RUNNER_TEMP/kilo-idle-timeout.py"
+          python3 -m py_compile "$RUNNER_TEMP/kilo-idle-timeout.py"
+
+          export HOME="$RUNNER_TEMP/kilo-home"
+          export XDG_CONFIG_HOME="$HOME/.config"
+          export XDG_DATA_HOME="$HOME/.local/share"
+          export XDG_CACHE_HOME="$HOME/.cache"
+          export TMPDIR="$RUNNER_TEMP/kilo-tmp"
+          mkdir -p "$XDG_CONFIG_HOME/kilo" "$XDG_DATA_HOME/kilo" "$XDG_CACHE_HOME/kilo" "$TMPDIR" "$RUNNER_TEMP/kilo"
+          for directory in "$HOME" "$XDG_CONFIG_HOME/kilo" "$XDG_DATA_HOME/kilo" "$XDG_CACHE_HOME/kilo" "$TMPDIR" "$RUNNER_TEMP/kilo"; do
+            test -w "$directory" || { echo "::error::Runtime directory is not writable: $directory"; exit 1; }
+          done
+
+          cat > "$XDG_CONFIG_HOME/kilo/kilo.json" <<'JSON'
+          {"$schema":"https://app.kilo.ai/config.json","permission":"allow"}
+          JSON
+          chmod 600 "$XDG_CONFIG_HOME/kilo/kilo.json"
+
+          cutoff_epoch=$(( $(date +%s) + 355 * 60 ))
+          # Reserve the final five minutes of the controller budget for checkpoint
+          # reconciliation, push, remote-SHA verification, and recovery artifacts.
+          checkpoint_reserve_seconds=300
+          install_backoff=5
+          while ! timeout --signal=TERM --kill-after=10s 180s npm install --no-audit --no-fund --prefix "$RUNNER_TEMP/kilo" @kilocode/cli@7.8.8; do
+            remaining=$((cutoff_epoch - $(date +%s)))
+            if (( remaining <= 0 )); then
+              echo "::error::Kilo CLI could not be installed before the 355-minute cutoff."
+              exit 1
+            fi
+            delay=$install_backoff
+            (( delay > remaining )) && delay=$remaining
+            echo "::warning::Kilo CLI installation failed; retrying after ${delay}s."
+            sleep "$delay"
+            (( install_backoff < 60 )) && install_backoff=$((install_backoff * 2))
+            (( install_backoff > 60 )) && install_backoff=60
+          done
+          export PATH="$RUNNER_TEMP/kilo/node_modules/.bin:$PATH"
+          kilo --version
+
+          git config user.name "kilo-autonomous"
+          git config user.email "kilo-autonomous@users.noreply.github.com"
+          DEFAULT_BRANCH="${KILO_DEFAULT_BRANCH:-}"
+          if [[ -z "$DEFAULT_BRANCH" ]]; then
+            echo "::error::GitHub did not provide the repository default branch."
+            exit 1
+          fi
+
+          # Concurrency can queue this job after its dispatch event was created.
+          # Its event SHA may therefore be stale even when checkout uses the
+          # requested branch. Reconcile to the live remote head before any agent
+          # starts, while the worktree is expected to be pristine.
+          if [[ -n "$(git status --porcelain)" ]]; then
+            echo "::error::Refusing startup sync because the checkout is not clean."
+            git status --short
+            exit 1
+          fi
+          if ! git fetch --prune origin "+refs/heads/${DEFAULT_BRANCH}:refs/remotes/origin/${DEFAULT_BRANCH}"; then
+            echo "::error::Could not fetch the live default branch before starting Kilo."
+            exit 1
+          fi
+          if ! git checkout -B "$DEFAULT_BRANCH" "origin/$DEFAULT_BRANCH"; then
+            echo "::error::Could not reset the clean runner checkout to the live default branch."
+            exit 1
+          fi
+          echo "Synchronized worker base to current origin/$DEFAULT_BRANCH at $(git rev-parse HEAD)."
+
+          agents="${KILO_INPUT_AGENTS:-1000}"
+          if ! [[ "$agents" =~ ^[0-9]+$ ]]; then agents=1000; fi
+          (( agents < 1 )) && agents=1
+          (( agents > 1000 )) && agents=1000
+          idle_timeout="${KILO_IDLE_TIMEOUT_SECONDS:-900}"
+          if ! [[ "$idle_timeout" =~ ^[0-9]+$ ]] || (( idle_timeout < 60 )); then idle_timeout=900; fi
+
+          command='Read AGENTS.md, SKILLS.md, the relevant .agents/skills/*/SKILL.md, and HANDOFF.md. Complete the highest-priority measurable task from HANDOFF.md. Preserve the frozen 108-config grid, free-public-data-only rule, expanding historical point-in-time market-cap universe, and research-only/no-live-trading boundary. Run the exact validation commands, inspect the diff, then update HANDOFF.md with evidence, status, and the next measurable task. Never claim performance metrics unless the full preregistered backtest is complete and independently audited.'
+
+          heartbeat() {
+            local heartbeat_sleep_pid=""
+            trap 'if [[ -n "$heartbeat_sleep_pid" ]]; then kill "$heartbeat_sleep_pid" 2>/dev/null || true; fi; exit 0' TERM INT
+            while true; do
+              printf '[heartbeat] %s\n' "$(date -u +%Y-%m-%dT%H:%M:%SZ)"
+              sleep 60 &
+              heartbeat_sleep_pid=$!
+              wait "$heartbeat_sleep_pid" || true
+              heartbeat_sleep_pid=""
+            done
+          }
+          heartbeat &
+          heartbeat_pid=$!
+          trap 'kill -TERM "$heartbeat_pid" 2>/dev/null || true; wait "$heartbeat_pid" 2>/dev/null || true' EXIT
+
+          session_started=0
+          session_completed=0
+          failed_sessions=0
+          consecutive_failures=0
+          retry_count=0
+          provider_pressure_streak=0
+          project_progress=0
+          session_has_committed_project_changes=0
+          verified_remote_sha=""
+          checkpoint_count=0
+          persistence_attempts=0
+          final_phase="starting"
+          final_detail="initializing"
+          fatal_persistence=0
+          # Set only when a worker session exhausted its bounded remote-persistence
+          # retries. The same workflow run continues with a fresh Kilo session.
+          pending_persistence_recovery=0
+          pending_persistence_has_project_changes=0
+          last_persistence_failure_session=0
+          last_persistence_failure_head=""
+          backoff=15
+
+          persist_checkpoint() {
+            # A checkpoint gets a small, bounded retry budget. Persistent push or
+            # permission failures must not monopolize this six-hour workflow run.
+            local push_backoff=5 local_delay remaining remote_sha local_sha
+            local attempts_this_checkpoint=0
+            local max_checkpoint_attempts=6
+
+            while (( attempts_this_checkpoint < max_checkpoint_attempts )); do
+              remaining=$((cutoff_epoch - $(date +%s)))
+              if (( remaining <= 0 )); then
+                echo "::error::Persistence could not be verified before the global cutoff."
+                return 1
+              fi
+
+              attempts_this_checkpoint=$((attempts_this_checkpoint + 1))
+              persistence_attempts=$((persistence_attempts + 1))
+              echo "Checkpoint persistence attempt ${attempts_this_checkpoint}/${max_checkpoint_attempts} (activation total ${persistence_attempts})."
+
+              # Bound individual Git network calls too, so a stalled connection
+              # cannot defeat the retry budget.
+              if timeout --kill-after=5s 20s git fetch origin "$DEFAULT_BRANCH"; then
+                if ! git merge-base --is-ancestor "origin/$DEFAULT_BRANCH" HEAD; then
+                  if ! timeout --kill-after=5s 30s git rebase --autostash "origin/$DEFAULT_BRANCH"; then
+                    git rebase --abort >/dev/null 2>&1 || true
+                    echo "::error::Remote reconciliation failed or timed out; ending this checkpoint attempt. The controller will preserve local work and start a fresh Kilo session in the same workflow run."
+                    return 1
+                  fi
+                fi
+
+                if git merge-base --is-ancestor "origin/$DEFAULT_BRANCH" HEAD 2>/dev/null; then
+                  if timeout --kill-after=5s 30s git push origin "HEAD:$DEFAULT_BRANCH"; then
+                    if remote_output="$(timeout --kill-after=3s 10s git ls-remote origin "refs/heads/$DEFAULT_BRANCH" 2>/dev/null)"; then
+                      remote_sha="$(awk 'NR==1 {print $1}' <<< "$remote_output")"
+                    else
+                      remote_sha=""
+                      echo "::warning::Remote verification query failed or timed out on persistence attempt ${persistence_attempts}."
+                    fi
+                    local_sha="$(git rev-parse HEAD)"
+                    if [[ -n "$remote_sha" && "$remote_sha" == "$local_sha" ]]; then
+                      verified_remote_sha="$remote_sha"
+                      checkpoint_count=$((checkpoint_count + 1))
+                      echo "Verified durable checkpoint ${checkpoint_count} at ${remote_sha}."
+                      return 0
+                    fi
+                    echo "::warning::Remote advanced or verification was inconclusive on persistence attempt ${persistence_attempts}; bounded reconciliation will continue."
+                  else
+                    echo "::warning::Push failed on persistence attempt ${persistence_attempts}; bounded reconciliation will continue."
+                  fi
+                else
+                  echo "::warning::Local commit is not based on the fetched default branch after reconciliation."
+                fi
+              else
+                echo "::warning::Fetch timed out or failed on persistence attempt ${persistence_attempts}."
+              fi
+
+              if (( attempts_this_checkpoint >= max_checkpoint_attempts )); then
+                break
+              fi
+              remaining=$((cutoff_epoch - $(date +%s)))
+              if (( remaining <= 0 )); then break; fi
+              local_delay=$push_backoff
+              (( local_delay > remaining )) && local_delay=$remaining
+              sleep "$local_delay"
+              (( push_backoff < 30 )) && push_backoff=$((push_backoff * 2))
+              (( push_backoff > 30 )) && push_backoff=30
+            done
+
+            echo "::error::Checkpoint persistence failed after ${attempts_this_checkpoint} bounded attempts. Only this worker session's checkpoint attempt is ending; the controller will preserve local work and continue with a fresh Kilo session in the same workflow run. Remote persistence remains unverified."
+            return 1
+          }
+
+          save_recovery_evidence() {
+            local base_sha="${1:-HEAD}"
+            local suffix="${GITHUB_RUN_ID:-local}-${GITHUB_RUN_ATTEMPT:-1}"
+            git bundle create "$RUNNER_TEMP/kilo-recovery-${suffix}.bundle" --all HEAD >/dev/null 2>&1 || true
+            git diff --binary "$base_sha" > "$RUNNER_TEMP/kilo-working-tree-${suffix}.patch" 2>/dev/null || true
+            git diff --cached --binary "$base_sha" > "$RUNNER_TEMP/kilo-index-${suffix}.patch" 2>/dev/null || true
+            git status --short > "$RUNNER_TEMP/kilo-recovery-status-${suffix}.txt" 2>/dev/null || true
+          }
+
+          stage_safe_changes() {
+            local base_sha="$1" changed_path
+            # A plain add respects .gitignore. Negative pathspecs on `git add -A -- .`
+            # can make Git treat an ignored directory itself as an explicit path and
+            # fail the entire checkpoint (observed with __pycache__). Stage first,
+            # then unstage excluded paths one-by-one without deleting worker changes.
+            git add -A -- . || return 1
+            while IFS= read -r -d '' changed_path; do
+              case "$changed_path" in
+                .github/workflows/*|.venv/*|*/.venv/*|venv/*|*/venv/*|node_modules/*|*/node_modules/*|__pycache__/*|*/__pycache__/*|.pytest_cache/*|*/.pytest_cache/*|.mypy_cache/*|*/.mypy_cache/*|.ruff_cache/*|*/.ruff_cache/*|.tox/*|*/.tox/*|.env|.env.*|*/.env|*/.env.*|*.pyc|*.pyo|*.sqlite|*.sqlite3|*.db|*.sqlite-wal|*.sqlite-shm|*.sqlite3-wal|*.sqlite3-shm|*.db-wal|*.db-shm|*.tmp|coverage.xml|*/coverage.xml|.coverage|*/.coverage|kilo-session-*.log|*/kilo-session-*.log|kilo-progress-*.log|*/kilo-progress-*.log)
+                  if git cat-file -e "$base_sha:$changed_path" 2>/dev/null; then
+                    git restore --staged -- "$changed_path" || return 1
+                  else
+                    git rm --cached -q --ignore-unmatch -- "$changed_path" || return 1
+                  fi
+                  ;;
+              esac
+            done < <(git diff --cached --name-only -z)
+          }
+
+          stage_and_checkpoint() {
+            local base_sha="$1"
+            local committed_this_iteration=0
+            local local_head_sha remote_tracking_sha
+            checkpoint_failure_kind="validation"
+            checkpoint_has_project_changes=0
+            session_has_committed_project_changes=0
+            verified_remote_sha=""
+            # Keep workflow definitions maintainer-managed; the standard token cannot
+            # authorize workflow-file changes. Remove agent-created workflow files too.
+            git restore --source="$base_sha" --staged --worktree -- .github/workflows >/dev/null 2>&1 || true
+            git clean -fd -- .github/workflows >/dev/null 2>&1 || true
+            if ! stage_safe_changes "$base_sha"; then
+              save_recovery_evidence "$base_sha"
+              return 1
+            fi
+
+            # Repair whitespace in staged text files before failing the checkpoint.
+            if ! git diff --cached --check; then
+              echo "::warning::Normalizing trailing whitespace and extra blank lines at EOF."
+              if ! python3 - <<'PYTHON'
+          import os
+          import re
+          import subprocess
+          from pathlib import Path
+          raw_paths = subprocess.check_output(
+              ["git", "diff", "--cached", "--name-only", "--diff-filter=ACMR", "-z"]
+          ).split(b"\0")
+          for raw_path in raw_paths:
+              if not raw_path:
+                  continue
+              path = Path(os.fsdecode(raw_path))
+              if path.is_symlink() or not path.is_file():
+                  continue
+              data = path.read_bytes()
+              if b"\0" in data:
+                  continue
+              cleaned = re.sub(rb"[ \t]+(?=\r?$)", b"", data, flags=re.MULTILINE)
+              cleaned = re.sub(rb"(?:[ \t]*\r?\n)+\Z", b"\n", cleaned)
+              if cleaned != data:
+                  path.write_bytes(cleaned)
+          PYTHON
+              then
+                echo "::warning::Whitespace normalizer failed; saving evidence and deferring checkpoint."
+                save_recovery_evidence "$base_sha"
+                git reset >/dev/null 2>&1 || true
+                return 1
+              fi
+              if ! stage_safe_changes "$base_sha"; then
+                save_recovery_evidence "$base_sha"
+                git reset >/dev/null 2>&1 || true
+                return 1
+              fi
+              if ! git diff --cached --check; then
+                echo "::error::Staged whitespace check still fails after normalization; saving recovery evidence."
+                save_recovery_evidence "$base_sha"
+                git reset >/dev/null 2>&1 || true
+                return 1
+              fi
+            fi
+
+            # Meaningful progress excludes only workflow definitions; marker-only
+            # commits are not used by this non-one-shot workflow.
+            if ! git diff --cached --quiet; then
+              while IFS= read -r -d '' changed_path; do
+                case "$changed_path" in
+                  .github/workflows/*) ;;
+                  *) checkpoint_has_project_changes=1 ;;
+                esac
+              done < <(git diff --cached --name-only -z)
+              git diff --cached --check || { save_recovery_evidence "$base_sha"; git reset >/dev/null 2>&1 || true; return 1; }
+              git commit -m "chore(kilo): checkpoint agent session" || { save_recovery_evidence "$base_sha"; return 1; }
+              committed_this_iteration=1
+            fi
+
+            # Retry persistence not only for a newly created commit, but also when
+            # an earlier session left local commits ahead of the remote tracking ref.
+            # This prevents a no-change worker session from silently skipping an
+            # outstanding checkpoint that has never been remotely verified.
+            local_head_sha="$(git rev-parse HEAD)"
+            remote_tracking_sha="$(git rev-parse "origin/$DEFAULT_BRANCH" 2>/dev/null || true)"
+            # A worker may have committed and pushed directly, leaving a clean worktree
+            # and even an updated origin tracking ref. Detect eligible Kilo commits in
+            # the session's base-to-HEAD range, but never credit them before verification.
+            if python3 scripts/controller_progress.py --base-sha "$base_sha" --head-sha "$local_head_sha"; then
+              session_has_committed_project_changes=1
+            fi
+            if (( committed_this_iteration == 1 || pending_persistence_recovery == 1 )) || [[ -z "$remote_tracking_sha" || "$local_head_sha" != "$remote_tracking_sha" || "$local_head_sha" != "$base_sha" ]]; then
+              if ! persist_checkpoint; then
+                save_recovery_evidence "$base_sha"
+                checkpoint_failure_kind="persistence"
+                return 2
+              fi
+
+              if (( pending_persistence_recovery == 1 && pending_persistence_has_project_changes == 1 )); then
+                project_progress=1
+                echo "Previously unpersisted meaningful work is now remotely verified at $(git rev-parse HEAD)."
+              fi
+              pending_persistence_recovery=0
+              pending_persistence_has_project_changes=0
+
+              local verified_head_sha
+              verified_head_sha="$(git rev-parse HEAD)"
+              # This is the only path for newly committed progress to be credited:
+              # meaningful net changes, a Kilo-committed change, and an exact remote SHA.
+              if [[ -n "$verified_remote_sha" && "$verified_remote_sha" == "$verified_head_sha" ]] &&
+                python3 scripts/controller_progress.py --base-sha "$base_sha" --head-sha "$verified_head_sha" --verified-remote-sha "$verified_remote_sha"; then
+                project_progress=1
+                echo "Meaningful repository progress verified at remote SHA ${verified_remote_sha}."
+              fi
+            fi
+            return 0
+          }
+
+          echo "Starting Kilo activation: target=${agents} sequential sessions, idle timeout=${idle_timeout}s, cutoff=355 minutes."
+          echo "Repository default branch: ${DEFAULT_BRANCH}"
+
+          for ((agent_index=1; agent_index<=agents; agent_index++)); do
+            remaining=$((cutoff_epoch - $(date +%s)))
+            if (( remaining <= checkpoint_reserve_seconds + 60 )); then
+              final_phase="cutoff"
+              final_detail="cutoff reached with checkpoint reserve held before session ${agent_index}"
+              break
+            fi
+            session_started=$((session_started + 1))
+            final_phase="worker-session"
+            final_detail="session ${agent_index} started"
+            base_sha="$(git rev-parse HEAD)"
+            session_command="$command"
+            if (( pending_persistence_recovery == 1 )); then
+              session_local_head_sha="$(git rev-parse HEAD)"
+              session_remote_tracking_sha="$(git rev-parse "origin/$DEFAULT_BRANCH" 2>/dev/null || echo unavailable)"
+              session_command+=" IMPORTANT SAME-RUN RECOVERY: the previous Kilo worker session (session ${last_persistence_failure_session}) ended because bounded remote checkpoint persistence failed. This is a NEW worker session inside the SAME active GitHub Actions run, not a request to end the workflow. Current local HEAD is ${session_local_head_sha}; last known remote-tracking SHA is ${session_remote_tracking_sha}; failed-session HEAD was ${last_persistence_failure_head}. Preserve all existing local commits and work; do not reset or discard them. Do not rewrite history unless a confirmed root cause requires it, and then only after preserving a recovery bundle and documenting the rollback plan. Read the current handoff and inspect git log/status plus available controller logs/recovery artifacts. Diagnose the actual push/fetch/reconciliation failure and attempt a materially different safe remedy when justified. The controller will retry persistence of all local-ahead commits after this session; do not claim persistence until the remote SHA matches."
+            fi
+            session_log="$RUNNER_TEMP/kilo-session-${agent_index}.log"
+            : > "$session_log"
+            attempt=0
+            transient_backoff=15
+            rc=1
+            echo "Starting sequential Kilo session ${agent_index}/${agents}; remaining safety budget ${remaining}s."
+
+            while true; do
+              remaining=$((cutoff_epoch - $(date +%s)))
+              worker_budget=$((remaining - checkpoint_reserve_seconds))
+              if (( worker_budget < 60 )); then
+                rc=124
+                echo "::warning::Stopping worker attempts to preserve the final checkpoint budget."
+                break
+              fi
+              attempt=$((attempt + 1))
+              attempt_log="$RUNNER_TEMP/kilo-session-${agent_index}-attempt-${attempt}.log"
+              set +e
+              timeout --signal=TERM --kill-after=10s "${worker_budget}s" \
+                python3 "$RUNNER_TEMP/kilo-idle-timeout.py" \
+                --idle-timeout-seconds "$idle_timeout" -- \
+                kilo run --model kilo/kilo-auto/free --auto "$session_command" \
+                2>&1 | tee "$attempt_log" | tee -a "$session_log"
+              rc=${PIPESTATUS[0]}
+              set -e
+              if (( rc == 0 )); then break; fi
+
+              normalized_log="$RUNNER_TEMP/kilo-session-${agent_index}-attempt-${attempt}.normalized.log"
+              python3 - "$attempt_log" "$normalized_log" <<'PYTHON'
+          import re, sys
+          from pathlib import Path
+          source, target = map(Path, sys.argv[1:3])
+          text = source.read_text(encoding="utf-8", errors="replace")
+          text = re.sub(r"\x1b\[[0-?]*[ -/]*[@-~]", "", text)
+          target.write_text(text, encoding="utf-8")
+          PYTHON
+              if grep -Eiq 'Upstream idle timeout exceeded|upstream.{0,40}idle.{0,40}timeout|ECONNRESET|ECONNREFUSED|ETIMEDOUT|EAI_AGAIN|ENETUNREACH|EHOSTUNREACH|socket hang up|fetch failed|temporary failure in name resolution|gateway timeout|bad gateway|service unavailable|too many requests|rate[ _-]?limit|resource[_ -]?exhausted|temporarily unavailable|HTTP.{0,12}(429|500|502|503|504)|status.{0,12}(429|500|502|503|504)' "$normalized_log"; then
+                retry_count=$((retry_count + 1))
+                remaining=$((cutoff_epoch - $(date +%s)))
+                if (( remaining <= transient_backoff )); then
+                  echo "::warning::Recognized transient Kilo/provider/network error, but insufficient time remains for backoff."
+                  break
+                fi
+                echo "::warning::Transient upstream/network failure; retry #${retry_count} after ${transient_backoff}s. Retrying until the global cutoff."
+                sleep "$transient_backoff"
+                (( transient_backoff < 300 )) && transient_backoff=$((transient_backoff * 2))
+                (( transient_backoff > 300 )) && transient_backoff=300
+                continue
+              fi
+              if grep -Fq 'Kilo invocation idle timeout:' "$normalized_log"; then
+                echo "::warning::Worker became silent for ${idle_timeout}s; diagnostic evidence was recorded and a fresh session will follow this checkpoint."
+              fi
+              break
+            done
+
+            provider_pressure=0
+            if (( rc == 0 )); then
+              session_completed=$((session_completed + 1))
+              consecutive_failures=0
+              provider_pressure_streak=0
+              final_detail="session ${agent_index} exited successfully; checkpointing"
+            else
+              failed_sessions=$((failed_sessions + 1))
+              consecutive_failures=$((consecutive_failures + 1))
+              if grep -Eiq '(^|[^0-9])429([^0-9]|$)|rate[ _-]?limit|resource[_ -]?exhausted|quota.*(exceed|limit)|current[:= ]*402.*limit[:= ]*400|provider.{0,30}(capacity|overload)' "$session_log"; then
+                provider_pressure=1
+                provider_pressure_streak=$((provider_pressure_streak + 1))
+                echo "::warning::Provider quota/capacity failure detected; applying a longer cooldown after checkpointing."
+              fi
+              final_detail="session ${agent_index} exited with status ${rc}; preserving evidence and checkpointing"
+              echo "::warning::Kilo session ${agent_index} exited with status ${rc}; preserving its evidence and continuing if time remains."
+            fi
+
+            if ! stage_and_checkpoint "$base_sha"; then
+              save_recovery_evidence "$base_sha"
+
+              if [[ "$checkpoint_failure_kind" == "persistence" ]]; then
+                # End this worker session only. Keep the same workflow run alive,
+                # preserve the local-ahead commit, and let a fresh agent inspect or
+                # repair the cause. A later checkpoint always retries remote verification.
+                if (( rc == 0 )); then failed_sessions=$((failed_sessions + 1)); fi
+                consecutive_failures=$((consecutive_failures + 1))
+                pending_persistence_recovery=1
+                if (( checkpoint_has_project_changes == 1 || session_has_committed_project_changes == 1 )); then
+                  pending_persistence_has_project_changes=1
+                fi
+                last_persistence_failure_session="$agent_index"
+                last_persistence_failure_head="$(git rev-parse HEAD)"
+                final_phase="session-persistence-recovery"
+                final_detail="Kilo session ${agent_index} ended after bounded persistence retries; a fresh worker session will start in this same workflow run"
+                echo "::warning::Kilo session ${agent_index} ended after bounded persistence attempts. The workflow run will continue with a fresh worker session; unpushed work was preserved and has NOT been declared remotely saved."
+                {
+                  echo "### Session-level persistence failure"
+                  echo "- Ended worker session: ${agent_index}"
+                  echo "- Local HEAD preserved: ${last_persistence_failure_head}"
+                  echo "- Status: pending remote persistence; NOT verified as saved"
+                  echo "- Action: controller will start another worker session in this same workflow run."
+                } >> "$GITHUB_STEP_SUMMARY"
+
+                remaining=$((cutoff_epoch - $(date +%s)))
+                if (( remaining <= checkpoint_reserve_seconds + 60 )); then
+                  final_phase="cutoff"
+                  final_detail="global cutoff reached after session-level persistence failure; recovery evidence preserved"
+                  break
+                fi
+                sleep 15
+                continue
+              fi
+
+              # Non-persistence checkpoint validation/staging defects retain the
+              # stricter terminal path until their recovery safety is understood.
+              fatal_persistence=1
+              final_phase="checkpoint-failure"
+              final_detail="checkpoint validation failed for session ${agent_index}; recovery evidence was saved when possible"
+              echo "::error::Checkpoint validation failed. Recovery artifacts will be uploaded; refusing to continue with an untrusted staging state."
+              break
+            fi
+
+            if (( $(date +%s) >= cutoff_epoch )); then
+              final_phase="cutoff"
+              final_detail="355-minute cutoff reached after a verified checkpoint"
+              break
+            fi
+            if (( provider_pressure == 1 )); then
+              case "$provider_pressure_streak" in
+                1) cooldown=300 ;;
+                2) cooldown=600 ;;
+                *) cooldown=900 ;;
+              esac
+              remaining=$((cutoff_epoch - $(date +%s)))
+              (( cooldown > remaining )) && cooldown=$remaining
+              if (( cooldown > 0 )); then
+                echo "Provider cooldown: waiting ${cooldown}s (pressure streak=${provider_pressure_streak}); global cutoff remains authoritative."
+                sleep "$cooldown"
+              fi
+            elif (( consecutive_failures > 0 )); then
+              case "$consecutive_failures" in
+                1) cooldown=15 ;;
+                2) cooldown=30 ;;
+                3) cooldown=60 ;;
+                *) cooldown=120 ;;
+              esac
+              cooldown=$((cooldown + RANDOM % 8))
+              remaining=$((cutoff_epoch - $(date +%s)))
+              (( cooldown > remaining )) && cooldown=$remaining
+              if (( cooldown > 0 )); then
+                echo "Waiting ${cooldown}s before the next Kilo session after failure streak ${consecutive_failures}."
+                sleep "$cooldown"
+              fi
+            else
+              # Brief pause reduces avoidable upstream contention.
+              sleep 2
+            fi
+          done
+
+          if (( $(date +%s) >= cutoff_epoch )); then
+            final_phase="cutoff"
+            final_detail="355-minute cutoff reached; the last completed checkpoint was verified"
+          fi
+          echo "KILO_SESSIONS_STARTED=${session_started}" >> "$GITHUB_OUTPUT"
+          echo "KILO_SESSIONS_COMPLETED=${session_completed}" >> "$GITHUB_OUTPUT"
+          echo "KILO_FAILED_SESSIONS=${failed_sessions}" >> "$GITHUB_OUTPUT"
+          echo "KILO_TRANSIENT_RETRIES=${retry_count}" >> "$GITHUB_OUTPUT"
+          echo "KILO_PERSISTED_CHECKPOINTS=${checkpoint_count}" >> "$GITHUB_OUTPUT"
+          echo "KILO_PERSISTENCE_ATTEMPTS=${persistence_attempts}" >> "$GITHUB_OUTPUT"
+          echo "KILO_PROJECT_PROGRESS=${project_progress}" >> "$GITHUB_OUTPUT"
+          echo "KILO_FINAL_PHASE=${final_phase}" >> "$GITHUB_OUTPUT"
+          echo "KILO_FINAL_DETAIL=${final_detail}" >> "$GITHUB_OUTPUT"
+          {
+            echo "## Cross-venue funding dispersion Kilo workflow summary"
+            echo "- Sessions started: ${session_started}"
+            echo "- Sessions exited successfully: ${session_completed}"
+            echo "- Sessions with errors/timeouts: ${failed_sessions}"
+            echo "- Recognized transient retries: ${retry_count}"
+            echo "- Controller-verified persisted checkpoints: ${checkpoint_count}"
+            echo "- Persistence attempts: ${persistence_attempts}"
+            echo "- Meaningful project progress verified: ${project_progress}"
+            echo "- Consecutive worker failures at end: ${consecutive_failures}"
+            echo "- Provider quota/capacity failure streak: ${provider_pressure_streak}"
+            echo "- Final phase: ${final_phase} — ${final_detail}"
+            echo "- Idle timeout: ${idle_timeout}s; workflow safety cutoff: 355 minutes"
+            echo
+            echo "A successful worker exit is not by itself proof of task correctness. Review the central diagnostic ledger and persisted repository changes."
+          } >> "$GITHUB_STEP_SUMMARY"
+          if (( fatal_persistence == 1 )); then
+            echo "::error::Checkpoint validation or persistence failed; see recovery artifacts and the summary above."
+            exit 1
+          fi
+          if (( project_progress != 1 )); then
+            echo "::error::No meaningful repository change was committed and verified in this activation."
+            exit 1
+          fi
+
+      - name: Verify diagnostics-only activation
+        if: ${{ always() && (github.event_name == 'push' || inputs.diagnostics_only == true) }}
+        shell: bash
+        env:
+          TEST_OUTCOME: ${{ steps.controller_tests.outcome }}
+          COLLECT_OUTCOME: ${{ steps.collect.outcome }}
+          PERSIST_OUTCOME: ${{ steps.persist_diagnostics.outcome }}
+        run: |
+          set -Eeuo pipefail
+          if [[ "$TEST_OUTCOME" != "success" ]]; then
+            echo "::error::Diagnostics-only activation's targeted regression tests did not pass."
+            exit 1
+          fi
+          if [[ "$COLLECT_OUTCOME" != "success" ]]; then
+            echo "::error::Diagnostics-only activation did not complete the collector successfully."
+            exit 1
+          fi
+          if [[ "$PERSIST_OUTCOME" != "success" ]]; then
+            echo "::error::Diagnostics-only activation could not verify ledger persistence."
+            exit 1
+          fi
+          echo "Diagnostics-only activation verified: completed-run collection and ledger persistence both succeeded; Kilo was intentionally not started."
+
+      # This artifact contains only Git recovery material for interrupted work.
+      # Error messages/excerpts are persisted exclusively by the JSONL recorder above.
+      - name: Upload recovery artifacts
+        if: always()
+        continue-on-error: true
+        uses: actions/upload-artifact@v7.0.2
+        with:
+          name: kilo-recovery-artifacts-${{ github.run_id }}
+          path: |
+            ${{ runner.temp }}/kilo-recovery-*.bundle
+            ${{ runner.temp }}/kilo-working-tree-*.patch
+            ${{ runner.temp }}/kilo-index-*.patch
+            ${{ runner.temp }}/kilo-recovery-status-*.txt
+          if-no-files-found: ignore
+          retention-days: 7
+
+      - name: Report controller outcomes
+        if: always()
+        shell: bash
+        env:
+          EVENT_NAME: ${{ github.event_name }}
+          DIAGNOSTICS_ONLY: ${{ inputs.diagnostics_only }}
+          COLLECT_OUTCOME: ${{ steps.collect.outcome }}
+          PERSIST_OUTCOME: ${{ steps.persist_diagnostics.outcome }}
+          STARTED: ${{ steps.kilo.outputs.KILO_SESSIONS_STARTED }}
+          COMPLETED: ${{ steps.kilo.outputs.KILO_SESSIONS_COMPLETED }}
+          FAILED: ${{ steps.kilo.outputs.KILO_FAILED_SESSIONS }}
+          CHECKPOINTS: ${{ steps.kilo.outputs.KILO_PERSISTED_CHECKPOINTS }}
+          PROJECT_PROGRESS: ${{ steps.kilo.outputs.KILO_PROJECT_PROGRESS }}
+          PHASE: ${{ steps.kilo.outputs.KILO_FINAL_PHASE }}
+          DETAIL: ${{ steps.kilo.outputs.KILO_FINAL_DETAIL }}
+        run: |
+          if [[ "$EVENT_NAME" == "push" || "$DIAGNOSTICS_ONLY" == "true" ]]; then
+            echo "Diagnostics-only activation: Kilo worker skipped; collector=${COLLECT_OUTCOME:-unknown}; ledger persistence=${PERSIST_OUTCOME:-unknown}."
+            exit 0
+          fi
+          echo "Kilo sessions started=${STARTED:-unknown}; completed=${COMPLETED:-unknown}; failed=${FAILED:-unknown}; verified checkpoints=${CHECKPOINTS:-unknown}; meaningful project progress=${PROJECT_PROGRESS:-unknown}."
+          echo "Final phase=${PHASE:-unknown}; detail=${DETAIL:-unknown}."
