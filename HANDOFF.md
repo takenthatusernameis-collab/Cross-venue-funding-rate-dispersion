@@ -44,3 +44,13 @@ Repository baseline includes the frozen grid, protocol, deterministic grid/accou
 1. Add known-answer and adversarial tests for the source-independent primitives: funding cash-flow sign conventions, price/basis PnL separation, per-leg execution cost, time-weighted mean staleness gap fail-close, rank frontier gap rejection, type-7 quantile no-fallback, tail-selection determinism, and the 1.0x gross-exposure cap.
 2. Run the four AGENTS.md validation commands and confirm all pass; keep run status BLOCKED_DATA_GATE.
 3. Do not run the empirical grid until a free public source passes the historical point-in-time market-cap gate; do not claim any performance metric.
+
+## Completed Task — Source-independent primitive test coverage (2026-10-24)
+
+1. Verified existing known-answer/adversarial tests cover all eight listed primitives: funding cash-flow sign conventions, price/basis PnL separation, per-leg execution cost, time-weighted mean staleness gap fail-close, rank frontier gap rejection, type-7 quantile no-fallback, tail-selection determinism, and the 1.0x gross-exposure cap.
+2. Ran the four AGENTS.md validation commands: compileall OK; 28 tests OK; RESEARCH_VALIDATION=PASS (grid 108, anchor FVD053, status NOT_RUN, no metrics); SKILLS_VALIDATION=PASS count=4.
+3. `git diff --check` clean; status BLOCKED_DATA_GATE retained; no empirical grid run; no performance metric claimed.
+
+## Next task: historical point-in-time market-cap source (data gate)
+
+Find or verify a free public source providing >=3 years of point-in-time market-cap history with effective and publication/availability times; if none, keep BLOCKED_DATA_GATE and preserve all artifacts.
