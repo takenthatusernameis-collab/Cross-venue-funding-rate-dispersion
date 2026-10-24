@@ -1,0 +1,127 @@
+{
+  "schema_version": "1.0",
+  "experiment_id": "FVD-DISPERSION-V1",
+  "status": "FROZEN",
+  "expected_combinations": 108,
+  "axes": [
+    {
+      "name": "dispersion_lookback_hours",
+      "values": [
+        8,
+        24,
+        72
+      ],
+      "definition": "Time-weighted lookback in completed hourly observations."
+    },
+    {
+      "name": "entry_percentile",
+      "values": [
+        70,
+        80,
+        90
+      ],
+      "definition": "Quantile of prior-date dispersion observations. No fallback threshold; insufficient history means no signal."
+    },
+    {
+      "name": "holding_hours",
+      "values": [
+        8,
+        24,
+        72
+      ],
+      "definition": "Fixed elapsed holding period; exit at first tradable hourly open at or after scheduled exit."
+    },
+    {
+      "name": "portfolio_tail_fraction",
+      "values": [
+        0.1,
+        0.2
+      ],
+      "definition": "Select highest-dispersion 10% or 20% of eligible assets; ties resolved by stable asset ID."
+    },
+    {
+      "name": "minimum_eligible_venues",
+      "values": [
+        2,
+        3
+      ],
+      "definition": "Minimum eligible venues for the same underlying at signal time."
+    }
+  ],
+  "enumeration": {
+    "id_prefix": "FVD",
+    "id_width": 3,
+    "ordering": "Cartesian product in declared axis order and listed value order.",
+    "primary_anchor_id": "FVD053",
+    "primary_anchor": {
+      "dispersion_lookback_hours": 24,
+      "entry_percentile": 80,
+      "holding_hours": 24,
+      "portfolio_tail_fraction": 0.1,
+      "minimum_eligible_venues": 2
+    }
+  },
+  "threshold": {
+    "history_utc_days": 90,
+    "minimum_valid_prior_dates": 30,
+    "daily_sample_cutoff_utc": "23:00",
+    "quantile_method": "linear/type-7",
+    "include_current_signal_date": false,
+    "fallback": "none"
+  },
+  "universe": {
+    "ranking": "descending historical point-in-time market capitalization",
+    "fixed_top_n": false,
+    "operational_batch_size": 50,
+    "continue_after_current_cohort_exhausted": true,
+    "require_historical_effective_time": true,
+    "require_publication_time_not_after_snapshot": true,
+    "current_snapshot_use": "candidate discovery only; never substitute for historical ranks"
+  },
+  "cost_scenarios": [
+    {
+      "id": "optimistic",
+      "fee_bps_per_side": 2,
+      "slippage_bps_per_side": 2,
+      "interpretation": "Sensitivity assumption, not a venue fee claim."
+    },
+    {
+      "id": "base",
+      "fee_bps_per_side": 5,
+      "slippage_bps_per_side": 5,
+      "interpretation": "Registered baseline unless verified public venue-specific costs are available."
+    },
+    {
+      "id": "stress",
+      "fee_bps_per_side": 10,
+      "slippage_bps_per_side": 10,
+      "interpretation": "Adverse cost sensitivity; never discarded after results are observed."
+    }
+  ],
+  "evaluation": {
+    "minimum_complete_history_years": 3,
+    "chronological_split_fractions": {
+      "discovery": 0.6,
+      "validation": 0.2,
+      "final_holdout": 0.2
+    },
+    "grid_evaluation_splits": [
+      "discovery",
+      "validation"
+    ],
+    "final_holdout_configurations": [
+      "FVD053"
+    ],
+    "validation_primary_endpoint": "mean daily net portfolio return at <=1.0x gross exposure",
+    "multiple_testing_correction": "Holm correction across all 108 validation tests",
+    "uncertainty": "dependence-aware block bootstrap; disclose block choice and sensitivity",
+    "holdout_policy": "Do not inspect or tune against final holdout; evaluate FVD053 only after validation decision is frozen."
+  },
+  "hard_gates": {
+    "free_public_data_only": true,
+    "live_trading": false,
+    "synthetic_data_is_not_market_evidence": true,
+    "performance_claim_requires_independent_audit": true,
+    "missing_required_history_blocks_backtest": true
+  }
+}
