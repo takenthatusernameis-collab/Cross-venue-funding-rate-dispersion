@@ -1,0 +1,11 @@
+{
+  "schema_version": "1.0",
+  "experiment_id": "FVD-DISPERSION-V1",
+  "status": "NOT_STARTED",
+  "snapshot_id": null,
+  "last_completed_rank": 0,
+  "completed_asset_ids": [],
+  "excluded_assets": [],
+  "current_cohort": [],
+  "next_action": "Identify and verify a free historical point-in-time market-cap source before empirical backtesting."
+}
