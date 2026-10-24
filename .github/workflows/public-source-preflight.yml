@@ -15,7 +15,6 @@ jobs:
       - uses: actions/setup-python@v6
         with:
           python-version: "3.12"
-          cache: false
       - name: Probe bounded public endpoints
         run: python3 scripts/preflight_public_sources.py --output "${{ runner.temp }}/funding-source-preflight.json"
       - name: Upload source reachability report
