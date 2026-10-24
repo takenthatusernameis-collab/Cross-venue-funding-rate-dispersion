@@ -45,7 +45,7 @@ A successful preflight means only that an endpoint responded at that time. It do
 - `configs/`: frozen parameter grid and research controls.
 - `docs/research_protocol.md`: full hypothesis, timing, costs, splits, inference and gate definitions.
 - `prompts/`: iteratively refined self-contained research-agent prompt.
-- `src/cross_venue_funding_dispersion/`: deterministic grid, accounting and point-in-time universe primitives.
+- `src/cross_venue_funding_dispersion/`: deterministic grid, signal/threshold, funding/price accounting, portfolio exposure and point-in-time universe primitives.
 - `tests/`: offline known-answer and workflow-contract tests.
 - `scripts/`: validation, progress accounting and bounded public-source preflight.
 - `.github/workflows/main.yml`: sequential Kilo agent loop; scheduled/manual worker with checkpoint/recovery safeguards.
