@@ -160,9 +160,10 @@ def select_top_dispersion(
     if threshold is None:
         return []
     cutoff = _finite(threshold, "threshold")
-    eligible = [(asset, _finite(value, "dispersion")) for asset, value in values.items() if float(value) >= cutoff]
-    eligible.sort(key=lambda pair: (-pair[1], pair[0]))
-    if not eligible:
+    all_values = [(asset, _finite(value, "dispersion")) for asset, value in values.items()]
+    all_values.sort(key=lambda pair: (-pair[1], pair[0]))
+    if not all_values:
         return []
-    count = max(1, math.ceil(len(eligible) * fraction))
-    return [asset for asset, _ in eligible[:count]]
+    count = max(1, math.ceil(len(all_values) * fraction))
+    selected = all_values[:count]
+    return [asset for asset, value in selected if value >= cutoff]
