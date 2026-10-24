@@ -141,6 +141,66 @@ class RecomputeTests(unittest.TestCase):
         with self.assertRaises(ValueError):
             attribution_check({"published": {}})  # missing records not required here but bad shape
 
+    def test_attribution_funding_sign_conventions(self):
+        # Long pays when funding positive, receives when funding negative.
+        # net = basis + funding - fees - slippage
+        records_pos = [_record(net=0.88, funding=-0.02, fees=0.05, slippage=0.0, basis=0.95)]
+        published = recompute_ledger_totals(records_pos)
+        result = attribution_check({"records": records_pos, "published": published})
+        self.assertTrue(result["consistent"])
+        self.assertAlmostEqual(result["derived_total_net_pnl"], 0.88)
+
+        records_neg = [_record(net=1.03, funding=0.10, fees=0.02, slippage=0.0, basis=0.95)]
+        published = recompute_ledger_totals(records_neg)
+        result = attribution_check({"records": records_neg, "published": published})
+        self.assertTrue(result["consistent"])
+
+    def test_attribution_price_basis_separation(self):
+        # Price/basis PnL separated from funding
+        records = [_record(net=0.50, funding=0.20, fees=0.10, slippage=0.05, basis=0.45)]
+        published = recompute_ledger_totals(records)
+        result = attribution_check({"records": records, "published": published})
+        self.assertTrue(result["consistent"])
+        self.assertAlmostEqual(result["derived_total_net_pnl"], 0.50)
+
+    def test_attribution_fees_slippage(self):
+        # Fees and slippage reduce net PnL
+        records = [_record(net=0.83, funding=0.0, fees=0.10, slippage=0.07, basis=1.0)]
+        published = recompute_ledger_totals(records)
+        result = attribution_check({"records": records, "published": published})
+        self.assertTrue(result["consistent"])
+
+        # Increase fees -> net decreases
+        records2 = [_record(net=0.73, funding=0.0, fees=0.20, slippage=0.07, basis=1.0)]
+        published2 = recompute_ledger_totals(records2)
+        result2 = attribution_check({"records": records2, "published": published2})
+        self.assertTrue(result2["consistent"])
+
+    def test_attribution_rounded_floats(self):
+        # Test with floats that need rounding
+        records = [_record(net=1.23456789, funding=0.11111111, fees=0.02222222, slippage=0.01111111, basis=1.15679011)]
+        published = recompute_ledger_totals(records)
+        result = attribution_check({"records": records, "published": published}, tolerance=1e-8)
+        self.assertTrue(result["consistent"])
+
+    def test_attribution_multiple_records(self):
+        records = [
+            _record(net=0.98, funding=0.1, fees=0.05, slippage=0.02, basis=0.95),
+            _record(net=1.47, funding=0.15, fees=0.03, slippage=0.01, basis=1.36),
+        ]
+        published = recompute_ledger_totals(records)
+        result = attribution_check({"records": records, "published": published})
+        self.assertTrue(result["consistent"])
+        self.assertAlmostEqual(result["derived_total_net_pnl"], 2.45)
+
+    def test_attribution_bad_tolerance_fail_closed(self):
+        records = [_record(net=0.98, funding=0.1, fees=0.05, slippage=0.02, basis=0.95)]
+        published = recompute_ledger_totals(records)
+        artifact = {"records": records, "published": published}
+        for bad_tol in (float("nan"), -1.0, "bad"):
+            with self.assertRaises(ValueError):
+                attribution_check(artifact, tolerance=bad_tol)
+
 
 if __name__ == "__main__":
     unittest.main()
