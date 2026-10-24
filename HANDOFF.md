@@ -379,3 +379,14 @@ Continue source-independent deterministic work (hardening, tests, schemas, confo
 
 ## Next measurable task
 Continue source-independent deterministic work (hardening, tests, schemas, conformance checks) per AGENTS.md constraints. Do not run empirical grid or claim performance metrics until a free public source passes the historical point-in-time market-cap gate with verified publication/as-of timestamps. Preserve frozen grid (FVD001–FVD108, anchor FVD053), free-public-data-only rule, expanding historical point-in-time market-cap universe, and research-only/no-live-trading boundary. The confirmatory campaign remains BLOCKED_DATA_GATE; the exploratory track remains EXPLORATORY_ONLY / INCONCLUSIVE and does not authorize promotion or trading.
+
+## Completed Task — Source-independent grid conformance validation (2026-10-24)
+
+1. Added `scripts/validate_grid.py`: offline conformance check over `load_grid`, `expand_grid`, `config_id`, and `validate_grid` — asserts 108 unique combinations, FVD001..FVD108 ids, FVD053 primary anchor, fail-closed rejection of invalid inputs (None, empty axes, empty values, duplicate axis names).
+2. Registered it in `scripts/validate_all.py` (count now 16).
+3. Ran all validations: compileall OK; 122 tests OK; RESEARCH_VALIDATION=PASS (grid 108, anchor FVD053, status NOT_RUN, no metrics); SKILLS_VALIDATION=PASS count=4; ALL_VALIDATIONS=PASS count=16; GRID_VALIDATION=PASS. `git diff --check` clean.
+4. `research_state/run_manifest.json` retains status BLOCKED_DATA_GATE; frozen grid sha unchanged; no empirical grid run; no performance metric claimed.
+
+## Next task: source-independent work while data gate remains blocked
+
+Continue source-independent deterministic work (hardening, tests, schemas, conformance checks) per AGENTS.md constraints. Do not run empirical grid or claim performance metrics until a free public source passes the historical point-in-time market-cap gate with verified publication/as-of timestamps. Preserve frozen grid (FVD001–FVD108, anchor FVD053), free-public-data-only rule, expanding historical point-in-time market-cap universe, and research-only/no-live-trading boundary. The confirmatory campaign remains BLOCKED_DATA_GATE; the exploratory track remains EXPLORATORY_ONLY / INCONCLUSIVE and does not authorize promotion or trading.
