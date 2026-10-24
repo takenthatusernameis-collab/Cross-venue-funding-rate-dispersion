@@ -88,3 +88,14 @@ Run a red-team self-audit per .agents/skills/red-team-audit/SKILL.md: independen
 
 ## Next task: find a free public source with >=3 years of point-in-time market-cap history
 Search for a free public source providing historical point-in-time market-cap ranks with both effective/as-of and publication/availability timestamps and >=3 years of history (no paid APIs/trials/keys required). If found, produce `research_state/source_coverage_matrix_<date>.json` with endpoint/request, status, usable range, pagination, missingness, units, terms/limits, retrieval time and response sha256; update `research_state/run_manifest.json` only if gate becomes PASS with immutable evidence. If none exists after targeted search, keep BLOCKED_DATA_GATE and do source-independent work only. Do not run empirical grid or claim performance metrics.
+
+## Completed Task — Free-source search for historical point-in-time market-cap (2026-10-24)
+
+1. Searched for a materially different free public source with >=3 years of point-in-time market-cap ranks and both effective/as-of and publication/availability timestamps.
+2. Found CryptWatch (`https://cryptwat.ch/api/v1`) — free, no key/registration, daily snapshots from 2013-04-28 (~13.5 years), ~2200 snapshot dates, per-coin USD market cap/rank/price/status/date_added/delisted_at. Sample response sha256 f2d50b86d8750d84edcf3a04f049697bde478a63e8ed153865e59e35a34a3d stored. Health endpoint reports 2200 snapshots, 8114 coins.
+3. Gate assessment: PARTIAL. CryptWatch lacks per-snapshot publication/availability timestamps; point-in-time admissibility cannot be strictly verified, so it does not alone flip the gate to PASS. Prior sources remain blocked. Gate stays BLOCKED_DATA_GATE.
+4. Produced `research_state/source_coverage_matrix_2026-10-24_cryptwatch.json` documenting the candidate (endpoint, status, range, pagination, missingness, units, terms, retrieval time, sha256). `research_state/run_manifest.json` unchanged (gate not PASS).
+5. Ran validation: compileall OK; 45 tests OK; RESEARCH_VALIDATION=PASS (grid 108, anchor FVD053, status NOT_RUN, no metrics); SKILLS_VALIDATION=PASS count=4; UNIVERSE_FRONTIER_VALIDATION=PASS. `git diff --check` clean. No empirical grid run; no performance metric claimed.
+
+## Next task: evaluate CryptWatch for point-in-time usability under a conservative publication lag
+Determine whether CryptWatch daily snapshots can satisfy the point-in-time gate by adopting a conservative publication lag (e.g., snapshot available only from snapshot_date + 1 day) and recording an explicit availability timestamp per snapshot; if yes, update run_manifest.json to PASS with immutable evidence and begin universe construction; if not, document the blocking reason and continue source-independent work. Do not run the empirical grid or claim performance metrics until the gate is PASS.

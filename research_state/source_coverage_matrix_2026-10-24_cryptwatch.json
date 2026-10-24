@@ -1,0 +1,22 @@
+{
+  "search_date_utc": "2026-10-24",
+  "search_scope": "Free public sources for >=3 years of point-in-time market-cap ranks with effective/as-of and publication/availability timestamps; no paid APIs, keys, trials, or compute.",
+  "candidates": [
+    {
+      "source_id": "cryptwatch_snapshots",
+      "endpoint": "https://cryptwat.ch/api/v1/snapshots/{date}?top=N",
+      "request_example": "GET https://cryptwat.ch/api/v1/snapshots/2020-01-05?top=3 (User-Agent research contact)",
+      "response_status": 200,
+      "usable_range": "2013-04-28 to 2026-10-24 (daily snapshots; ~2200 snapshot dates, ~13.5 years)",
+      "pagination": "top/limit per snapshot; snapshots list endpoint paginates by date; no cursor token beyond date",
+      "missingness": "Per-coin market_cap, rank, price, status, date_added, delisted_at present; no per-snapshot publication/availability timestamp (only retrieval as_of = query time); no hourly granularity (daily only); historical CMC-derived reconstruction, not original publication time",
+      "units": "USD market cap (float), rank (int), price (USD)",
+      "terms_limits": "Free, no key/registration; <=60 req/min/IP; User-Agent with contact required; no reselling raw data; data derived from CoinMarketCap",
+      "retrieval_time_utc": "2026-10-24T08:17:43Z",
+      "response_sha256": "f2d50b86d8750d84edcf3a04f049697bde478a63e8ed153865e59e35a34a3d",
+      "gate_assessment": "PARTIAL: >=3 years of daily effective/as-of market-cap ranks available for free without keys, but no per-snapshot publication/availability timestamp; point-in-time admissibility cannot be strictly verified (lookahead risk). Not sufficient alone to flip gate to PASS."
+    }
+  ],
+  "gate_result": "BLOCKED_DATA_GATE",
+  "reason": "No free public source found that provides both effective/as-of and publication/availability timestamps for >=3 years of historical market-cap ranks. CryptWatch provides the longest free daily history (~13.5y) but lacks per-snapshot publication timestamps; previously documented sources (CoinGecko 365d, CoinPaprika 1y, CMC paid, etc.) remain blocked. Gate stays BLOCKED; no empirical grid run; no performance metrics claimed."
+}
