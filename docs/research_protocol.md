@@ -24,7 +24,7 @@ At each completed hourly signal time, construct a piecewise-constant series from
 
 The threshold is the configured percentile of the previous 90 completed UTC dates, with at most one daily observation per UTC date: the last completed hourly dispersion snapshot at or before **23:00 UTC**. Require at least 30 valid prior-date observations; exclude the current signal date; use linear/type-7 quantile. **No fallback threshold**. Insufficient history means no signal.
 
-At each completed hourly signal timestamp, require the configured minimum eligible venues, apply the per-asset threshold, and select the highest-dispersion configured cross-sectional tail. Resolve ties deterministically by asset identifier. Long the venue with the lowest normalized funding rate and short the venue with the highest for the same underlying. Resolve venue ties by stable venue ID.
+At each completed hourly signal timestamp, require the configured minimum eligible venues, rank all eligible underlyings by current dispersion, and select the configured top cross-sectional tail fraction. Then keep only selected assets whose dispersion is greater than or equal to that asset's historical threshold; a threshold failure does not cause replacement by a lower-ranked asset. Resolve ties deterministically by asset identifier. Long the venue with the lowest normalized funding rate and short the venue with the highest for the same underlying. Resolve venue ties by stable venue ID.
 
 ## 5. Execution and accounting
 
