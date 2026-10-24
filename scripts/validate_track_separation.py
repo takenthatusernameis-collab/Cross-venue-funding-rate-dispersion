@@ -70,6 +70,7 @@ def main() -> int:
     run_id = exploratory.get("run_id")
     check(isinstance(run_id, str) and run_id, "exploratory manifest must carry a run_id")
     check(run_id != "FVD053", "exploratory run_id must not reuse the frozen confirmatory anchor id")
+    check(run_id.startswith("FVD-EXPLORATORY"), "exploratory run_id must be under FVD-EXPLORATORY namespace")
     status = exploratory.get("status")
     check(status in EXPLORATORY_STATUSES,
           f"exploratory status must be EXPLORATORY_ONLY or INCONCLUSIVE, got {status!r}")
@@ -85,6 +86,8 @@ def main() -> int:
     # --- Track separation: exploratory must not alter the confirmatory gate ---
     check(exploratory.get("historical_point_in_time_market_cap_gate") in (None, "BLOCKED", "BLOCKED_DATA_GATE", "N/A"),
           "exploratory manifest must not report a passed confirmatory gate")
+    check(exploratory.get("confirmatory_status_preserved") == "BLOCKED_DATA_GATE",
+          "exploratory manifest must preserve confirmatory_status_preserved=BLOCKED_DATA_GATE")
     check("grid_config_sha256" not in exploratory
           or exploratory.get("grid_config_sha256") == FROZEN_GRID_SHA,
           "exploratory manifest must not introduce a different confirmatory grid hash")
