@@ -175,3 +175,13 @@ Continue source-independent deterministic work (hardening, tests, schemas, confo
 ## Next task: source-independent work while data gate remains blocked
 
 Continue source-independent deterministic work (hardening, tests, schemas, conformance checks) per AGENTS.md constraints. Do not run empirical grid or claim performance metrics until a free public source passes the historical point-in-time market-cap gate with verified publication/as-of timestamps. Preserve frozen grid, free-public-data-only rule, expanding historical point-in-time market-cap universe, and research-only/no-live-trading boundary.
+
+## Completed Task — Source-independent pair-accounting conformance validation (2026-10-24)
+
+1. Added `scripts/validate_pair_pnl.py`: offline conformance check over `compute_pair_pnl` — asserts required ledger fields, known-answer attribution, missed-settlement zero funding, gross-exposure cap fail-closed, and invalid-input fail-closed.
+2. Ran all validations: compileall OK; 103 tests OK; RESEARCH_VALIDATION=PASS (grid 108, anchor FVD053, status NOT_RUN, no metrics); SKILLS_VALIDATION=PASS count=4; UNIVERSE_FRONTIER_VALIDATION=PASS; ORCHESTRATION_VALIDATION=PASS; PAIR_PNL_VALIDATION=PASS. `git diff --check` clean.
+3. `research_state/run_manifest.json` unchanged (status BLOCKED_DATA_GATE); frozen grid sha unchanged; no empirical grid run; no performance metric or economic edge claimed.
+
+## Next task: source-independent work while data gate remains blocked
+
+Continue source-independent deterministic work (hardening, tests, schemas, conformance checks) per AGENTS.md constraints. Do not run empirical grid or claim performance metrics until a free public source passes the historical point-in-time market-cap gate with verified publication/as-of timestamps. Preserve frozen grid, free-public-data-only rule, expanding historical point-in-time market-cap universe, and research-only/no-live-trading boundary.
