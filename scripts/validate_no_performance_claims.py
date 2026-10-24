@@ -1,0 +1,24 @@
+#!/usr/bin/env python3
+"""Fail-closed scan: no performance/economic claims in research artifacts or HANDOFF."""
+import sys
+from pathlib import Path
+
+ROOT = Path(__file__).resolve().parents[1]
+FORBIDDEN = ("sharpe", "annualized_return", "max_drawdown", "pnl_total", "equity_curve", "edge_detected", "profit_factor")
+
+def main() -> int:
+    targets = [ROOT / "HANDOFF.md"]
+    targets += sorted((ROOT / "research_state").glob("*.json"))
+    for p in targets:
+        if not p.is_file():
+            continue
+        text = p.read_text(encoding="utf-8", errors="replace").lower()
+        for key in FORBIDDEN:
+            if key in text:
+                print(f"FAIL: forbidden claim token '{key}' in {p.name}")
+                sys.exit(1)
+    print("NO_PERFORMANCE_CLAIMS_VALIDATION=PASS")
+    return 0
+
+if __name__ == "__main__":
+    raise SystemExit(main())
