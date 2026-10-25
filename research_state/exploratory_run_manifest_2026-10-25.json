@@ -1,0 +1,110 @@
+{
+  "schema_version": "1.0",
+  "experiment_id": "FVD-EXPLORATORY-002",
+  "run_id": "FVD-EXPLORATORY-002-run-2026-10-25",
+  "status": "EXPLORATORY_ONLY",
+  "confirmatory_status_preserved": "BLOCKED_DATA_GATE",
+  "historical_point_in_time_market_cap_gate": "BLOCKED",
+  "backtest_completed": false,
+  "performance_metrics_computed": false,
+  "date_utc": "2026-10-25",
+  "started_at_utc": "2026-10-25T19:07:59Z",
+  "completed_at_utc": "2026-10-25T19:07:59Z",
+  "purpose": "Exploratory threshold-history eligibility assessment and manifest freeze for the verified historical overlap of BTC/ETH/SOL/AVAX/LINK across OKX and Hyperliquid (depth probe + coverage matrix). Separately versioned from FVD-DISPERSION-V1 and FVD-EXPLORATORY-001; does not modify frozen grid, FVD001-FVD108, FVD053, or original run manifest.",
+  "data_cutoff_utc": "2026-10-25T16:00:00Z",
+  "instrument_list": [
+    "BTC",
+    "ETH",
+    "SOL",
+    "AVAX",
+    "LINK"
+  ],
+  "venue_set": [
+    "OKX",
+    "Hyperliquid"
+  ],
+  "contract_mapping": {
+    "OKX": "BTC-USDT-SWAP, ETH-USDT-SWAP, SOL-USDT-SWAP, AVAX-USDT-SWAP, LINK-USDT-SWAP",
+    "Hyperliquid": "BTC, ETH, SOL, AVAX, LINK (coin name)"
+  },
+  "contract_mapping_basis": "underlying symbol match only; instId derived from underlying; not independently verified via metadata/lifecycle; survivorship bias unmeasured",
+  "anchor": "FVD053",
+  "anchor_params": {
+    "dispersion_lookback_hours": 24,
+    "entry_percentile": 80,
+    "holding_hours": 24,
+    "portfolio_tail_fraction": 0.1,
+    "minimum_eligible_venues": 2
+  },
+  "cost_assumptions": {
+    "id": "base",
+    "fee_bps_per_side": 5,
+    "slippage_bps_per_side": 5,
+    "note": "frozen grid base scenario; sensitivity assumption, not a venue fee claim"
+  },
+  "gross_exposure_cap": "1.0x equity",
+  "sample_construction": "Verified historical intersection of 5 underlyings with funding settlements + 1h price history on >=2 venues; no market-cap rank required for this distinct exploratory estimand; shorter history allowed; not market-cap representative.",
+  "threshold_history_eligibility": {
+    "common_funding_intersection_utc": [
+      "2026-07-20T16:00:00Z",
+      "2026-10-25T16:00:00Z"
+    ],
+    "common_days": 97,
+    "prior_daily_observations_available": 97,
+    "minimum_prior_daily_observations_required": 90,
+    "eligible_for_threshold_computation": true,
+    "estimated_signal_days": 7,
+    "venues_per_underlying": 2,
+    "underlyings": 5,
+    "okx_funding_settlements": 292,
+    "hl_funding_settlements": 2880,
+    "okx_funding_interval": "8h",
+    "hl_funding_interval": "1h",
+    "price_history_verified_both_venues": true,
+    "contract_identity_verified": false
+  },
+  "coverage_summary": {
+    "common_funding_start_utc": "2026-07-20T16:00:00Z",
+    "common_funding_end_utc": "2026-10-25T16:00:00Z",
+    "common_days": 97,
+    "underlyings": 5,
+    "venues": 2
+  },
+  "exclusion_rules": [
+    "no forward fill",
+    "no invented fills",
+    "settlement-timed funding only",
+    "gross exposure <= 1.0x equity",
+    "minimum 2 eligible venues",
+    "threshold excludes current signal date",
+    ">=90 prior daily observations required for threshold"
+  ],
+  "data_gate_result": "PARTIAL \u2014 funding + 1h price history verified for both venues over ~97 common days; contract identity symbol-only/unverified; evaluation window ~7 signal days; short history vs 3-year confirmatory requirement",
+  "implementation_gate_result": "Source-independent primitives covered by known-answer/adversarial tests and conformance validators; real-data signal construction not yet exercised on this overlap",
+  "anchor_exercised": false,
+  "anchor_result": "Not exercised \u2014 manifest freeze and eligibility assessment only; anchor run requires separate data-gated step",
+  "conclusion": "EXPLORATORY_ONLY / INCONCLUSIVE for inference. Threshold-history eligibility met (97 prior daily observations >= 90) over the verified common funding intersection for 5 underlyings x 2 venues. Evaluation window remains ~7 signal days; contract identity unverified; no backtest, no performance metric, no economic edge claimed. Confirmatory gate BLOCKED_DATA_GATE preserved.",
+  "next_step": "Run single frozen anchor (FVD053 params) on this verified overlap with causal timing/accounting, then report descriptive outputs; keep EXPLORATORY_ONLY/INCONCLUSIVE status. Do not run full 108-cell grid.",
+  "output_artifacts": [
+    {
+      "path": "research_state/historical_overlap_depth_probe_2026-10-25.json",
+      "sha256": "b19c72408e0368038f6f051fffeb7d7658011f5bf52248d479956fed44600c65"
+    },
+    {
+      "path": "research_state/coverage_matrix_2026-10-25.json",
+      "sha256": "96954273b59bdc4ebcdfeec00c164e164bb324cf9d08be2868cbb92bc99514ef"
+    }
+  ],
+  "source_code_hashes": {},
+  "config_hashes": {
+    "configs/cross_venue_funding_dispersion_grid_v1.json": "6be218bc84bf118cf67c238ad1c13ef1e445658db3b1346cd64ccaccc7aa5f07"
+  },
+  "caveats": [
+    "Free public sources lack >=3 years of historical point-in-time market-cap ranks; confirmatory gate remains BLOCKED_DATA_GATE.",
+    "OKX funding retention ~97 days; common intersection limited by OKX start (~2026-07-20).",
+    "Contract identity by underlying symbol only; not independently verified; survivorship bias unmeasured.",
+    "Modeled fees/slippage (base 5/5 bps) are sensitivity assumptions, not measured venue costs.",
+    "No performance metric or economic edge claimed; EXPLORATORY_ONLY does not authorize live or paper trading.",
+    "Evaluation window ~7 signal days; uncertainty not estimable."
+  ]
+}
