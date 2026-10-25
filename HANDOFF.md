@@ -677,3 +677,9 @@ Assess threshold-history eligibility for FVD053 over the common funding intersec
 ## Next measurable task
 
 Run the single frozen FVD053 anchor on the verified overlap (BTC/ETH/SOL/AVAX/LINK, OKX + Hyperliquid, ~2026-07-20 → 2026-10-25) with causal timing and accounting (signal from completed UTC-hour obs, enter next tradable open, long lowest normalized funding / short highest, actual settlement cadence, funding cash flow separated from price PnL/fees/slippage, no forward-fill, gross exposure ≤1.0x). Report descriptive outputs only (net/gross return, volatility, max drawdown, exposure, turnover, signal episodes, settlements, venue-pairs, attribution, cost sensitivity, missingness) and keep status `EXPLORATORY_ONLY`/`INCONCLUSIVE`; evaluation window ~7 signal days so uncertainty likely not estimable. Do not run the full 108-cell grid. Preserve frozen grid/anchors, free-public-data-only, no trading, no performance claims. Confirmatory gate remains `BLOCKED_DATA_GATE`.
+
+## Completed Task — Add script-level test for validate_blocked_manifest_claims (2026-10-25)
+
+1. Added `tests/test_validate_blocked_manifest_claims_script.py` (1 test): `main()` returns 0 on committed manifests; standard library only, no network, no economic result.
+2. Ran exact validations: compileall OK; unittest discover OK (245+); validate_research.py RESEARCH_VALIDATION=PASS (grid 108, anchor FVD053, NOT_RUN, no metrics); validate_skills.py SKILLS_VALIDATION=PASS count=4; validate_all.py ALL_VALIDATIONS=PASS count=23; git diff --check clean.
+3. Frozen artifacts unchanged. Confirmatory BLOCKED_DATA_GATE; exploratory EXPLORATORY_ONLY/INCONCLUSIVE, no promotion/trading. No performance metrics claimed.
