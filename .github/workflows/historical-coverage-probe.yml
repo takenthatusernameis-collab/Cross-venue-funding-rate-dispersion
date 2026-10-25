@@ -60,6 +60,19 @@ jobs:
           git diff --cached --check
           git commit -m "research: record independent historical coverage probe"
 
+          verify_remote_artifact() {
+            local candidate_sha="$1"
+            local remote_ref_to_check="$2"
+            local candidate_blob remote_sha_to_check remote_blob
+            if ! git merge-base --is-ancestor "$candidate_sha" "$remote_ref_to_check"; then
+              return 1
+            fi
+            candidate_blob="$(git rev-parse "$candidate_sha:$artifact_path")"
+            remote_sha_to_check="$(git rev-parse "$remote_ref_to_check")"
+            remote_blob="$(git rev-parse "$remote_sha_to_check:$artifact_path" 2>/dev/null || true)"
+            [[ -n "$remote_blob" && "$candidate_blob" == "$remote_blob" ]]
+          }
+
           backoff=2
           for attempt in 1 2 3 4 5; do
             if ! timeout --kill-after=3s 20s git fetch --prune origin "+refs/heads/$DEFAULT_BRANCH:refs/remotes/origin/$DEFAULT_BRANCH"; then
@@ -69,18 +82,6 @@ jobs:
               remote_sha="$(git rev-parse "$remote_ref")"
               local_sha="$(git rev-parse HEAD)"
 
-              verify_remote_artifact() {
-                local candidate_sha="$1"
-                local remote_ref_to_check="$2"
-                local candidate_blob remote_sha_to_check remote_blob
-                if ! git merge-base --is-ancestor "$candidate_sha" "$remote_ref_to_check"; then
-                  return 1
-                fi
-                candidate_blob="$(git rev-parse "$candidate_sha:$artifact_path")"
-                remote_sha_to_check="$(git rev-parse "$remote_ref_to_check")"
-                remote_blob="$(git rev-parse "$remote_sha_to_check:$artifact_path" 2>/dev/null || true)"
-                [[ -n "$remote_blob" && "$candidate_blob" == "$remote_blob" ]]
-              }
 
               if git merge-base --is-ancestor "$local_sha" "$remote_ref"; then
                 if verify_remote_artifact "$local_sha" "$remote_ref"; then
