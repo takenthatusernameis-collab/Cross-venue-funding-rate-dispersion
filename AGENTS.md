@@ -53,10 +53,12 @@ The free-source inventory has already tested multiple independent source familie
 
 
 
-## Active source-data blocker prompt v2.1 — 2026-10-25
+## Active source-data blocker prompt v2.2 — 2026-10-25
 
-For the next task focused on unblocking free historical data, read and execute `prompts/autonomous_free_data_unblocking_v2_1.md` alongside the frozen `docs/research_protocol.md`, `docs/exploratory_protocol_v1.md`, relevant agent skills, and the current `HANDOFF.md`.
+For the next unblocking task, read and execute `prompts/autonomous_free_data_unblocking_v2_2.md` with the frozen `docs/research_protocol.md`, `docs/exploratory_protocol_v1.md`, relevant skills, current `HANDOFF.md`, and latest manifests.
 
-The v2.1 prompt incorporates the documented Hyperliquid `candleSnapshot` request shape and 5,000-candle ceiling, paginated funding-history requests, OKX `market/history-candles` and funding-history routes, and the distinct official Binance public archive/checksum route. Documentation is not accepted as evidence that a live endpoint works or that adequate sample coverage exists; run bounded probes and preserve exact response hashes/coverage or record the actual host-level network failure without inventing response evidence.
+The repository now contains the bounded canonical probe `scripts/probe_historical_overlap.py` and offline tests `tests/test_historical_overlap_probe.py`. Run offline validation first; then execute the probe from a permitted runner with public outbound networking using the exact command in v2.2. Record the actual result and response hashes. DNS failure before HTTP must be recorded as a host-level execution limitation, not as endpoint denial or unavailable history.
 
-The v2.1 prompt does not supersede or modify FVD-DISPERSION-V1, FVD001–FVD108, FVD053, the original research protocol, or the confirmatory `BLOCKED_DATA_GATE` status. Do not edit `.github/workflows/**`; no paid/manual inputs or trading.
+The prompt adds the documented Hyperliquid `candleSnapshot` request shape and 5,000-candle ceiling, paginated funding history, OKX historical-candle/funding-history routes, and a separately public Binance archive/checksum route. HTTP success or code correctness is not a coverage pass.
+
+All original invariants remain unchanged: FVD-DISPERSION-V1, FVD001–FVD108, FVD053, the original research protocol, and confirmatory `BLOCKED_DATA_GATE`. No workflow edits, no paid/manual inputs, no live or paper trading.
