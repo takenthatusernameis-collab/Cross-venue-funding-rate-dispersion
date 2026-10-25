@@ -189,7 +189,7 @@ For each run, freeze:
 - split boundaries, cost assumptions, independent episode counts and inference configuration;
 - outputs plus exact reproduction commands.
 
-Every expected unit must have exactly one terminal status and a reason where applicable: `OK`, `BLOCKED`, `INVALID`, `FAILED`, `NOT_RUN`, `INCONCLUSIVE`, or `COMPLETE` according to the current repository schema. Validate expected versus observed keys exactly, not just aggregate counts. Resume idempotently using stable keys; never append duplicate results or present partial output as complete.
+Every expected unit must have exactly one terminal status using the **exact enum defined by the current schema/validator for that artifact type**; do not impose one generic enum on unrelated artifacts. The state must unambiguously distinguish completed/computed, blocked, invalid, failed, not-run and inconclusive work where the relevant schema supports those distinctions, with a reason for every non-success state. Validate expected versus observed keys exactly, not just aggregate counts. Resume idempotently using stable keys; never append duplicate results or present partial output as complete.
 
 Preserve old configs, manifests, data hashes, logs and negative findings. Fixes or corrected calculations generate new artifacts and explicit supersession links; do not rewrite historical findings to make them appear valid. Use the existing schemas and validators, and extend them only where a demonstrated gap exists.
 
