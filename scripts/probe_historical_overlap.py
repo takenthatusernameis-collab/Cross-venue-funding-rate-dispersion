@@ -1,0 +1,428 @@
+#!/usr/bin/env python3
+"""Bounded no-credential probe of correct free historical funding/price routes.
+
+This is a coverage probe, not a backtest. It stores response hashes and summaries,
+not raw market rows. The original FVD data gate is never marked as passed here.
+"""
+from __future__ import annotations
+
+import argparse
+import hashlib
+import json
+import time
+from datetime import datetime, timedelta, timezone
+from pathlib import Path
+from typing import Any
+from urllib.error import HTTPError, URLError
+from urllib.parse import urlencode
+from urllib.request import Request, urlopen
+
+HYPERLIQUID = "https://api.hyperliquid.xyz/info"
+OKX = "https://www.okx.com/api/v5"
+BINANCE_ARCHIVE = "https://data.binance.vision"
+TIMEOUT_SECONDS = 8
+MAX_RESPONSE_BYTES = 2_000_000
+MAX_ASSETS = 4
+MAX_HL_FUNDING_PAGES = 8
+MAX_OKX_FUNDING_PAGES = 8
+MAX_OKX_CANDLE_PAGES = 12
+PAGE_DELAY_SECONDS = 0.12
+PRIORITY_BASES = ("BTC", "ETH", "SOL", "XRP", "DOGE", "BNB", "HYPE", "AVAX", "ARB", "OP")
+
+
+def utc_iso_ms(value: int | None) -> str | None:
+    if value is None:
+        return None
+    return datetime.fromtimestamp(value / 1000, tz=timezone.utc).isoformat().replace("+00:00", "Z")
+
+
+def request_json(url: str, payload: dict | None = None, timeout: int = TIMEOUT_SECONDS,
+                 opener=None) -> tuple[dict, Any]:
+    """Make one bounded, unauthenticated JSON request and retain its exact byte hash."""
+    body = json.dumps(payload, separators=(",", ":"), ensure_ascii=False).encode() if payload is not None else None
+    headers = {"User-Agent": "cross-venue-funding-dispersion-research/2.1"}
+    if body is not None:
+        headers["Content-Type"] = "application/json"
+    req = Request(url, data=body, headers=headers, method="POST" if body is not None else "GET")
+    metadata = {
+        "url": url,
+        "method": req.get_method(),
+        "request_sha256": hashlib.sha256(body).hexdigest() if body is not None else None,
+        "http_status": None,
+        "response_bytes": None,
+        "response_sha256": None,
+        "response_shape": None,
+        "latency_ms": None,
+        "error": None,
+    }
+    start = time.monotonic()
+    open_fn = opener or urlopen
+    raw = b""
+    try:
+        with open_fn(req, timeout=timeout) as response:
+            raw = response.read(MAX_RESPONSE_BYTES + 1)
+            metadata["http_status"] = response.status
+    except HTTPError as exc:
+        metadata["http_status"] = exc.code
+        try:
+            raw = exc.read(MAX_RESPONSE_BYTES + 1)
+        except Exception:
+            raw = b""
+        metadata["error"] = f"HTTPError: {exc.code}"
+    except (URLError, TimeoutError, OSError, ValueError) as exc:
+        metadata["error"] = f"{type(exc).__name__}: {str(exc)[:240]}"
+    finally:
+        metadata["latency_ms"] = round((time.monotonic() - start) * 1000, 1)
+
+    if raw:
+        metadata["response_bytes"] = len(raw)
+        metadata["response_sha256"] = hashlib.sha256(raw).hexdigest()
+        if len(raw) > MAX_RESPONSE_BYTES:
+            metadata["response_shape"] = "oversize"
+            metadata["error"] = metadata["error"] or "response exceeded configured byte cap"
+            return metadata, None
+        try:
+            parsed = json.loads(raw.decode("utf-8"))
+            metadata["response_shape"] = "json"
+            return metadata, parsed
+        except (UnicodeDecodeError, json.JSONDecodeError):
+            metadata["response_shape"] = "non-json"
+            return metadata, None
+    return metadata, None
+
+
+def hl_candle_payload(coin: str, start_ms: int, end_ms: int, interval: str = "1h") -> dict:
+    """Hyperliquid candleSnapshot requires fields nested under req."""
+    return {
+        "type": "candleSnapshot",
+        "req": {
+            "coin": coin,
+            "interval": interval,
+            "startTime": int(start_ms),
+            "endTime": int(end_ms),
+        },
+    }
+
+
+def extract_hl_coins(meta: Any) -> set[str]:
+    if not isinstance(meta, dict) or not isinstance(meta.get("universe"), list):
+        return set()
+    return {str(row["name"]) for row in meta["universe"]
+            if isinstance(row, dict) and row.get("name") is not None}
+
+
+def extract_okx_linear_usdt_swaps(payload: Any) -> dict[str, dict]:
+    if not isinstance(payload, dict) or payload.get("code") != "0" or not isinstance(payload.get("data"), list):
+        return {}
+    out = {}
+    for item in payload["data"]:
+        if not isinstance(item, dict):
+            continue
+        if (item.get("ctType") == "linear" and item.get("quoteCcy") == "USDT"
+                and item.get("settleCcy") == "USDT" and item.get("state") == "live"):
+            base = item.get("baseCcy")
+            if base and base not in out:
+                out[str(base)] = item
+    return out
+
+
+def summarize_rows(rows: list, timestamp_field: str | None = None,
+                   hourly_candles: bool = False) -> dict:
+    timestamps = []
+    for row in rows:
+        try:
+            raw_ts = row.get(timestamp_field) if isinstance(row, dict) and timestamp_field else (
+                row[0] if isinstance(row, (list, tuple)) and row else None
+            )
+            if raw_ts is not None:
+                timestamps.append(int(raw_ts))
+        except (TypeError, ValueError, IndexError):
+            continue
+    unique = sorted(set(timestamps))
+    gaps = []
+    if hourly_candles and len(unique) > 1:
+        gaps = [(b - a) // 3_600_000 - 1 for a, b in zip(unique, unique[1:])
+                if b - a > 3_600_000]
+    return {
+        "row_count": len(rows),
+        "timestamp_count": len(timestamps),
+        "unique_timestamp_count": len(unique),
+        "duplicate_timestamps": len(timestamps) - len(unique),
+        "earliest_utc": utc_iso_ms(unique[0]) if unique else None,
+        "latest_utc": utc_iso_ms(unique[-1]) if unique else None,
+        "hourly_gap_count": len(gaps),
+        "maximum_missing_hours_in_gap": max(gaps) if gaps else 0,
+    }
+
+
+def unwrap_okx(payload: Any) -> list:
+    if not isinstance(payload, dict) or payload.get("code") != "0":
+        return []
+    return payload.get("data", []) if isinstance(payload.get("data"), list) else []
+
+
+def probe_hl_candles(coin: str, start_ms: int, end_ms: int) -> dict:
+    meta, rows = request_json(HYPERLIQUID, hl_candle_payload(coin, start_ms, end_ms))
+    rows = rows if isinstance(rows, list) else []
+    meta.update({"source": "Hyperliquid", "field": "1h candles", "coin": coin,
+                 "window_start_utc": utc_iso_ms(start_ms), "window_end_utc": utc_iso_ms(end_ms),
+                 "history_limit_documented": "most recent 5000 candles",
+                 "coverage": summarize_rows(rows, "t", hourly_candles=True)})
+    return meta
+
+
+def probe_hl_funding(coin: str, start_ms: int, end_ms: int) -> dict:
+    pages, rows_all, seen, cursor = [], [], set(), start_ms
+    stop_reason = "max_pages_reached"
+    for _ in range(MAX_HL_FUNDING_PAGES):
+        meta, rows = request_json(HYPERLIQUID, {
+            "type": "fundingHistory", "coin": coin, "startTime": int(cursor), "endTime": int(end_ms)
+        })
+        meta["page"] = len(pages) + 1
+        pages.append(meta)
+        if not isinstance(rows, list) or not rows:
+            stop_reason = "no_rows_or_request_failed"
+            break
+        valid = []
+        for row in rows:
+            if not isinstance(row, dict):
+                continue
+            try:
+                ts = int(row["time"])
+            except (KeyError, TypeError, ValueError):
+                continue
+            if start_ms <= ts <= end_ms and ts not in seen:
+                seen.add(ts)
+                valid.append(row)
+        rows_all.extend(valid)
+        page_max = max((int(x["time"]) for x in rows if isinstance(x, dict) and str(x.get("time", "")).isdigit()), default=None)
+        if page_max is None or page_max < cursor:
+            stop_reason = "cursor_missing_or_nonprogressing"
+            break
+        next_cursor = page_max + 1
+        if next_cursor <= cursor:
+            stop_reason = "cursor_stalled"
+            break
+        cursor = next_cursor
+        if cursor > end_ms or len(rows) < 500:
+            stop_reason = "window_reached_or_page_not_full"
+            break
+        time.sleep(PAGE_DELAY_SECONDS)
+    return {
+        "source": "Hyperliquid", "field": "settled funding history", "coin": coin,
+        "window_start_utc": utc_iso_ms(start_ms), "window_end_utc": utc_iso_ms(end_ms),
+        "pages": pages, "pages_received": len(pages), "stop_reason": stop_reason,
+        "coverage": summarize_rows(rows_all, "time"),
+        "settled_rate_nonempty_count": sum(bool(x.get("fundingRate")) for x in rows_all),
+    }
+
+
+def okx_url(path: str, params: dict) -> str:
+    return f"{OKX}{path}?{urlencode(params)}"
+
+
+def probe_okx_candles(inst_id: str, start_ms: int, end_ms: int) -> dict:
+    rows_all, seen, pages, cursor = [], set(), [], None
+    stop_reason = "max_pages_reached"
+    for _ in range(MAX_OKX_CANDLE_PAGES):
+        params = {"instId": inst_id, "bar": "1H", "limit": "300"}
+        if cursor is not None:
+            params["after"] = str(cursor)
+        meta, payload = request_json(okx_url("/market/history-candles", params))
+        meta["page"] = len(pages) + 1
+        pages.append(meta)
+        rows = unwrap_okx(payload)
+        if not rows:
+            stop_reason = "no_rows_or_request_failed"
+            break
+        valid = []
+        for row in rows:
+            try:
+                ts = int(row[0])
+            except (TypeError, ValueError, IndexError):
+                continue
+            if start_ms <= ts <= end_ms and ts not in seen:
+                seen.add(ts)
+                valid.append(row)
+        rows_all.extend(valid)
+        try:
+            oldest = min(int(row[0]) for row in rows)
+        except (ValueError, TypeError, IndexError):
+            stop_reason = "timestamp_missing"
+            break
+        if oldest <= start_ms:
+            stop_reason = "window_start_reached"
+            break
+        if cursor is not None and oldest >= cursor:
+            stop_reason = "cursor_stalled"
+            break
+        cursor = oldest
+        if len(rows) < 300:
+            stop_reason = "page_not_full"
+            break
+        time.sleep(PAGE_DELAY_SECONDS)
+    return {
+        "source": "OKX", "field": "1h historical candles", "instId": inst_id,
+        "window_start_utc": utc_iso_ms(start_ms), "window_end_utc": utc_iso_ms(end_ms),
+        "pages": pages, "pages_received": len(pages), "stop_reason": stop_reason,
+        "coverage": summarize_rows(rows_all, hourly_candles=True),
+        "history_endpoint": "market/history-candles",
+    }
+
+
+def probe_okx_funding(inst_id: str, start_ms: int, end_ms: int) -> dict:
+    rows_all, seen, pages, cursor = [], set(), [], None
+    stop_reason = "max_pages_reached"
+    for _ in range(MAX_OKX_FUNDING_PAGES):
+        params = {"instId": inst_id, "limit": "400"}
+        if cursor is not None:
+            params["after"] = str(cursor)
+        meta, payload = request_json(okx_url("/public/funding-rate-history", params))
+        meta["page"] = len(pages) + 1
+        pages.append(meta)
+        rows = unwrap_okx(payload)
+        if not rows:
+            stop_reason = "no_rows_or_request_failed"
+            break
+        for row in rows:
+            try:
+                ts = int(row["fundingTime"])
+            except (TypeError, ValueError, KeyError):
+                continue
+            if start_ms <= ts <= end_ms and ts not in seen:
+                seen.add(ts)
+                rows_all.append(row)
+        try:
+            oldest = min(int(row["fundingTime"]) for row in rows)
+        except (ValueError, TypeError, KeyError):
+            stop_reason = "timestamp_missing"
+            break
+        if oldest <= start_ms:
+            stop_reason = "window_start_reached"
+            break
+        if cursor is not None and oldest >= cursor:
+            stop_reason = "cursor_stalled"
+            break
+        cursor = oldest
+        if len(rows) < 400:
+            stop_reason = "page_not_full"
+            break
+        time.sleep(PAGE_DELAY_SECONDS)
+    return {
+        "source": "OKX", "field": "funding rate history", "instId": inst_id,
+        "window_start_utc": utc_iso_ms(start_ms), "window_end_utc": utc_iso_ms(end_ms),
+        "pages": pages, "pages_received": len(pages), "stop_reason": stop_reason,
+        "coverage": summarize_rows(rows_all, "fundingTime"),
+        "realized_rate_nonempty_count": sum(bool(x.get("realizedRate")) for x in rows_all),
+        "history_limit_documented": "up to three months",
+    }
+
+
+def probe_binance_archive() -> list[dict]:
+    candidates = [
+        (f"{BINANCE_ARCHIVE}/data/futures/um/monthly/klines/BTCUSDT/1h/BTCUSDT-1h-2024-01.zip.CHECKSUM",
+         "USD-M hourly kline archive checksum"),
+        (f"{BINANCE_ARCHIVE}/data/futures/um/monthly/fundingRate/BTCUSDT/BTCUSDT-fundingRate-2024-01.zip.CHECKSUM",
+         "candidate fundingRate archive checksum; object availability must be verified"),
+    ]
+    results = []
+    for url, label in candidates:
+        meta, payload = request_json(url)
+        meta.update({"source": "Binance Public Data archive", "field": label,
+                     "coverage_proven": False, "note": "checksum-object response only; does not download/validate archive bytes"})
+        results.append(meta)
+    return results
+
+
+def run_probe(lookback_days: int = 120, max_assets: int = MAX_ASSETS) -> dict:
+    if lookback_days < 90 or lookback_days > 180:
+        raise ValueError("lookback_days must be between 90 and 180 for this bounded coverage probe")
+    now_ms = int(datetime.now(timezone.utc).timestamp() * 1000)
+    end_ms = (now_ms // 3_600_000) * 3_600_000 - 1  # last fully closed UTC hour
+    start_ms = end_ms - lookback_days * 86_400_000
+
+    hl_meta_result, hl_meta = request_json(HYPERLIQUID, {"type": "meta"})
+    hl_coins = extract_hl_coins(hl_meta)
+    okx_meta_result, okx_meta = request_json(okx_url("/public/instruments", {"instType": "SWAP"}))
+    okx_instruments = extract_okx_linear_usdt_swaps(okx_meta)
+    common = [base for base in PRIORITY_BASES if base in hl_coins and base in okx_instruments][:max_assets]
+
+    routes = {
+        "hyperliquid_meta": {**hl_meta_result, "source": "Hyperliquid", "field": "perpetual instrument metadata"},
+        "okx_instruments": {**okx_meta_result, "source": "OKX", "field": "current linear USDT swap metadata",
+                            "candidate_count": len(okx_instruments)},
+        "hyperliquid_candles": [],
+        "hyperliquid_funding": [],
+        "okx_candles": [],
+        "okx_funding": [],
+        "binance_archive_candidates": [],
+    }
+    for base in common:
+        routes["hyperliquid_candles"].append(probe_hl_candles(base, start_ms, end_ms))
+        routes["hyperliquid_funding"].append(probe_hl_funding(base, start_ms, end_ms))
+        inst_id = str(okx_instruments[base].get("instId", ""))
+        routes["okx_candles"].append(probe_okx_candles(inst_id, start_ms, end_ms))
+        routes["okx_funding"].append(probe_okx_funding(inst_id, start_ms, end_ms))
+    routes["binance_archive_candidates"] = probe_binance_archive()
+
+    any_http = any(
+        item.get("http_status") is not None
+        for value in routes.values()
+        for item in (value if isinstance(value, list) else [value])
+        if isinstance(item, dict)
+    )
+    source_responses = sum(
+        item.get("http_status") is not None
+        for value in routes.values()
+        for item in (value if isinstance(value, list) else [value])
+        if isinstance(item, dict)
+    )
+    status = "SOURCE_PROBE_COMPLETED" if any_http else "NETWORK_UNAVAILABLE_FROM_THIS_HOST"
+    return {
+        "schema_version": "1.0",
+        "run_type": "bounded_free_historical_overlap_probe",
+        "status": status,
+        "observed_at_utc": datetime.now(timezone.utc).isoformat().replace("+00:00", "Z"),
+        "window_start_utc": utc_iso_ms(start_ms),
+        "window_end_utc": utc_iso_ms(end_ms),
+        "lookback_days_requested": lookback_days,
+        "candidate_assets_intersection": common,
+        "candidate_asset_count": len(common),
+        "routes": routes,
+        "source_responses_with_http_status": source_responses,
+        "historical_coverage_gate": "NOT_PASSED_BY_COVERAGE_PROBE",
+        "original_confirmatory_gate": "BLOCKED_DATA_GATE",
+        "backtest_completed": False,
+        "performance_metrics_computed": False,
+        "limitations": [
+            "This is a bounded source probe, not a strategy backtest.",
+            "Current instrument metadata does not prove historical listing/delisting or contract identity.",
+            "The short candidate list is a probe sample, not the full expanding research universe.",
+            "Response availability does not prove data completeness, event maturity, executable fills, or point-in-time market-cap ranks.",
+            "No response hash or coverage is reported for requests that failed before receiving response bytes.",
+        ],
+    }
+
+
+def main(argv: list[str] | None = None) -> int:
+    parser = argparse.ArgumentParser(description=__doc__)
+    parser.add_argument("--lookback-days", type=int, default=120)
+    parser.add_argument("--max-assets", type=int, default=MAX_ASSETS, choices=range(1, MAX_ASSETS + 1))
+    parser.add_argument("--output", default="/tmp/cross-venue-historical-overlap-probe.json")
+    args = parser.parse_args(argv)
+    report = run_probe(args.lookback_days, args.max_assets)
+    out = Path(args.output)
+    out.parent.mkdir(parents=True, exist_ok=True)
+    out.write_text(json.dumps(report, indent=2, sort_keys=True) + "\n", encoding="utf-8")
+    print(json.dumps({
+        "status": report["status"], "output": str(out),
+        "candidate_asset_count": report["candidate_asset_count"],
+        "source_responses_with_http_status": report["source_responses_with_http_status"],
+        "original_confirmatory_gate": report["original_confirmatory_gate"],
+        "backtest_completed": False, "performance_metrics_computed": False,
+    }, indent=2))
+    return 0
+
+
+if __name__ == "__main__":
+    raise SystemExit(main())
