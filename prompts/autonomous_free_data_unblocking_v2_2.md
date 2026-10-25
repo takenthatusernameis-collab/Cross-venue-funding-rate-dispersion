@@ -128,7 +128,7 @@ Run the offline checks before any live-source requests:
 
 ```bash
 python3 -m compileall -q src scripts tests
-PYTHONPATH=src python3 -m unittest tests.test_historical_overlap_probe -v
+PYTHONPATH=src:scripts python3 -m unittest discover -s tests -p 'test_historical_overlap_probe.py' -v
 PYTHONPATH=src python3 -m unittest discover -s tests -v
 PYTHONPATH=src python3 scripts/validate_research.py
 PYTHONPATH=src python3 scripts/validate_all.py
