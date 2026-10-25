@@ -114,6 +114,16 @@ class ResearchStateArtifactTests(unittest.TestCase):
         rc = v.main()
         self.assertEqual(rc, 0)
 
+    def test_self_reference_wrong_hash_fails_closed(self):
+        manifest_path = v.STATE_DIR / "run_manifest.json"
+        actual = v.sha256_file(manifest_path) if manifest_path.exists() else None
+        _write(
+            manifest_path,
+            {"output_artifacts": [{"path": "research_state/run_manifest.json", "sha256": "0" * 64}]},
+        )
+        rc = v.main()
+        self.assertNotEqual(rc, 0)
+
 
 if __name__ == "__main__":
     unittest.main()
