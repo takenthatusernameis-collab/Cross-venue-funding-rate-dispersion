@@ -80,18 +80,19 @@ def validate_signals() -> list[str]:
         errors.append(f"signals basic raised: {exc}")
 
     # Bad inputs fail closed.
-    for fn, args in [
-        (normalize_funding_rate, (0.001, 0)),
-        (normalize_funding_rate, (float("nan"), 8)),
-        (normalize_funding_rate, (0.001, -1)),
-        (linear_quantile, ([1, 2], 50, minimum_observations=0)),
-        (linear_quantile, ([1, 2], -1)),
-        (linear_quantile, ([1, 2], 101)),
-        (select_top_dispersion, ({"A": 1}, 1.0, 0)),
-        (select_top_dispersion, ({"A": 1}, 1.0, 1.5)),
-    ]:
+    bad_cases = [
+        (normalize_funding_rate, (0.001, 0), {}),
+        (normalize_funding_rate, (float("nan"), 8), {}),
+        (normalize_funding_rate, (0.001, -1), {}),
+        (linear_quantile, ([1, 2], 50), {"minimum_observations": 0}),
+        (linear_quantile, ([1, 2], -1), {}),
+        (linear_quantile, ([1, 2], 101), {}),
+        (select_top_dispersion, ({"A": 1}, 1.0, 0), {}),
+        (select_top_dispersion, ({"A": 1}, 1.0, 1.5), {}),
+    ]
+    for fn, args, kwargs in bad_cases:
         try:
-            fn(*args)
+            fn(*args, **kwargs)
             errors.append("bad input accepted")
         except ValueError:
             pass

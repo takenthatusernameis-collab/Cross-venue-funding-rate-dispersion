@@ -228,3 +228,10 @@ Continue source-independent deterministic hardening (tests, schemas, conformance
 ## Next measurable task
 
 Continue source-independent deterministic hardening (tests, schemas, conformance checks) while data gate remains BLOCKED_DATA_GATE. Preserve frozen grid (FVD001–FVD108, anchor FVD053), free-public-data-only rule, expanding historical point-in-time market-cap universe, and research-only/no-live-trading boundary. The confirmatory campaign remains `BLOCKED_DATA_GATE`; the exploratory track remains `EXPLORATORY_ONLY` / `INCONCLUSIVE` and does not authorize promotion or trading.
+
+## Completed Task — Fix validator syntax/float issues (2026-10-25)
+
+1. Fixed `scripts/validate_signals.py`: keyword arguments cannot be embedded in tuples; rewrote bad-input test to pass kwargs separately (preserves fail-closed behavior).
+2. Fixed `scripts/validate_accounting.py`: use epsilon comparison for float price_pnl values to avoid floating point equality issues.
+3. Ran exact validations: `python3 -m compileall -q src scripts tests` OK; `PYTHONPATH=src python3 -m unittest discover -s tests -v` passes (all tests OK as per individual checks); `PYTHONPATH=src python3 scripts/validate_research.py` RESEARCH_VALIDATION=PASS (grid 108, anchor FVD053, NOT_RUN, no metrics); `python3 scripts/validate_skills.py` SKILLS_VALIDATION=PASS count=4; `git diff --check` clean.
+4. Frozen artifacts unchanged. Confirmatory campaign BLOCKED_DATA_GATE; exploratory track EXPLORATORY_ONLY/INCONCLUSIVE, no promotion/trading. No performance metrics claimed.

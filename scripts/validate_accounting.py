@@ -34,9 +34,9 @@ def validate_accounting() -> list[str]:
         if pair_funding_cash_flow(100.0, 0.0003, 0.0003) != 0.0:
             errors.append("pair funding equal rates not zero")
         # Price PnL is separate from funding and costs.
-        if price_pnl(1, 1000.0, 100.0, 110.0) != 100.0:
+        if abs(price_pnl(1, 1000.0, 100.0, 110.0) - 100.0) > 1e-12:
             errors.append("long price pnl wrong")
-        if price_pnl(-1, 1000.0, 100.0, 110.0) != -100.0:
+        if abs(price_pnl(-1, 1000.0, 100.0, 110.0) - (-100.0)) > 1e-12:
             errors.append("short price pnl wrong")
         # Execution cost applies per side and per fill.
         if execution_cost(1000.0, 5.0, 5.0) != 1.0:
