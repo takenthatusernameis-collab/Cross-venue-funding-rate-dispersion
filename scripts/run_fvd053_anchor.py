@@ -401,9 +401,12 @@ def simulate_signal(u: str, long_venue: str, short_venue: str, notional: float,
     settlements = 0
     for venue, side in ((long_venue, 1), (short_venue, -1)):
         rates = d["hl_funding"] if venue == "Hyperliquid" else d["okx_funding"]
+        seen_times: set[int] = set()
         for row in rates:
-            if entry_ms < row["time"] <= exit_ms:
-                rate = _latest_at_or_before(rates, row["time"])
+            t = row["time"]
+            if entry_ms < t <= exit_ms and t not in seen_times:
+                seen_times.add(t)
+                rate = _latest_at_or_before(rates, t)
                 if rate is None:
                     continue
                 funding += funding_cash_flow(side, notional, rate)

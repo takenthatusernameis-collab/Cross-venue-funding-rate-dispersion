@@ -21,6 +21,12 @@ def validate_signals() -> list[str]:
         # 8-hour normalization preserves the documented actual interval.
         if normalize_funding_rate(0.001, 4) != 0.002:
             errors.append("normalization wrong")
+        # Hyperliquid hourly (1h) rate normalizes to 8h equivalent by x8.
+        if normalize_funding_rate(0.0001, 1.0) != 0.0008:
+            errors.append("HL 1h->8h normalization wrong")
+        # OKX 8h rate is already 8h equivalent (identity).
+        if normalize_funding_rate(0.0002, 8.0) != 0.0002:
+            errors.append("OKX 8h normalization wrong")
         # Time-weighted mean over a piecewise-constant rate series.
         rows = [
             {"timestamp": "2024-01-01T00:00:00Z", "rate_8h": 1.0},

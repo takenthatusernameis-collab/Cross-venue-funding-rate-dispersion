@@ -40,6 +40,38 @@ class SignalTests(unittest.TestCase):
         disp,_=dispersion_from_venue_histories({"A":histories["A"]},start,end,minimum_venues=2,max_staleness_hours=3)
         self.assertIsNone(disp)
 
+    def test_multi_venue_dispersion_normalization_known_answer(self):
+        """A 1h venue rate r and an 8h venue rate 8r normalize to the same
+        8h-equivalent value => zero dispersion. Equal raw rates r normalize
+        to different 8h values (8r vs r) => nonzero dispersion. Normalization
+        is essential to the cross-venue signal.
+        """
+        start = "2024-01-01T00:00:00Z"
+        end = "2024-01-01T08:00:00Z"
+        r = 0.0001
+        # Case 1: HL hourly r (-> 8r) vs OKX 8h 8r (-> 8r): both 8h-equal => 0 dispersion.
+        histories_same = {
+            "Hyperliquid": [{"timestamp": start, "rate_8h": normalize_funding_rate(r, 1.0)}],
+            "OKX": [{"timestamp": start, "rate_8h": normalize_funding_rate(8 * r, 8.0)}],
+        }
+        disp, means = dispersion_from_venue_histories(
+            histories_same, start, end, minimum_venues=2, max_staleness_hours=24,
+        )
+        self.assertAlmostEqual(disp, 0.0)
+        self.assertAlmostEqual(means["Hyperliquid"], 8 * r)
+        self.assertAlmostEqual(means["OKX"], 8 * r)
+        # Case 2: equal raw rates r on both venues: HL normalizes to 8r, OKX stays r => nonzero.
+        histories_diff = {
+            "Hyperliquid": [{"timestamp": start, "rate_8h": normalize_funding_rate(r, 1.0)}],
+            "OKX": [{"timestamp": start, "rate_8h": normalize_funding_rate(r, 8.0)}],
+        }
+        disp2, means2 = dispersion_from_venue_histories(
+            histories_diff, start, end, minimum_venues=2, max_staleness_hours=24,
+        )
+        self.assertAlmostEqual(disp2, 3.5 * r)
+        self.assertAlmostEqual(means2["Hyperliquid"], 8 * r)
+        self.assertAlmostEqual(means2["OKX"], r)
+
     def test_type7_quantile_and_no_fallback(self):
         self.assertAlmostEqual(linear_quantile([0,10,20,30],50),15)
         self.assertIsNone(linear_quantile([1,2],80,minimum_observations=3))

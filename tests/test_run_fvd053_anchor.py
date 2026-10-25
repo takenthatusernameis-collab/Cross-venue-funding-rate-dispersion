@@ -362,6 +362,30 @@ class SimulateSignalTests(unittest.TestCase):
         self.assertTrue(res["skipped"])
         self.assertEqual(res["reason"], "missing_candle_at_entry_or_exit")
 
+    def test_duplicate_timestamp_not_double_counted(self):
+        """Duplicate settlement timestamps within (entry, exit] are counted once per venue.
+
+        Known-answer: injecting a duplicate Hyperliquid settlement row at the same
+        timestamp inside the funding window must not change the funding cash flow
+        or settlement count relative to the deduplicated case (9.0, 27).
+        """
+        u = "BTC"
+        notional = 5000.0
+        entry = dt.datetime(2026, 8, 2, 23, 0, tzinfo=dt.timezone.utc)
+        exit_ = dt.datetime(2026, 8, 3, 23, 0, tzinfo=dt.timezone.utc)
+        data = self._data()
+        hl = data[u]["hl_funding"]
+        in_window_times = [r["time"] for r in hl if anchor.utc_ms(entry) < r["time"] <= anchor.utc_ms(exit_)]
+        self.assertGreater(len(in_window_times), 0)
+        hl.append({"time": in_window_times[0], "rate": HL_RATE})
+        res = anchor.simulate_signal(
+            u, "OKX", "Hyperliquid", notional, entry, exit_, data,
+            anchor.ANCHOR_PARAMS["fee_bps_per_side"],
+            anchor.ANCHOR_PARAMS["slippage_bps_per_side"],
+        )
+        self.assertAlmostEqual(res["funding_cash_flow"], 9.0)
+        self.assertEqual(res["funding_settlements"], 27)
+
 
 class SelectSignalAssetsTests(unittest.TestCase):
     def test_selects_top_tail_above_threshold(self):
