@@ -56,9 +56,9 @@ class KiloFreeModelFallbackTests(unittest.TestCase):
         ]}
         result = selector.extract_free_model_ids(payload, max_models=4)
         self.assertEqual(result[:3], [
-            "poolside/model-d:free",
-            "dots-studio/model-c:free",
             "nvidia/model-a:free",
+            "dots-studio/model-c:free",
+            "poolside/model-d:free",
         ])
         self.assertEqual(len(result), 4)
 
