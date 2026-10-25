@@ -40,6 +40,30 @@ def scan_path(p: Path) -> None:
     scan_text(text, p.name)
 
 
+def validate_no_performance_claims(targets=None) -> list[str]:
+    if targets is None:
+        targets = default_targets()
+    errors: list[str] = []
+    for p in targets:
+        if not p.is_file():
+            continue
+        text = p.read_text(encoding="utf-8", errors="replace")
+        offenders = find_forbidden(text)
+        if offenders:
+            errors.append(f"forbidden claim token '{offenders[0]}' in {p.name}")
+    return errors
+
+
+def main(targets=None) -> int:
+    errors = validate_no_performance_claims(targets)
+    if errors:
+        for e in errors:
+            print(f"FAIL: {e}")
+        return 1
+    print("NO_PERFORMANCE_CLAIMS_VALIDATION=PASS")
+    return 0
+
+
 def default_targets() -> list[Path]:
     targets = [ROOT / "HANDOFF.md", ROOT / "README.md", ROOT / "SKILLS.md"]
     targets += sorted((ROOT / "research_state").glob("*.json"))
