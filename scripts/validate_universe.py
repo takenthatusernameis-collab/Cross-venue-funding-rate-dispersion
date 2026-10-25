@@ -1,3 +1,4 @@
+#!/usr/bin/env python3
 """Offline conformance check for point-in-time universe ranking (standard library only)."""
 import sys
 from pathlib import Path
@@ -7,23 +8,18 @@ sys.path.insert(0, str(ROOT / "src"))
 from cross_venue_funding_dispersion.universe import next_ranked_cohort, rank_point_in_time
 
 
-def check(cond, msg):
-    if not cond:
-        print("FAIL:", msg)
-        sys.exit(1)
-
-
-def expect_error(fn, args, msg="", kwargs=None):
+def expect_error(fn, args, kwargs=None):
     if kwargs is None:
         kwargs = {}
     try:
         fn(*args, **kwargs)
-        check(False, msg)
+        return False
     except ValueError:
-        pass
+        return True
 
 
-def main():
+def validate_universe() -> list[str]:
+    errors = []
     records = [
         {"asset": "AAA", "market_cap_usd": 100, "as_of": "2024-01-01T00:00:00Z", "published_at": "2024-01-01T01:00:00Z"},
         {"asset": "BBB", "market_cap_usd": 200, "as_of": "2024-01-01T00:00:00Z", "published_at": "2024-01-01T01:00:00Z"},
@@ -37,48 +33,66 @@ def main():
         {"asset": "MISSING", "as_of": "2024-01-01T00:00:00Z", "published_at": "2024-01-01T00:00:00Z"},
     ]
 
-    # Point-in-time admissibility: effective and publication both <= snapshot
-    ranked = rank_point_in_time(records, "2024-02-15T00:00:00Z")
-    assets = [x["asset"] for x in ranked]
-    check("FUTURE" not in assets, "future effective record admitted")
-    check("LATE" not in assets, "late-published record admitted")
-    check("BAD" not in assets and "NEG" not in assets and "MISSING" not in assets, "invalid cap record admitted")
+    try:
+        ranked = rank_point_in_time(records, "2024-02-15T00:00:00Z")
+        assets = [x["asset"] for x in ranked]
+        if "FUTURE" in assets:
+            errors.append("future effective record admitted")
+        if "LATE" in assets:
+            errors.append("late-published record admitted")
+        if "BAD" in assets or "NEG" in assets or "MISSING" in assets:
+            errors.append("invalid cap record admitted")
+        if [x["rank"] for x in ranked] != [1, 2, 3]:
+            errors.append("ranks not from 1")
+        if assets != ["AAA", "BBB", "CCC"]:
+            errors.append("not descending cap with asset-id tie-break")
+        if ranked[2]["market_cap_usd"] != 150:
+            errors.append("tie-break cap value wrong")
+        shuffled = list(reversed(records))
+        if [x["asset"] for x in rank_point_in_time(shuffled, "2024-02-15T00:00:00Z")] != assets:
+            errors.append("record order affects result")
+        ranked_later = rank_point_in_time(records, "2024-02-20T00:00:00Z")
+        if [x["asset"] for x in ranked_later] != ["AAA", "BBB", "CCC"]:
+            errors.append("supersession not applied")
+    except Exception as exc:
+        errors.append(f"universe checks raised: {exc}")
 
-    # Descending cap, ranks from 1, deterministic asset-id tie-break
-    check([x["rank"] for x in ranked] == [1, 2, 3], "ranks not from 1")
-    check(assets == ["AAA", "BBB", "CCC"], "not descending cap with asset-id tie-break")
-    check(ranked[2]["market_cap_usd"] == 150, "tie-break cap value wrong")
+    try:
+        full = [{"rank": i, "asset": f"A{i}"} for i in range(1, 11)]
+        batches = []
+        cursor = 0
+        while True:
+            batch = next_ranked_cohort(full, cursor, 3)
+            if not batch:
+                break
+            batches.extend(batch)
+            cursor = batch[-1]["rank"]
+        if [x["asset"] for x in batches] != [f"A{i}" for i in range(1, 11)]:
+            errors.append("batches do not cover all ranks")
+    except Exception as exc:
+        errors.append(f"cohort batches raised: {exc}")
 
-    # Record-order immateriality
-    shuffled = list(reversed(records))
-    check([x["asset"] for x in rank_point_in_time(shuffled, "2024-02-15T00:00:00Z")] == assets, "record order affects result")
+    if not expect_error(next_ranked_cohort, ([{"rank": 1, "asset": "A1"}, {"rank": 3, "asset": "A3"}], 1, 2)):
+        errors.append("rank gap accepted")
+    if not expect_error(next_ranked_cohort, ([], -1, 2)):
+        errors.append("negative cursor accepted")
+    if not expect_error(next_ranked_cohort, ([], 0, 0)):
+        errors.append("zero batch accepted")
+    if not expect_error(next_ranked_cohort, ([{"rank": 1, "asset": "A1"}, {"rank": 1, "asset": "A2"}], 0, 2)):
+        errors.append("duplicate ranks accepted")
 
-    # Latest effective/published supersession per asset
-    ranked_later = rank_point_in_time(records, "2024-02-20T00:00:00Z")
-    check([x["asset"] for x in ranked_later] == ["AAA", "BBB", "CCC"], "supersession not applied")
+    return errors
 
-    # next_ranked_cohort: batch windows, no rank gaps, cursor resume
-    full = [{"rank": i, "asset": f"A{i}"} for i in range(1, 11)]
-    batches = []
-    cursor = 0
-    while True:
-        batch = next_ranked_cohort(full, cursor, 3)
-        if not batch:
-            break
-        batches.extend(batch)
-        cursor = batch[-1]["rank"]
-    check([x["asset"] for x in batches] == [f"A{i}" for i in range(1, 11)], "batches do not cover all ranks")
 
-    # Rank frontier gap fail-closed
-    expect_error(next_ranked_cohort, ([{"rank": 1, "asset": "A1"}, {"rank": 3, "asset": "A3"}], 1, 2), "rank gap accepted")
-
-    # Bad cursor/batch fail-closed
-    expect_error(next_ranked_cohort, ([], -1, 2), "negative cursor accepted")
-    expect_error(next_ranked_cohort, ([], 0, 0), "zero batch accepted")
-    expect_error(next_ranked_cohort, ([{"rank": 1, "asset": "A1"}, {"rank": 1, "asset": "A2"}], 0, 2), "duplicate ranks accepted")
-
+def main() -> int:
+    errors = validate_universe()
+    if errors:
+        for e in errors:
+            print("FAIL:", e)
+        sys.exit(1)
     print("UNIVERSE_VALIDATION=PASS")
+    return 0
 
 
 if __name__ == "__main__":
-    main()
+    raise SystemExit(main())

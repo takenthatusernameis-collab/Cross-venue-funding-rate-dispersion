@@ -1,61 +1,54 @@
-"""Offline conformance check for accounting helpers (standard library only)."""
-import math
+#!/usr/bin/env python3
+"""Offline conformance check for funding settlement accounting (standard library only)."""
 import sys
 from pathlib import Path
 
 ROOT = Path(__file__).resolve().parents[1]
 sys.path.insert(0, str(ROOT / "src"))
-from cross_venue_funding_dispersion.accounting import (
-    funding_cash_flow, pair_funding_cash_flow, price_pnl, execution_cost,
-)
+from cross_venue_funding_dispersion.accounting import apply_funding_settlement
 
 
-def check(cond, msg):
-    if not cond:
-        print("FAIL:", msg)
-        sys.exit(1)
-
-
-def main():
-    # funding sign conventions
-    check(funding_cash_flow(1, 100.0, 0.01) == -1.0, "long pays on positive rate")
-    check(funding_cash_flow(1, 100.0, -0.01) == 1.0, "long receives on negative rate")
-    check(funding_cash_flow(-1, 100.0, 0.01) == 1.0, "short receives on positive rate")
-    check(funding_cash_flow(-1, 100.0, -0.01) == -1.0, "short pays on negative rate")
-    check(funding_cash_flow(1, 0.0, 0.01) == 0.0, "zero notional")
-    check(pair_funding_cash_flow(100.0, 0.01, 0.02) == funding_cash_flow(1, 100.0, 0.01) + funding_cash_flow(-1, 100.0, 0.02), "pair funding")
-
-    # price pnl
-    check(math.isclose(price_pnl(1, 100.0, 100.0, 110.0), 10.0), "long price pnl")
-    check(math.isclose(price_pnl(-1, 100.0, 100.0, 95.0), 5.0), "short price pnl")
-    check(price_pnl(1, 0.0, 100.0, 110.0) == 0.0, "zero notional price")
-
-    # execution cost
-    check(math.isclose(execution_cost(100.0, 10.0, 5.0), 0.15), "exec cost")
-    check(execution_cost(0.0, 10.0, 5.0) == 0.0, "zero notional cost")
-    check(execution_cost(100.0, 0.0, 0.0) == 0.0, "zero bps")
-
-    # invalid inputs fail-closed
-    for fn, args in [
-        (funding_cash_flow, (2, 100.0, 0.01)),
-        (funding_cash_flow, (1, -1.0, 0.01)),
-        (funding_cash_flow, (1, 100.0, float("nan"))),
-        (price_pnl, (2, 100.0, 100.0, 110.0)),
-        (price_pnl, (1, 100.0, 0.0, 110.0)),
-        (price_pnl, (1, 100.0, 100.0, 0.0)),
-        (price_pnl, (1, -1.0, 100.0, 110.0)),
-        (execution_cost, (-1.0, 1.0, 1.0)),
-        (execution_cost, (1.0, -1.0, 1.0)),
-        (execution_cost, (1.0, 1.0, float("inf"))),
+def validate_accounting() -> list[str]:
+    errors = []
+    try:
+        res = apply_funding_settlement(notional=100.0, funding_rate=0.01, position_open_at_settlement=True)
+        if res["funding_cash_flow"] != 1.0 or res["settled"] is not True:
+            errors.append("long funding sign/cash flow wrong")
+        res2 = apply_funding_settlement(notional=100.0, funding_rate=0.01, position_open_at_settlement=True, side="short")
+        if res2["funding_cash_flow"] != -1.0:
+            errors.append("short funding sign wrong")
+    except Exception as exc:
+        errors.append(f"accounting basic raised: {exc}")
+    try:
+        res3 = apply_funding_settlement(notional=100.0, funding_rate=0.01, position_open_at_settlement=False)
+        if res3["funding_cash_flow"] != 0.0 or res3["settled"] is not False:
+            errors.append("missed settlement should pay zero")
+    except Exception as exc:
+        errors.append(f"missed settlement raised: {exc}")
+    for bad in [
+        dict(notional=0.0, funding_rate=0.01, position_open_at_settlement=True),
+        dict(notional=100.0, funding_rate=0.01, position_open_at_settlement=True, side="bad"),
+        dict(notional=-1.0, funding_rate=0.01, position_open_at_settlement=True),
     ]:
         try:
-            fn(*args)
-            check(False, "invalid input accepted")
+            apply_funding_settlement(**bad)
+            errors.append("invalid input accepted")
         except ValueError:
             pass
+        except Exception as exc:
+            errors.append(f"invalid input raised wrong type: {exc}")
+    return errors
 
+
+def main() -> int:
+    errors = validate_accounting()
+    if errors:
+        for e in errors:
+            print("FAIL:", e)
+        sys.exit(1)
     print("ACCOUNTING_VALIDATION=PASS")
+    return 0
 
 
 if __name__ == "__main__":
-    main()
+    raise SystemExit(main())

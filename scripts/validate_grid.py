@@ -13,21 +13,34 @@ from cross_venue_funding_dispersion.grid import config_id, expand_grid, load_gri
 GRID_PATH = ROOT / "configs" / "cross_venue_funding_dispersion_grid_v1.json"
 
 
+def validate_grid_script() -> list[str]:
+    errors = []
+    try:
+        config = load_grid(GRID_PATH)
+        combos = expand_grid(config)
+        errors.extend(validate_grid(config))
+        if len(combos) != 108:
+            errors.append(f"expected 108 combinations, found {len(combos)}")
+        if config_id(1, config) != "FVD001" or config_id(108, config) != "FVD108":
+            errors.append("config id range not FVD001..FVD108")
+        # fail-closed checks
+        for bad in (None, {}, {"axes": []}, {"axes": [{"name": "a", "values": []}]}):
+            try:
+                expand_grid(bad)  # type: ignore[arg-type]
+                errors.append("expand_grid accepted invalid input")
+            except (TypeError, ValueError, AttributeError):
+                pass
+    except Exception as exc:
+        errors.append(f"grid validation raised: {exc}")
+    return errors
+
+
+# backward compatible name
+validate_grid_check = validate_grid_script
+
+
 def main() -> int:
-    config = load_grid(GRID_PATH)
-    combos = expand_grid(config)
-    errors = validate_grid(config)
-    if len(combos) != 108:
-        errors.append(f"expected 108 combinations, found {len(combos)}")
-    if config_id(1, config) != "FVD001" or config_id(108, config) != "FVD108":
-        errors.append("config id range not FVD001..FVD108")
-    # fail-closed checks
-    for bad in (None, {}, {"axes": []}, {"axes": [{"name": "a", "values": []}]}):
-        try:
-            expand_grid(bad)  # type: ignore[arg-type]
-            errors.append("expand_grid accepted invalid input")
-        except (TypeError, ValueError, AttributeError):
-            pass
+    errors = validate_grid_script()
     if errors:
         for e in errors:
             print("GRID_VALIDATION_FAIL:", e)
