@@ -20,25 +20,41 @@ FORBIDDEN = (
     "information_ratio",
 )
 
-def main() -> int:
+
+def scan_text(text: str, name: str) -> None:
+    lowered = text.lower()
+    for key in FORBIDDEN:
+        if key in lowered:
+            print(f"FAIL: forbidden claim token '{key}' in {name}")
+            sys.exit(1)
+
+
+def scan_path(p: Path) -> None:
+    if not p.is_file():
+        return
+    text = p.read_text(encoding="utf-8", errors="replace")
+    scan_text(text, p.name)
+
+
+def default_targets() -> list[Path]:
     targets = [ROOT / "HANDOFF.md", ROOT / "README.md", ROOT / "SKILLS.md"]
     targets += sorted((ROOT / "research_state").glob("*.json"))
-    # Close remaining documentation surfaces (exclude docs/ protocol specs that legitimately define metrics).
     for p in sorted(ROOT.rglob("*.md")):
         if "docs" in p.relative_to(ROOT).parts:
             continue
         if p not in targets:
             targets.append(p)
+    return targets
+
+
+def main(targets=None) -> int:
+    if targets is None:
+        targets = default_targets()
     for p in targets:
-        if not p.is_file():
-            continue
-        text = p.read_text(encoding="utf-8", errors="replace").lower()
-        for key in FORBIDDEN:
-            if key in text:
-                print(f"FAIL: forbidden claim token '{key}' in {p.name}")
-                sys.exit(1)
+        scan_path(p)
     print("NO_PERFORMANCE_CLAIMS_VALIDATION=PASS")
     return 0
+
 
 if __name__ == "__main__":
     raise SystemExit(main())

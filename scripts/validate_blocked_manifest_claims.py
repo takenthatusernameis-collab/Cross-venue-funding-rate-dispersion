@@ -9,6 +9,28 @@ from pathlib import Path
 
 ROOT = Path(__file__).resolve().parents[1]
 
+DEFAULT_PATHS = [
+    ROOT / "research_state/run_manifest.json",
+    ROOT / "research_state/exploratory_run_manifest_2026-10-24.json",
+]
+
+BLOCKED_STATUSES = {
+    "BLOCKED_DATA_GATE",
+    "BLOCKED_SPECIFICATION_GATE",
+}
+
+PERFORMANCE_KEYS = (
+    "sharpe",
+    "annualized_return",
+    "max_drawdown",
+    "pnl_total",
+    "equity_curve",
+    "win_rate",
+    "profit_factor",
+    "calmar",
+    "sortino",
+)
+
 
 def load_json(path: Path) -> dict:
     try:
@@ -25,39 +47,33 @@ def check(cond, msg):
         sys.exit(1)
 
 
-BLOCKED_STATUSES = {
-    "BLOCKED_DATA_GATE",
-    "BLOCKED_SPECIFICATION_GATE",
-}
+def validate_manifest(m: dict, name: str) -> None:
+    """Fail-closed: blocked/not_run/exploratory manifests must not claim performance."""
+    status = m.get("status")
+    if status in BLOCKED_STATUSES or status == "NOT_RUN":
+        check(m.get("backtest_completed") is False,
+              f"{name}: blocked/not_run must have backtest_completed=false")
+        check(m.get("performance_metrics_computed") is False,
+              f"{name}: blocked/not_run must have performance_metrics_computed=false")
+        for key in PERFORMANCE_KEYS:
+            check(key not in m, f"{name}: must not contain performance key {key}")
+    elif status in {"EXPLORATORY_ONLY", "INCONCLUSIVE"}:
+        check(m.get("backtest_completed") is False,
+              f"{name}: exploratory must have backtest_completed=false")
+        check(m.get("performance_metrics_computed") is False,
+              f"{name}: exploratory must have performance_metrics_computed=false")
+        for key in PERFORMANCE_KEYS:
+            check(key not in m, f"{name}: must not contain performance key {key}")
 
 
-def main() -> int:
-    paths = [
-        ROOT / "research_state/run_manifest.json",
-        ROOT / "research_state/exploratory_run_manifest_2026-10-24.json",
-    ]
+def main(paths=None) -> int:
+    if paths is None:
+        paths = DEFAULT_PATHS
     for p in paths:
         check(p.is_file(), f"missing required artifact {p.name}")
-
     for p in paths:
         m = load_json(p)
-        status = m.get("status")
-        if status in BLOCKED_STATUSES or status == "NOT_RUN":
-            check(m.get("backtest_completed") is False,
-                  f"{p.name}: blocked/not_run must have backtest_completed=false")
-            check(m.get("performance_metrics_computed") is False,
-                  f"{p.name}: blocked/not_run must have performance_metrics_computed=false")
-            # Also ensure no performance metric keys present
-            for key in ("sharpe", "annualized_return", "max_drawdown", "pnl_total", "equity_curve", "win_rate", "profit_factor", "calmar", "sortino"):
-                check(key not in m, f"{p.name}: must not contain performance key {key}")
-        elif status in {"EXPLORATORY_ONLY", "INCONCLUSIVE"}:
-            check(m.get("backtest_completed") is False,
-                  f"{p.name}: exploratory must have backtest_completed=false")
-            check(m.get("performance_metrics_computed") is False,
-                  f"{p.name}: exploratory must have performance_metrics_computed=false")
-            for key in ("sharpe", "annualized_return", "max_drawdown", "pnl_total", "equity_curve", "win_rate", "profit_factor", "calmar", "sortino"):
-                check(key not in m, f"{p.name}: must not contain performance key {key}")
-
+        validate_manifest(m, p.name)
     print("BLOCKED_MANIFEST_CLAIMS_VALIDATION=PASS")
     return 0
 
