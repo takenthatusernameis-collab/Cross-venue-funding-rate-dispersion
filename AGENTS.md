@@ -53,12 +53,12 @@ The free-source inventory has already tested multiple independent source familie
 
 
 
-## Active source-data blocker prompt v2.2 — 2026-10-25
+## Active source-data blocker prompt v2.7 — 2026-10-25
 
-For the next unblocking task, read and execute `prompts/autonomous_free_data_unblocking_v2_2.md` with the frozen `docs/research_protocol.md`, `docs/exploratory_protocol_v1.md`, relevant skills, current `HANDOFF.md`, and latest manifests.
+For the next unblocking task, read and execute `prompts/autonomous_free_data_gate_unblocking_v2_7.md` alongside the frozen `docs/research_protocol.md`, `docs/exploratory_protocol_v1.md`, relevant skills, current `HANDOFF.md`, and latest coverage/run artifacts.
 
-The repository now contains the bounded canonical probe `scripts/probe_historical_overlap.py` and offline tests `tests/test_historical_overlap_probe.py`. Run offline validation first; then execute the probe from a permitted runner with public outbound networking using the exact command in v2.2. Record the actual result and response hashes. DNS failure before HTTP must be recorded as a host-level execution limitation, not as endpoint denial or unavailable history.
+**Kilo execution reliability:** a dedicated workflow step now runs the bounded 120-day public-data coverage probe and commits/verifies its artifact before Kilo CLI installation or model preflight. It respects `scripts/should_run_historical_probe.py` cooldowns and uploads recovery evidence if checkpointing fails. The later in-script probe remains a cooldown-protected fallback. Kilo uses only live-catalog models explicitly priced at $0 input and $0 output that pass an unauthenticated health check, rotates across free routes, and stops when none remain. Scheduled activations are capped at 40 minutes and two worker sessions, with the final five minutes reserved for verified checkpoint/recovery; manual dispatch retains the 355-minute budget. The short cap does not apply retroactively to an already-running activation.
 
-The prompt adds the documented Hyperliquid `candleSnapshot` request shape and 5,000-candle ceiling, paginated funding history, OKX historical-candle/funding-history routes, and a separately public Binance archive/checksum route. HTTP success or code correctness is not a coverage pass.
+Read the newest `research_state/historical_overlap_probe_*.json` first. A successful controller CI run is not proof that a live probe ran, a free model route worked, or sufficient multi-venue historical coverage exists. Record actual run evidence at the top of `HANDOFF.md`.
 
-All original invariants remain unchanged: FVD-DISPERSION-V1, FVD001–FVD108, FVD053, the original research protocol, and confirmatory `BLOCKED_DATA_GATE`. No workflow edits, no paid/manual inputs, no live or paper trading.
+A narrowly scoped, user-authorized edit to the existing `.github/workflows/main.yml` controller is permitted only for these recovery safeguards. Other workflow files, permissions, triggers, checkpointing and frozen research controls remain protected. No paid/manual inputs, credentials, live trading or paper trading.

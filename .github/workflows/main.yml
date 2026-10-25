@@ -721,6 +721,69 @@ jobs:
           echo "::error::Diagnostics ledger could not be pushed and remotely verified."
           exit 1
 
+      # Run source coverage before npm/Kilo installation so an account wall or
+      # package-registry failure cannot prevent this activation from collecting data.
+      - name: Run and checkpoint bounded historical coverage before Kilo setup
+        id: historical_probe
+        if: ${{ github.event_name != 'push' && inputs.diagnostics_only != true }}
+        shell: bash
+        env:
+          DEFAULT_BRANCH: ${{ github.event.repository.default_branch }}
+        run: |
+          set -Eeuo pipefail
+          schedule_output="$RUNNER_TEMP/historical-probe-schedule.json"
+          python3 scripts/should_run_historical_probe.py --state-dir research_state --output "$schedule_output"
+          should_run_probe="$(python3 -c 'import json,sys; print("true" if json.load(open(sys.argv[1])).get("should_run") is True else "false")' "$schedule_output")"
+          if [[ "$should_run_probe" != "true" ]]; then
+            echo "Bounded historical probe skipped by cooldown policy."
+            exit 0
+          fi
+
+          probe_output="$RUNNER_TEMP/historical_overlap_probe_${GITHUB_RUN_ID}_attempt_${GITHUB_RUN_ATTEMPT}.json"
+          python3 scripts/probe_historical_overlap.py --lookback-days 120 --max-assets 4 --output "$probe_output"
+          python3 -m json.tool "$probe_output" >/dev/null
+          echo "Coverage probe completed; no backtest or performance metrics were computed."
+
+          # Preserve the raw probe artifact even if a subsequent Git push fails.
+          mkdir -p research_state
+          cp "$probe_output" "research_state/historical_overlap_probe_${GITHUB_RUN_ID}_attempt_${GITHUB_RUN_ATTEMPT}.json"
+          git config user.name "kilo-autonomous"
+          git config user.email "kilo-autonomous@users.noreply.github.com"
+          git add -- "research_state/historical_overlap_probe_${GITHUB_RUN_ID}_attempt_${GITHUB_RUN_ATTEMPT}.json"
+          git diff --cached --check
+          git commit -m "research: record bounded historical coverage probe"
+
+          backoff=3
+          for attempt in 1 2 3 4 5; do
+            if ! git fetch --prune origin "+refs/heads/${DEFAULT_BRANCH}:refs/remotes/origin/${DEFAULT_BRANCH}"; then
+              echo "::warning::Probe checkpoint fetch failed on attempt ${attempt}/5."
+            else
+              if ! git merge-base --is-ancestor "origin/${DEFAULT_BRANCH}" HEAD; then
+                if ! git rebase "origin/${DEFAULT_BRANCH}"; then
+                  git rebase --abort >/dev/null 2>&1 || true
+                  echo "::warning::Probe checkpoint rebase failed on attempt ${attempt}/5."
+                  sleep "$backoff"
+                  (( backoff < 20 )) && backoff=$((backoff * 2))
+                  continue
+                fi
+              fi
+              if git push origin "HEAD:refs/heads/${DEFAULT_BRANCH}"; then
+                remote_sha="$(git ls-remote origin "refs/heads/${DEFAULT_BRANCH}" | awk 'NR==1 {print $1}')"
+                local_sha="$(git rev-parse HEAD)"
+                if [[ -n "$remote_sha" && "$remote_sha" == "$local_sha" ]]; then
+                  echo "Historical coverage probe remotely verified at $remote_sha."
+                  echo "probe_sha256=$(sha256sum "$probe_output" | awk '{print $1}')" >> "$GITHUB_OUTPUT"
+                  exit 0
+                fi
+              fi
+              echo "::warning::Probe checkpoint push/remote-SHA verification failed on attempt ${attempt}/5."
+            fi
+            sleep "$backoff"
+            (( backoff < 20 )) && backoff=$((backoff * 2))
+          done
+          echo "::error::Coverage probe exists but could not be remotely verified after five attempts; artifact will be uploaded for recovery."
+          exit 1
+
       - name: Run general-purpose Kilo agent loop
         id: kilo
         # A workflow-file push is a diagnostics/test activation only: never launch
@@ -981,7 +1044,15 @@ jobs:
           JSON
           chmod 600 "$XDG_CONFIG_HOME/kilo/kilo.json"
 
-          cutoff_epoch=$(( $(date +%s) + 355 * 60 ))
+          # A six-hour activation starves the five-minute schedule of fresh
+          # controllers and keeps newly fixed logic queued behind a stale worker.
+          # Scheduled activations are deliberately short and resumable; manual
+          # workflow_dispatch keeps the longer research-session budget.
+          activation_minutes=355
+          if [[ "${GITHUB_EVENT_NAME:-}" == "schedule" ]]; then
+            activation_minutes=40
+          fi
+          cutoff_epoch=$(( $(date +%s) + activation_minutes * 60 ))
           # Reserve the final five minutes of the controller budget for checkpoint
           # reconciliation, push, remote-SHA verification, and recovery artifacts.
           checkpoint_reserve_seconds=300
@@ -1033,10 +1104,14 @@ jobs:
           if ! [[ "$agents" =~ ^[0-9]+$ ]]; then agents=1000; fi
           (( agents < 1 )) && agents=1
           (( agents > 1000 )) && agents=1000
+          if [[ "${GITHUB_EVENT_NAME:-}" == "schedule" ]] && (( agents > 2 )); then
+            agents=2
+            echo "Scheduled activation capped at two sequential worker sessions; durable checkpoints and the next scheduled activation resume the research."
+          fi
           idle_timeout="${KILO_IDLE_TIMEOUT_SECONDS:-900}"
           if ! [[ "$idle_timeout" =~ ^[0-9]+$ ]] || (( idle_timeout < 60 )); then idle_timeout=900; fi
 
-          command='Read AGENTS.md, SKILLS.md, the relevant .agents/skills/*/SKILL.md, and HANDOFF.md. Complete the highest-priority measurable task from HANDOFF.md. Preserve the frozen 108-config grid, free-public-data-only rule, expanding historical point-in-time market-cap universe, and research-only/no-live-trading boundary. Run the exact validation commands, inspect the diff, then update HANDOFF.md with evidence, status, and the next measurable task. Never claim performance metrics unless the full preregistered backtest is complete and independently audited.'
+          command='Read AGENTS.md, SKILLS.md, the relevant .agents/skills/*/SKILL.md, HANDOFF.md, and prompts/autonomous_free_data_gate_unblocking_v2_5.md. Inspect the newest research_state/historical_overlap_probe_*.json and execute the highest-priority measurable action in the active prompt. The controller independently runs a bounded free-data coverage probe before starting Kilo. If provider access fails, do not repeat signup-wall errors: rely on the verified zero-cost model preflight and try another catalog-confirmed $0 input/$0 output route only. Preserve the frozen FVD001-FVD108 grid, FVD053, the point-in-time market-cap gate, no-paid-data rule, and no-live/no-paper-trading boundary. Run exact validation commands, inspect the full diff, and update HANDOFF.md with evidence, status and the next measurable task. Never claim performance metrics unless a valid preregistered backtest is complete and independently audited.'
 
           heartbeat() {
             local heartbeat_sleep_pid=""
@@ -1073,6 +1148,10 @@ jobs:
           pending_persistence_has_project_changes=0
           last_persistence_failure_session=0
           last_persistence_failure_head=""
+          free_models=()
+          model_index=0
+          run_kilo=0
+          provider_route_blocked=0
           backoff=15
 
           persist_checkpoint() {
@@ -1289,10 +1368,80 @@ jobs:
             return 0
           }
 
-          echo "Starting Kilo activation: target=${agents} sequential sessions, idle timeout=${idle_timeout}s, cutoff=355 minutes."
-          echo "Repository default branch: ${DEFAULT_BRANCH}"
+          # Make research progress independent of Kilo Gateway availability.
+          # The coverage probe is bounded, unauthenticated, and never calculates returns.
+          schedule_output="$RUNNER_TEMP/historical-probe-schedule.json"
+          if python3 scripts/should_run_historical_probe.py --state-dir research_state --output "$schedule_output"; then
+            should_run_probe="$(python3 -c 'import json,sys; print("true" if json.load(open(sys.argv[1])).get("should_run") is True else "false")' "$schedule_output" 2>/dev/null || echo false)"
+            if [[ "$should_run_probe" == "true" ]]; then
+              probe_output="research_state/historical_overlap_probe_${GITHUB_RUN_ID}_attempt_${GITHUB_RUN_ATTEMPT}.json"
+              probe_base_sha="$(git rev-parse HEAD)"
+              echo "Starting bounded unauthenticated 120-day coverage probe before any LLM call."
+              set +e
+              python3 scripts/probe_historical_overlap.py --lookback-days 120 --max-assets 4 --output "$probe_output"
+              probe_rc=$?
+              set -e
+              if [[ -f "$probe_output" ]]; then
+                if stage_and_checkpoint "$probe_base_sha"; then
+                  probe_sha="$(sha256sum "$probe_output" | awk '{print $1}')"
+                  echo "Coverage evidence committed and remote-verified: $probe_output sha256=$probe_sha probe_exit=$probe_rc"
+                  {
+                    echo "## Independent historical coverage probe"
+                    echo "- Artifact: `$probe_output`"
+                    echo "- SHA-256: `$probe_sha`"
+                    echo "- Probe exit code: `$probe_rc`"
+                    echo "- This is coverage evidence only; no backtest or performance metrics were computed."
+                  } >> "$GITHUB_STEP_SUMMARY"
+                else
+                  save_recovery_evidence "$probe_base_sha"
+                  fatal_persistence=1
+                  final_phase="probe-checkpoint-failed"
+                  final_detail="coverage probe output exists but its checkpoint could not be verified"
+                  echo "::error::Coverage probe evidence was produced but remote persistence was not verified."
+                fi
+              else
+                echo "::warning::Coverage probe did not create the expected artifact (exit=$probe_rc); do not infer coverage."
+              fi
+            else
+              echo "Coverage probe skipped by bounded cooldown policy."
+            fi
+          else
+            echo "::warning::Coverage probe cadence check failed; skipping live probe to avoid an uncontrolled retry loop."
+          fi
 
-          for ((agent_index=1; agent_index<=agents; agent_index++)); do
+          # Probe Kilo's live public catalog before launching worker sessions.
+          # Only try models whose current catalog explicitly prices both input and
+          # output at zero. The selector sends only a tiny generic health-check prompt.
+          model_preflight_output="$RUNNER_TEMP/kilo-free-model-preflight.json"
+          set +e
+          python3 scripts/kilo_free_model_fallback.py --output "$model_preflight_output"
+          model_preflight_rc=$?
+          set -e
+          if [[ -f "$model_preflight_output" ]]; then
+            if parsed_models="$(python3 -c 'import json,sys; d=json.load(open(sys.argv[1])); print("\n".join(x for x in d.get("usable_models",[]) if isinstance(x,str) and "/" in x and not any(c.isspace() for c in x)) )' "$model_preflight_output" 2>/dev/null)"; then
+              if [[ -n "$parsed_models" ]]; then
+                while IFS= read -r model_id; do
+                  [[ -n "$model_id" ]] && free_models+=("$model_id")
+                done <<< "$parsed_models"
+              fi
+            fi
+          fi
+          if (( ${#free_models[@]} > 0 )); then
+            run_kilo=1
+            echo "Kilo preflight found ${#free_models[@]} reachable model route(s) explicitly priced at zero."
+          else
+            run_kilo=0
+            final_phase="free-model-access-blocked"
+            final_detail="No catalog-confirmed zero-cost model passed the unauthenticated health check; live coverage probe still ran independently."
+            echo "::warning::No zero-cost Kilo route is currently usable. Kilo sessions will not be retried against a signup wall."
+            echo "Research-data coverage probing is independent of LLM model access; no paid route or credentials will be attempted."
+          fi
+
+          if (( run_kilo == 1 )); then
+            echo "Starting Kilo activation: target=${agents} sequential sessions, idle timeout=${idle_timeout}s, cutoff=355 minutes."
+            echo "Repository default branch: ${DEFAULT_BRANCH}"
+
+            for ((agent_index=1; agent_index<=agents; agent_index++)); do
             remaining=$((cutoff_epoch - $(date +%s)))
             if (( remaining <= checkpoint_reserve_seconds + 60 )); then
               final_phase="cutoff"
@@ -1314,6 +1463,9 @@ jobs:
             attempt=0
             transient_backoff=15
             rc=1
+            session_models_tried=0
+            current_model_index=0
+            current_model=""
             echo "Starting sequential Kilo session ${agent_index}/${agents}; remaining safety budget ${remaining}s."
 
             while true; do
@@ -1326,15 +1478,21 @@ jobs:
               fi
               attempt=$((attempt + 1))
               attempt_log="$RUNNER_TEMP/kilo-session-${agent_index}-attempt-${attempt}.log"
+              current_model_index=$(((model_index + session_models_tried) % ${#free_models[@]}))
+              current_model="${free_models[$current_model_index]}"
+              echo "Kilo attempt $attempt uses preflight-verified zero-cost route: $current_model"
               set +e
               timeout --signal=TERM --kill-after=10s "${worker_budget}s" \
                 python3 "$RUNNER_TEMP/kilo-idle-timeout.py" \
                 --idle-timeout-seconds "$idle_timeout" -- \
-                kilo run --model kilo/kilo-auto/free --auto "$session_command" \
+                kilo run --model "kilo/$current_model" --auto "$session_command" \
                 2>&1 | tee "$attempt_log" | tee -a "$session_log"
               rc=${PIPESTATUS[0]}
               set -e
-              if (( rc == 0 )); then break; fi
+              if (( rc == 0 )); then
+                model_index="$current_model_index"
+                break
+              fi
 
               normalized_log="$RUNNER_TEMP/kilo-session-${agent_index}-attempt-${attempt}.normalized.log"
               python3 - "$attempt_log" "$normalized_log" <<'PYTHON'
@@ -1345,6 +1503,16 @@ jobs:
           text = re.sub(r"\x1b\[[0-?]*[ -/]*[@-~]", "", text)
           target.write_text(text, encoding="utf-8")
           PYTHON
+              if grep -Eiq 'sign[ -]?up for free|create (a )?free account|authentication required|unauthori[sz]ed|api key required|HTTP.{0,12}(401|403|429)|too many requests|rate.?limit|quota.{0,40}(exceed|limit)|model.{0,40}(not found|unavailable|unsupported)|unknown model|provider.{0,30}(capacity|overload)' "$normalized_log"; then
+                session_models_tried=$((session_models_tried + 1))
+                if (( session_models_tried < ${#free_models[@]} )); then
+                  echo "::warning::Model route $current_model was denied or unavailable; switching to another preflight-verified zero-cost route (${session_models_tried}/${#free_models[@]} attempted)."
+                  continue
+                fi
+                provider_route_blocked=1
+                echo "::warning::All ${#free_models[@]} preflight-verified zero-cost model routes failed. Stopping repeated signup/access retries for this activation."
+                break
+              fi
               if grep -Eiq 'Upstream idle timeout exceeded|upstream.{0,40}idle.{0,40}timeout|ECONNRESET|ECONNREFUSED|ETIMEDOUT|EAI_AGAIN|ENETUNREACH|EHOSTUNREACH|socket hang up|fetch failed|temporary failure in name resolution|gateway timeout|bad gateway|service unavailable|too many requests|rate[ _-]?limit|resource[_ -]?exhausted|temporarily unavailable|HTTP.{0,12}(429|500|502|503|504)|status.{0,12}(429|500|502|503|504)' "$normalized_log"; then
                 retry_count=$((retry_count + 1))
                 remaining=$((cutoff_epoch - $(date +%s)))
@@ -1427,6 +1595,13 @@ jobs:
               break
             fi
 
+            if (( provider_route_blocked == 1 )); then
+              final_phase="free-model-routes-exhausted"
+              final_detail="All preflight-verified zero-cost model routes failed; coverage evidence has already been preserved independently."
+              echo "Kilo route fallback exhausted; ending this activation instead of repeating the same unavailable model endpoints."
+              break
+            fi
+
             if (( $(date +%s) >= cutoff_epoch )); then
               final_phase="cutoff"
               final_detail="355-minute cutoff reached after a verified checkpoint"
@@ -1462,7 +1637,8 @@ jobs:
               # Brief pause reduces avoidable upstream contention.
               sleep 2
             fi
-          done
+            done
+          fi
 
           if (( $(date +%s) >= cutoff_epoch )); then
             final_phase="cutoff"
@@ -1525,8 +1701,8 @@ jobs:
           fi
           echo "Diagnostics-only activation verified: completed-run collection and ledger persistence both succeeded; Kilo was intentionally not started."
 
-      # This artifact contains only Git recovery material for interrupted work.
-      # Error messages/excerpts are persisted exclusively by the JSONL recorder above.
+      # Attach sanitized model-route and probe-scheduling metadata alongside Git recovery material.
+      # Public response bodies, repository prompts, credentials and model health-check content are not stored.
       - name: Upload recovery artifacts
         if: always()
         continue-on-error: true
@@ -1538,6 +1714,9 @@ jobs:
             ${{ runner.temp }}/kilo-working-tree-*.patch
             ${{ runner.temp }}/kilo-index-*.patch
             ${{ runner.temp }}/kilo-recovery-status-*.txt
+            ${{ runner.temp }}/kilo-free-model-preflight.json
+            ${{ runner.temp }}/historical-probe-schedule.json
+            ${{ runner.temp }}/historical_overlap_probe_*.json
           if-no-files-found: ignore
           retention-days: 7
 
