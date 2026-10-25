@@ -50,6 +50,72 @@ jobs:
           token: ${{ secrets.GITHUB_TOKEN }}
           persist-credentials: true
 
+      # Prioritize the no-LLM coverage probe immediately after checkout. Do not place
+      # diagnostics backfill or Kilo installation ahead of it: those can consume the
+      # bounded activation budget before new source evidence is collected.
+      # Run source coverage before npm/Kilo installation so an account wall or
+      # package-registry failure cannot prevent this activation from collecting data.
+      - name: Run and checkpoint bounded historical coverage before Kilo setup
+        id: historical_probe
+        if: ${{ github.event_name != 'push' && inputs.diagnostics_only != true }}
+        shell: bash
+        env:
+          DEFAULT_BRANCH: ${{ github.event.repository.default_branch }}
+        run: |
+          set -Eeuo pipefail
+          schedule_output="$RUNNER_TEMP/historical-probe-schedule.json"
+          python3 scripts/should_run_historical_probe.py --state-dir research_state --output "$schedule_output"
+          should_run_probe="$(python3 -c 'import json,sys; print("true" if json.load(open(sys.argv[1])).get("should_run") is True else "false")' "$schedule_output")"
+          if [[ "$should_run_probe" != "true" ]]; then
+            echo "Bounded historical probe skipped by cooldown policy."
+            exit 0
+          fi
+
+          probe_output="$RUNNER_TEMP/historical_overlap_probe_${GITHUB_RUN_ID}_attempt_${GITHUB_RUN_ATTEMPT}.json"
+          python3 scripts/probe_historical_overlap.py --lookback-days 120 --max-assets 4 --output "$probe_output"
+          python3 -m json.tool "$probe_output" >/dev/null
+          echo "Coverage probe completed; no backtest or performance metrics were computed."
+
+          # Preserve the raw probe artifact even if a subsequent Git push fails.
+          mkdir -p research_state
+          cp "$probe_output" "research_state/historical_overlap_probe_${GITHUB_RUN_ID}_attempt_${GITHUB_RUN_ATTEMPT}.json"
+          git config user.name "kilo-autonomous"
+          git config user.email "kilo-autonomous@users.noreply.github.com"
+          git add -- "research_state/historical_overlap_probe_${GITHUB_RUN_ID}_attempt_${GITHUB_RUN_ATTEMPT}.json"
+          git diff --cached --check
+          git commit -m "research: record bounded historical coverage probe"
+
+          backoff=3
+          for attempt in 1 2 3 4 5; do
+            if ! git fetch --prune origin "+refs/heads/${DEFAULT_BRANCH}:refs/remotes/origin/${DEFAULT_BRANCH}"; then
+              echo "::warning::Probe checkpoint fetch failed on attempt ${attempt}/5."
+            else
+              if ! git merge-base --is-ancestor "origin/${DEFAULT_BRANCH}" HEAD; then
+                if ! git rebase "origin/${DEFAULT_BRANCH}"; then
+                  git rebase --abort >/dev/null 2>&1 || true
+                  echo "::warning::Probe checkpoint rebase failed on attempt ${attempt}/5."
+                  sleep "$backoff"
+                  (( backoff < 20 )) && backoff=$((backoff * 2))
+                  continue
+                fi
+              fi
+              if git push origin "HEAD:refs/heads/${DEFAULT_BRANCH}"; then
+                remote_sha="$(git ls-remote origin "refs/heads/${DEFAULT_BRANCH}" | awk 'NR==1 {print $1}')"
+                local_sha="$(git rev-parse HEAD)"
+                if [[ -n "$remote_sha" && "$remote_sha" == "$local_sha" ]]; then
+                  echo "Historical coverage probe remotely verified at $remote_sha."
+                  echo "probe_sha256=$(sha256sum "$probe_output" | awk '{print $1}')" >> "$GITHUB_OUTPUT"
+                  exit 0
+                fi
+              fi
+              echo "::warning::Probe checkpoint push/remote-SHA verification failed on attempt ${attempt}/5."
+            fi
+            sleep "$backoff"
+            (( backoff < 20 )) && backoff=$((backoff * 2))
+          done
+          echo "::error::Coverage probe exists but could not be remotely verified after five attempts; artifact will be uploaded for recovery."
+          exit 1
+
       - name: Run offline research and controller validation
         id: controller_tests
         if: ${{ github.event_name == 'push' || inputs.diagnostics_only == true }}
@@ -719,69 +785,6 @@ jobs:
           done
 
           echo "::error::Diagnostics ledger could not be pushed and remotely verified."
-          exit 1
-
-      # Run source coverage before npm/Kilo installation so an account wall or
-      # package-registry failure cannot prevent this activation from collecting data.
-      - name: Run and checkpoint bounded historical coverage before Kilo setup
-        id: historical_probe
-        if: ${{ github.event_name != 'push' && inputs.diagnostics_only != true }}
-        shell: bash
-        env:
-          DEFAULT_BRANCH: ${{ github.event.repository.default_branch }}
-        run: |
-          set -Eeuo pipefail
-          schedule_output="$RUNNER_TEMP/historical-probe-schedule.json"
-          python3 scripts/should_run_historical_probe.py --state-dir research_state --output "$schedule_output"
-          should_run_probe="$(python3 -c 'import json,sys; print("true" if json.load(open(sys.argv[1])).get("should_run") is True else "false")' "$schedule_output")"
-          if [[ "$should_run_probe" != "true" ]]; then
-            echo "Bounded historical probe skipped by cooldown policy."
-            exit 0
-          fi
-
-          probe_output="$RUNNER_TEMP/historical_overlap_probe_${GITHUB_RUN_ID}_attempt_${GITHUB_RUN_ATTEMPT}.json"
-          python3 scripts/probe_historical_overlap.py --lookback-days 120 --max-assets 4 --output "$probe_output"
-          python3 -m json.tool "$probe_output" >/dev/null
-          echo "Coverage probe completed; no backtest or performance metrics were computed."
-
-          # Preserve the raw probe artifact even if a subsequent Git push fails.
-          mkdir -p research_state
-          cp "$probe_output" "research_state/historical_overlap_probe_${GITHUB_RUN_ID}_attempt_${GITHUB_RUN_ATTEMPT}.json"
-          git config user.name "kilo-autonomous"
-          git config user.email "kilo-autonomous@users.noreply.github.com"
-          git add -- "research_state/historical_overlap_probe_${GITHUB_RUN_ID}_attempt_${GITHUB_RUN_ATTEMPT}.json"
-          git diff --cached --check
-          git commit -m "research: record bounded historical coverage probe"
-
-          backoff=3
-          for attempt in 1 2 3 4 5; do
-            if ! git fetch --prune origin "+refs/heads/${DEFAULT_BRANCH}:refs/remotes/origin/${DEFAULT_BRANCH}"; then
-              echo "::warning::Probe checkpoint fetch failed on attempt ${attempt}/5."
-            else
-              if ! git merge-base --is-ancestor "origin/${DEFAULT_BRANCH}" HEAD; then
-                if ! git rebase "origin/${DEFAULT_BRANCH}"; then
-                  git rebase --abort >/dev/null 2>&1 || true
-                  echo "::warning::Probe checkpoint rebase failed on attempt ${attempt}/5."
-                  sleep "$backoff"
-                  (( backoff < 20 )) && backoff=$((backoff * 2))
-                  continue
-                fi
-              fi
-              if git push origin "HEAD:refs/heads/${DEFAULT_BRANCH}"; then
-                remote_sha="$(git ls-remote origin "refs/heads/${DEFAULT_BRANCH}" | awk 'NR==1 {print $1}')"
-                local_sha="$(git rev-parse HEAD)"
-                if [[ -n "$remote_sha" && "$remote_sha" == "$local_sha" ]]; then
-                  echo "Historical coverage probe remotely verified at $remote_sha."
-                  echo "probe_sha256=$(sha256sum "$probe_output" | awk '{print $1}')" >> "$GITHUB_OUTPUT"
-                  exit 0
-                fi
-              fi
-              echo "::warning::Probe checkpoint push/remote-SHA verification failed on attempt ${attempt}/5."
-            fi
-            sleep "$backoff"
-            (( backoff < 20 )) && backoff=$((backoff * 2))
-          done
-          echo "::error::Coverage probe exists but could not be remotely verified after five attempts; artifact will be uploaded for recovery."
           exit 1
 
       - name: Run general-purpose Kilo agent loop
