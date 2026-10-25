@@ -75,9 +75,14 @@ def _acknowledged_mismatches() -> set[tuple[str, str, str]]:
     return triples
 
 
-def main() -> int:
+_ACKNOWLEDGED: list[str] = []
+
+
+def validate_research_state_artifacts() -> list[str]:
+    global _ACKNOWLEDGED
     errors: list[str] = []
     acknowledged: list[str] = []
+    _ACKNOWLEDGED = acknowledged
     ack = _acknowledged_mismatches()
 
     # Layer 1: every committed research-state JSON must be well-formed.
@@ -154,14 +159,20 @@ def main() -> int:
                             f"recorded {recorded}, on-disk {actual}"
                         )
 
-    for line in acknowledged:
+    for line in _ACKNOWLEDGED:
         print("ACK:", line)
 
+    return errors
+
+
+def main() -> int:
+    errors = validate_research_state_artifacts()
     if errors:
         print("RESEARCH_STATE_ARTIFACTS_VALIDATION=FAIL")
         for error in errors:
             print(f"- {error}")
         return 1
+    state_files = sorted(STATE_DIR.glob("*.json"))
     print(f"RESEARCH_STATE_ARTIFACTS_VALIDATION=PASS files={len(state_files)}")
     return 0
 
