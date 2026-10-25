@@ -1678,7 +1678,7 @@ jobs:
             echo "- Consecutive worker failures at end: ${consecutive_failures}"
             echo "- Provider quota/capacity failure streak: ${provider_pressure_streak}"
             echo "- Final phase: ${final_phase} — ${final_detail}"
-            echo "- Idle timeout: ${idle_timeout}s; workflow safety cutoff: 355 minutes"
+            echo "- Idle timeout: ${idle_timeout}s; activation budget: ${activation_minutes} minutes; scheduled deadline is anchored before preflight"
             echo
             echo "A successful worker exit is not by itself proof of task correctness. Review the central diagnostic ledger and persisted repository changes."
           } >> "$GITHUB_STEP_SUMMARY"
