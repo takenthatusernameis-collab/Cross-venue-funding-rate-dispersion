@@ -22,12 +22,13 @@ OKX = "https://www.okx.com/api/v5"
 BINANCE_ARCHIVE = "https://data.binance.vision"
 TIMEOUT_SECONDS = 8
 MAX_RESPONSE_BYTES = 2_000_000
-MAX_ASSETS = 4
-MAX_HL_FUNDING_PAGES = 8
-MAX_OKX_FUNDING_PAGES = 8
-MAX_OKX_CANDLE_PAGES = 12
+MAX_ASSETS = 5
+MAX_HL_FUNDING_PAGES = 12
+MAX_OKX_FUNDING_PAGES = 12
+MAX_OKX_CANDLE_PAGES = 16
 PAGE_DELAY_SECONDS = 0.12
-PRIORITY_BASES = ("BTC", "ETH", "SOL", "XRP", "DOGE", "BNB", "HYPE", "AVAX", "ARB", "OP")
+PRIORITY_BASES = ("BTC", "ETH", "SOL", "AVAX", "LINK", "XRP", "DOGE", "BNB", "HYPE", "ARB", "OP")
+TARGET_FIVE = ("BTC", "ETH", "SOL", "AVAX", "LINK")
 
 
 def utc_iso_ms(value: int | None) -> str | None:
@@ -354,7 +355,18 @@ def run_probe(lookback_days: int = 120, max_assets: int = MAX_ASSETS) -> dict:
     hl_coins = extract_hl_coins(hl_meta)
     okx_meta_result, okx_meta = request_json(okx_url("/public/instruments", {"instType": "SWAP"}))
     okx_instruments = extract_okx_linear_usdt_swaps(okx_meta)
-    common = [base for base in PRIORITY_BASES if base in hl_coins and base in okx_instruments][:max_assets]
+    # Prefer the five assets mentioned in the verified probe evidence
+    common = [base for base in TARGET_FIVE if base in hl_coins and base in okx_instruments]
+    # Fall back to priority order if any missing
+    if len(common) < max_assets:
+        for base in PRIORITY_BASES:
+            if base in common:
+                continue
+            if base in hl_coins and base in okx_instruments:
+                common.append(base)
+            if len(common) >= max_assets:
+                break
+    common = common[:max_assets]
 
     routes = {
         "hyperliquid_meta": {**hl_meta_result, "source": "Hyperliquid", "field": "perpetual instrument metadata"},

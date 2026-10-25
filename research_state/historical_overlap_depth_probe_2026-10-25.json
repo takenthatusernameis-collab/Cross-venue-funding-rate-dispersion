@@ -1,0 +1,372 @@
+{
+  "artifact_type": "historical_overlap_depth_probe",
+  "candidate_assets_intersection": [
+    "BTC",
+    "ETH",
+    "SOL",
+    "AVAX",
+    "LINK"
+  ],
+  "gates": {
+    "backtest_completed": false,
+    "historical_coverage_gate": "NOT_PASSED_BY_COVERAGE_PROBE",
+    "original_confirmatory_gate": "BLOCKED_DATA_GATE",
+    "performance_metrics_computed": false
+  },
+  "limitations": [
+    "This is a bounded source probe, not a strategy backtest.",
+    "Current instrument metadata does not prove historical listing/delisting or contract identity.",
+    "The short candidate list is a probe sample, not the full expanding research universe.",
+    "Response availability does not prove data completeness, event maturity, executable fills, or point-in-time market-cap ranks.",
+    "No response hash or coverage is reported for requests that failed before receiving response bytes.",
+    "OKX funding history starts later than HL funding/candles for these pairs in this probe window; common overlap for funding must be computed from intersection.",
+    "Contract identity by underlying symbol only (Hyperliquid coin vs OKX instId) not independently verified."
+  ],
+  "lookback_days_requested": 120,
+  "observed_at_utc": "2026-10-25T18:18:40.007853Z",
+  "routes_summary": {
+    "binance_archive_candidates": [
+      {
+        "coverage_proven": false,
+        "http_status": 200,
+        "url": "https://data.binance.vision/data/futures/um/monthly/klines/BTCUSDT/1h/BTCUSDT-1h-2024-01.zip.CHECKSUM"
+      },
+      {
+        "coverage_proven": false,
+        "http_status": 200,
+        "url": "https://data.binance.vision/data/futures/um/monthly/fundingRate/BTCUSDT/BTCUSDT-fundingRate-2024-01.zip.CHECKSUM"
+      }
+    ],
+    "hyperliquid": {
+      "candles": [
+        {
+          "coin": "BTC",
+          "coverage": {
+            "duplicate_timestamps": 0,
+            "earliest_utc": "2026-06-27T17:00:00Z",
+            "hourly_gap_count": 0,
+            "latest_utc": "2026-10-25T17:00:00Z",
+            "maximum_missing_hours_in_gap": 0,
+            "row_count": 2881,
+            "timestamp_count": 2881,
+            "unique_timestamp_count": 2881
+          },
+          "http_status": 200,
+          "pages_received": null
+        },
+        {
+          "coin": "ETH",
+          "coverage": {
+            "duplicate_timestamps": 0,
+            "earliest_utc": "2026-06-27T17:00:00Z",
+            "hourly_gap_count": 0,
+            "latest_utc": "2026-10-25T17:00:00Z",
+            "maximum_missing_hours_in_gap": 0,
+            "row_count": 2881,
+            "timestamp_count": 2881,
+            "unique_timestamp_count": 2881
+          },
+          "http_status": 200,
+          "pages_received": null
+        },
+        {
+          "coin": "SOL",
+          "coverage": {
+            "duplicate_timestamps": 0,
+            "earliest_utc": "2026-06-27T17:00:00Z",
+            "hourly_gap_count": 0,
+            "latest_utc": "2026-10-25T17:00:00Z",
+            "maximum_missing_hours_in_gap": 0,
+            "row_count": 2881,
+            "timestamp_count": 2881,
+            "unique_timestamp_count": 2881
+          },
+          "http_status": 200,
+          "pages_received": null
+        },
+        {
+          "coin": "AVAX",
+          "coverage": {
+            "duplicate_timestamps": 0,
+            "earliest_utc": "2026-06-27T17:00:00Z",
+            "hourly_gap_count": 0,
+            "latest_utc": "2026-10-25T17:00:00Z",
+            "maximum_missing_hours_in_gap": 0,
+            "row_count": 2881,
+            "timestamp_count": 2881,
+            "unique_timestamp_count": 2881
+          },
+          "http_status": 200,
+          "pages_received": null
+        },
+        {
+          "coin": "LINK",
+          "coverage": {
+            "duplicate_timestamps": 0,
+            "earliest_utc": "2026-06-27T17:00:00Z",
+            "hourly_gap_count": 0,
+            "latest_utc": "2026-10-25T17:00:00Z",
+            "maximum_missing_hours_in_gap": 0,
+            "row_count": 2881,
+            "timestamp_count": 2881,
+            "unique_timestamp_count": 2881
+          },
+          "http_status": 200,
+          "pages_received": null
+        }
+      ],
+      "funding": [
+        {
+          "coin": "BTC",
+          "coverage": {
+            "duplicate_timestamps": 0,
+            "earliest_utc": "2026-06-27T18:00:00.108000Z",
+            "hourly_gap_count": 0,
+            "latest_utc": "2026-10-25T17:00:00.047000Z",
+            "maximum_missing_hours_in_gap": 0,
+            "row_count": 2880,
+            "timestamp_count": 2880,
+            "unique_timestamp_count": 2880
+          },
+          "http_status": null,
+          "pages_received": 6,
+          "stop_reason": "window_reached_or_page_not_full"
+        },
+        {
+          "coin": "ETH",
+          "coverage": {
+            "duplicate_timestamps": 0,
+            "earliest_utc": "2026-06-27T18:00:00.108000Z",
+            "hourly_gap_count": 0,
+            "latest_utc": "2026-10-25T17:00:00.047000Z",
+            "maximum_missing_hours_in_gap": 0,
+            "row_count": 2880,
+            "timestamp_count": 2880,
+            "unique_timestamp_count": 2880
+          },
+          "http_status": null,
+          "pages_received": 6,
+          "stop_reason": "window_reached_or_page_not_full"
+        },
+        {
+          "coin": "SOL",
+          "coverage": {
+            "duplicate_timestamps": 0,
+            "earliest_utc": "2026-06-27T18:00:00.108000Z",
+            "hourly_gap_count": 0,
+            "latest_utc": "2026-10-25T17:00:00.047000Z",
+            "maximum_missing_hours_in_gap": 0,
+            "row_count": 2880,
+            "timestamp_count": 2880,
+            "unique_timestamp_count": 2880
+          },
+          "http_status": null,
+          "pages_received": 6,
+          "stop_reason": "window_reached_or_page_not_full"
+        },
+        {
+          "coin": "AVAX",
+          "coverage": {
+            "duplicate_timestamps": 0,
+            "earliest_utc": "2026-06-27T18:00:00.108000Z",
+            "hourly_gap_count": 0,
+            "latest_utc": "2026-10-25T17:00:00.047000Z",
+            "maximum_missing_hours_in_gap": 0,
+            "row_count": 2880,
+            "timestamp_count": 2880,
+            "unique_timestamp_count": 2880
+          },
+          "http_status": null,
+          "pages_received": 6,
+          "stop_reason": "window_reached_or_page_not_full"
+        },
+        {
+          "coin": "LINK",
+          "coverage": {
+            "duplicate_timestamps": 0,
+            "earliest_utc": "2026-06-27T18:00:00.108000Z",
+            "hourly_gap_count": 0,
+            "latest_utc": "2026-10-25T17:00:00.047000Z",
+            "maximum_missing_hours_in_gap": 0,
+            "row_count": 2880,
+            "timestamp_count": 2880,
+            "unique_timestamp_count": 2880
+          },
+          "http_status": null,
+          "pages_received": 6,
+          "stop_reason": "window_reached_or_page_not_full"
+        }
+      ]
+    },
+    "okx": {
+      "candles": [
+        {
+          "coverage": {
+            "duplicate_timestamps": 0,
+            "earliest_utc": "2026-06-27T18:00:00Z",
+            "hourly_gap_count": 0,
+            "latest_utc": "2026-10-25T17:00:00Z",
+            "maximum_missing_hours_in_gap": 0,
+            "row_count": 2880,
+            "timestamp_count": 2880,
+            "unique_timestamp_count": 2880
+          },
+          "http_status": null,
+          "instId": "BTC-USDT-SWAP",
+          "pages_received": 10,
+          "stop_reason": "window_start_reached"
+        },
+        {
+          "coverage": {
+            "duplicate_timestamps": 0,
+            "earliest_utc": "2026-06-27T18:00:00Z",
+            "hourly_gap_count": 0,
+            "latest_utc": "2026-10-25T17:00:00Z",
+            "maximum_missing_hours_in_gap": 0,
+            "row_count": 2880,
+            "timestamp_count": 2880,
+            "unique_timestamp_count": 2880
+          },
+          "http_status": null,
+          "instId": "ETH-USDT-SWAP",
+          "pages_received": 10,
+          "stop_reason": "window_start_reached"
+        },
+        {
+          "coverage": {
+            "duplicate_timestamps": 0,
+            "earliest_utc": "2026-06-27T18:00:00Z",
+            "hourly_gap_count": 0,
+            "latest_utc": "2026-10-25T17:00:00Z",
+            "maximum_missing_hours_in_gap": 0,
+            "row_count": 2880,
+            "timestamp_count": 2880,
+            "unique_timestamp_count": 2880
+          },
+          "http_status": null,
+          "instId": "SOL-USDT-SWAP",
+          "pages_received": 10,
+          "stop_reason": "window_start_reached"
+        },
+        {
+          "coverage": {
+            "duplicate_timestamps": 0,
+            "earliest_utc": "2026-06-27T18:00:00Z",
+            "hourly_gap_count": 0,
+            "latest_utc": "2026-10-25T17:00:00Z",
+            "maximum_missing_hours_in_gap": 0,
+            "row_count": 2880,
+            "timestamp_count": 2880,
+            "unique_timestamp_count": 2880
+          },
+          "http_status": null,
+          "instId": "AVAX-USDT-SWAP",
+          "pages_received": 10,
+          "stop_reason": "window_start_reached"
+        },
+        {
+          "coverage": {
+            "duplicate_timestamps": 0,
+            "earliest_utc": "2026-06-27T18:00:00Z",
+            "hourly_gap_count": 0,
+            "latest_utc": "2026-10-25T17:00:00Z",
+            "maximum_missing_hours_in_gap": 0,
+            "row_count": 2880,
+            "timestamp_count": 2880,
+            "unique_timestamp_count": 2880
+          },
+          "http_status": null,
+          "instId": "LINK-USDT-SWAP",
+          "pages_received": 10,
+          "stop_reason": "window_start_reached"
+        }
+      ],
+      "funding": [
+        {
+          "coverage": {
+            "duplicate_timestamps": 0,
+            "earliest_utc": "2026-07-20T16:00:00Z",
+            "hourly_gap_count": 0,
+            "latest_utc": "2026-10-25T16:00:00Z",
+            "maximum_missing_hours_in_gap": 0,
+            "row_count": 292,
+            "timestamp_count": 292,
+            "unique_timestamp_count": 292
+          },
+          "http_status": null,
+          "instId": "BTC-USDT-SWAP",
+          "pages_received": 1,
+          "stop_reason": "page_not_full"
+        },
+        {
+          "coverage": {
+            "duplicate_timestamps": 0,
+            "earliest_utc": "2026-07-20T16:00:00Z",
+            "hourly_gap_count": 0,
+            "latest_utc": "2026-10-25T16:00:00Z",
+            "maximum_missing_hours_in_gap": 0,
+            "row_count": 292,
+            "timestamp_count": 292,
+            "unique_timestamp_count": 292
+          },
+          "http_status": null,
+          "instId": "ETH-USDT-SWAP",
+          "pages_received": 1,
+          "stop_reason": "page_not_full"
+        },
+        {
+          "coverage": {
+            "duplicate_timestamps": 0,
+            "earliest_utc": "2026-07-20T16:00:00Z",
+            "hourly_gap_count": 0,
+            "latest_utc": "2026-10-25T16:00:00Z",
+            "maximum_missing_hours_in_gap": 0,
+            "row_count": 292,
+            "timestamp_count": 292,
+            "unique_timestamp_count": 292
+          },
+          "http_status": null,
+          "instId": "SOL-USDT-SWAP",
+          "pages_received": 1,
+          "stop_reason": "page_not_full"
+        },
+        {
+          "coverage": {
+            "duplicate_timestamps": 0,
+            "earliest_utc": "2026-07-20T16:00:00Z",
+            "hourly_gap_count": 0,
+            "latest_utc": "2026-10-25T16:00:00Z",
+            "maximum_missing_hours_in_gap": 0,
+            "row_count": 292,
+            "timestamp_count": 292,
+            "unique_timestamp_count": 292
+          },
+          "http_status": null,
+          "instId": "AVAX-USDT-SWAP",
+          "pages_received": 1,
+          "stop_reason": "page_not_full"
+        },
+        {
+          "coverage": {
+            "duplicate_timestamps": 0,
+            "earliest_utc": "2026-07-20T16:00:00Z",
+            "hourly_gap_count": 0,
+            "latest_utc": "2026-10-25T16:00:00Z",
+            "maximum_missing_hours_in_gap": 0,
+            "row_count": 292,
+            "timestamp_count": 292,
+            "unique_timestamp_count": 292
+          },
+          "http_status": null,
+          "instId": "LINK-USDT-SWAP",
+          "pages_received": 1,
+          "stop_reason": "page_not_full"
+        }
+      ]
+    }
+  },
+  "schema_version": "1.0",
+  "source_probe_file": "/tmp/cross-venue-historical-overlap-probe-depth.json",
+  "window_end_utc": "2026-10-25T17:59:59.999000Z",
+  "window_start_utc": "2026-06-27T17:59:59.999000Z"
+}
