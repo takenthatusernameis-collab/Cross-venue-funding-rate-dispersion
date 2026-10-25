@@ -1,32 +1,32 @@
-# Current Priority — Execute Free-Data Gate Unblocking Prompt v2.4 (2026-10-25)
+# Current Priority — Verify Kilo can unblock free-data research (v2.6, 2026-10-25)
 
-**Active prompt:** `prompts/autonomous_free_data_gate_unblocking_v2_4.md`  
-**Prompt creation commit:** `f3236ce0d9d9701600c7f4239e28e5c01f6b581d`  
-**Active agent-instruction pointer:** `AGENTS.md`, updated at `0d9ee14bcb0131efce3b019e8d27eca9791a0bb9`  
-**Latest Research CI run:** [#40217132305 — success](https://github.com/takenthatusernameis-collab/Cross-venue-funding-rate-dispersion/actions/runs/40217132305)
+**Active prompt:** [`prompts/autonomous_free_data_gate_unblocking_v2_6.md`](https://github.com/takenthatusernameis-collab/Cross-venue-funding-rate-dispersion/blob/main/prompts/autonomous_free_data_gate_unblocking_v2_6.md)  
+**Controller fix commit:** `1c1b46db3afdd4583827e608e20f61a17f0f866f`  
+**Prompt commit:** `98e40fc03f5de48412bd8bc66ef82bce0de16a39`  
+**AGENTS pointer commit:** `73be4c147d549eb78b3c7991b6a8a53172b2810b`
 
-## Execution status — prompt refined; live 120-day probe still blocked
+## Current assessment — mechanisms improved; live research unblocking not yet verified
 
-- Completed the requested wait of more than three minutes before revising/executing this task.
-- Added v2.4 as an immutable prompt version. It reconciles the old malformed Hyperliquid HTTP 422 request with the newer verified corrected request, distinguishes six-hour request validation from historical-depth evidence, defines a bounded 120-day multi-instrument run, requires instrument metadata checks beyond matching base symbols, and states exactly how to report runner-access limitations.
-- Updated `AGENTS.md` to point to v2.4. The v2.3 prompt and all prior evidence remain intact.
-- Executed the current host's bounded GET attempts against the OKX historical-candles endpoint and the official Binance public archive checksum object. Both failed at DNS resolution before HTTP response. No HTTP status, response body, response hash or historical coverage was obtained. These failures apply to this host only and do not reject either source.
-- The available GitHub integration exposes workflow inspection and existing-run retrieval but no workflow-dispatch action. The existing `.github/workflows/public-source-preflight.yml` is `workflow_dispatch`-only. I did not change workflow files, use credentials, or invoke an unapproved runner.
-- The v2.4/AGENTS push triggered the existing Research CI. Run `40217132305` completed successfully: compile, offline unit/adversarial tests, frozen research-contract validation and skills validation all passed. This is not evidence that the live 120-day probe ran.
-- Current known short-window evidence remains `research_state/hyperliquid_candle_probe_2026-10-25.json`: HTTP 200 and seven 1-hour rows each for BTC, ETH, SOL, AVAX and LINK over approximately six hours. Historical depth, complete pagination, multi-venue price overlap and contract identity remain unverified.
-- Original confirmatory status is still `BLOCKED_DATA_GATE`; `FVD001–FVD108`, `FVD053`, and the original grid digest remain frozen. No backtest or performance metrics were computed.
+- The earlier controller used a 355-minute budget for scheduled and manual activations. Under the shared `kilo-repository` concurrency group, a scheduled activation can block later scheduled activations and their fresh source probes for nearly six hours.
+- The existing scheduled run [#40209613351](https://github.com/takenthatusernameis-collab/Cross-venue-funding-rate-dispersion/actions/runs/40209613351) started at 2026-10-25 16:00:33 UTC on workflow SHA `6b5e16819c4b3de281ef908b333a55dee1a4c09f`. At the latest inspection (18:04 UTC), it was still in progress in the Kilo worker step. It predates the latest controller fix and cannot be retroactively changed by a new commit. The GitHub integration available here has no action to cancel that run or dispatch a new one.
+- Narrowly changed only `.github/workflows/main.yml`: future scheduled activations now use a 40-minute total cutoff and at most two sequential worker sessions; the final 5 minutes remain reserved for checkpoint/recovery. Manual dispatch retains the 355-minute budget and its explicit session input. The existing coverage probe still runs before Kilo model preflight, and the model selector still allows only catalog-confirmed zero-priced routes.
+- Added immutable prompt v2.6 documenting the scheduling bottleneck, the bounded resumable fix, acceptance checks, and the rule not to claim live research progress from CI alone. Updated `AGENTS.md` to point to v2.6.
+- The fix does not cancel or alter the currently running old activation. Future scheduled runs use the shorter controller after the existing run releases the concurrency group. This is a deliberate no-overlap choice: do not start a second Kilo worker or parallel diagnostics-ledger writer.
+- Latest confirmed offline validation before this controller change passed in Research CI [#40218906540](https://github.com/takenthatusernameis-collab/Cross-venue-funding-rate-dispersion/actions/runs/40218906540). A new CI run is expected from the latest pushes and must be checked before treating the controller change as validated.
+- The last verified historical probe still establishes only a six-hour Hyperliquid candle request for BTC/ETH/SOL/AVAX/LINK. No verified 120-day multi-venue overlap or strategy metrics are established here. Original confirmatory status remains `BLOCKED_DATA_GATE`, with FVD001–FVD108 and FVD053 unchanged.
 
-## Exact next task
+## Acceptance checks for this fix
 
-From a permitted networked runner, execute the v2.4 command:
+1. Research CI passes on the final controller commit.
+2. A future scheduled run completes within the 40-minute controller budget (unless a documented platform cancellation prevents it) and checkpoints any useful work.
+3. Its run artifact records the actual 120-day probe outcome before any model call, including no-HTTP-response versus HTTP-response failures.
+4. Kilo model preflight uses only $0/$0 catalog entries and no credentials; failed free routes stop instead of repeating signup/access errors.
+5. After the active old run ends, a new scheduled activation uses the updated workflow and can resume from the latest verified remote checkpoint.
+6. Original confirmatory gate remains `BLOCKED_DATA_GATE` unless independently satisfied. No performance claims without a valid, preregistered, audited backtest.
 
-```bash
-python3 scripts/probe_historical_overlap.py --lookback-days 120 --max-assets 4 --output /tmp/cross-venue-historical-overlap-probe.json
-```
+**Next action:** inspect the newest Kilo workflow run and Research CI run. Verify the new scheduled cutoff on a future scheduled activation, then inspect its `historical_overlap_probe_*.json` artifact. If the active old run persists, do not claim the new fix has already taken effect.
 
-Then audit the full JSON and create the per-underlying × venue × field overlap matrix, including request/response hashes, timestamps, gaps, pagination completeness, funding cadence and contract metadata. Do not calculate strategy outcomes unless the existing exploratory protocol's unchanged prerequisites pass and a new exploratory manifest is frozen first. If no approved runner dispatch mechanism is available, the live data task remains unexecuted; do not work around that by modifying workflows or misrepresenting CI success.
-
-**Invariants:** no paid/manual data or credentials; no live/paper trading; no `.github/workflows/**` edits; no weakening of the original data gate; no unsupported performance claims.
+**Invariants:** no paid/manual data, no credentials, no live/paper trading, no workflow changes outside the narrow controller safeguard, no frozen-grid or protocol changes, no unsupported performance claims.
 
 ---
 
