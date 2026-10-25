@@ -7,8 +7,7 @@ against the shared required-field contract (types, enums, required keys, the
 backtest_completed => performance_metrics_computed invariant); its versioned
 exploratory-only fields are expected and permitted.
 
-Standard library + jsonschema; no network calls; no economic result; makes no
-performance claim.
+Standard library only; no network calls; no economic result; makes no performance claim.
 """
 import json
 import re
@@ -107,19 +106,98 @@ def validate_contract(data: dict, path: Path, allow_extra: bool) -> None:
         check(not extra, f"{path.name} unexpected additional properties: {sorted(extra)}")
 
 
+
+def _matches_type(value, type_name: str) -> bool:
+    if type_name == "object":
+        return isinstance(value, dict)
+    if type_name == "array":
+        return isinstance(value, list)
+    if type_name == "string":
+        return isinstance(value, str)
+    if type_name == "boolean":
+        return isinstance(value, bool)
+    if type_name == "integer":
+        return isinstance(value, int) and not isinstance(value, bool)
+    if type_name == "number":
+        return isinstance(value, (int, float)) and not isinstance(value, bool)
+    if type_name == "null":
+        return value is None
+    return False
+
+
+def validate_json_schema(data, schema: dict, path: str = "$") -> list[str]:
+    """Validate the subset used by the committed manifest schema without third-party deps.
+
+    Supported keywords: type (including union types), required, properties, enum,
+    const, items, additionalProperties=false, format=date-time, allOf, if and then.
+    This deliberately fails closed on wrong values and keeps this validation usable in
+    the repository's standard-library-only CI environment.
+    """
+    errors: list[str] = []
+    type_spec = schema.get("type")
+    if type_spec is not None:
+        allowed_types = type_spec if isinstance(type_spec, list) else [type_spec]
+        if not any(_matches_type(data, t) for t in allowed_types):
+            errors.append(f"{path} has type {type(data).__name__}; expected {allowed_types}")
+            return errors
+
+    if "enum" in schema and data not in schema["enum"]:
+        errors.append(f"{path} value {data!r} is not in enum {schema['enum']!r}")
+    if "const" in schema and data != schema["const"]:
+        errors.append(f"{path} value {data!r} does not equal const {schema['const']!r}")
+
+    if schema.get("format") == "date-time" and data is not None:
+        from datetime import datetime
+        if not isinstance(data, str):
+            errors.append(f"{path} must be a date-time string")
+        else:
+            try:
+                parsed = datetime.fromisoformat(data.replace("Z", "+00:00"))
+                if parsed.tzinfo is None:
+                    errors.append(f"{path} date-time must include a timezone")
+            except ValueError:
+                errors.append(f"{path} is not a valid ISO date-time")
+
+    if isinstance(data, dict):
+        for required_key in schema.get("required", []):
+            if required_key not in data:
+                errors.append(f"{path} missing required property {required_key}")
+        properties = schema.get("properties", {})
+        for key, child_schema in properties.items():
+            if key in data:
+                errors.extend(validate_json_schema(data[key], child_schema, f"{path}.{key}"))
+        if schema.get("additionalProperties") is False:
+            extras = set(data) - set(properties)
+            if extras:
+                errors.append(f"{path} has additional properties {sorted(extras)}")
+
+    if isinstance(data, list) and isinstance(schema.get("items"), dict):
+        for index, item in enumerate(data):
+            errors.extend(validate_json_schema(item, schema["items"], f"{path}[{index}]"))
+
+    for rule in schema.get("allOf", []):
+        condition = rule.get("if")
+        condition_matches = True
+        if isinstance(condition, dict):
+            cond_props = condition.get("properties", {})
+            if isinstance(data, dict):
+                for key, prop_rule in cond_props.items():
+                    if key in data and validate_json_schema(data[key], prop_rule, f"{path}.{key}"):
+                        condition_matches = False
+            else:
+                condition_matches = False
+        if condition_matches and isinstance(rule.get("then"), dict):
+            errors.extend(validate_json_schema(data, rule["then"], path))
+    return errors
+
 def main() -> int:
     schema = load_schema()
     confirm = load_json(CONFIRMATORY)
     expl = load_json(EXPLORATORY)
 
-    import jsonschema
-
     # Confirmatory: strict schema conformance (additionalProperties: false).
-    try:
-        jsonschema.validate(confirm, schema)
-    except jsonschema.ValidationError as exc:
-        print(f"FAIL: confirmatory manifest violates schema: {exc.message}")
-        sys.exit(1)
+    schema_errors = validate_json_schema(confirm, schema)
+    check(not schema_errors, f"confirmatory manifest violates schema: {schema_errors[:10]}")
     validate_contract(confirm, CONFIRMATORY, allow_extra=False)
     check(confirm.get("status") == "BLOCKED_DATA_GATE",
           "confirmatory run_manifest status must remain BLOCKED_DATA_GATE")
