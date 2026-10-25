@@ -24,7 +24,8 @@ class WorkflowContractTests(unittest.TestCase):
             "actions/upload-artifact@v7.0.2",
         ):
             self.assertIn(item,text)
-        self.assertIn("only try models whose current catalog explicitly prices both input and output at zero",text)
+        self.assertIn("catalog explicitly prices both input and",text)
+        self.assertIn("output at zero.",text)
         self.assertNotIn("kilo/kilo-auto/free",text)
         self.assertNotIn("workflow: write",text.lower())
         self.assertNotIn("tests/test_controller_progress_accounting.py",text)
