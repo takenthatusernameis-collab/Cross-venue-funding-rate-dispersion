@@ -314,3 +314,19 @@ Refactored scripts/validate_skills.py to expose validate_skills(root, skill_root
 ## Next measurable task
 
 The data gate remains `BLOCKED_DATA_GATE`; do not run the empirical grid or claim performance metrics until a free public source passes the historical point-in-time market-cap gate (>=3-year PIT market cap with publication/as-of timestamps) per the adaptive research-gate policy. Deterministic hardening is complete and green; if no new hardening gap appears, the next measurable work is source monitoring for a materially different free public source family satisfying the PIT market-cap gate, with a new separately-versioned exploratory ID only if the trigger is met. Preserve frozen grid (FVD001–FVD108, anchor FVD053), free-public-data-only rule, expanding historical point-in-time market-cap universe, and research-only/no-live-trading boundary.
+
+## Completed Task — Session validation pass (2026-10-25)
+
+1. Read AGENTS.md, SKILLS.md, all `.agents/skills/*/SKILL.md`, and HANDOFF.md. Confirmed frozen grid (FVD001–FVD108, anchor FVD053, sha `6be218bc84bf118cf67c238ad1c13ef1e445658db3b1346cd64ccaccc7aa5f07`), free-public-data-only rule, expanding historical point-in-time market-cap universe, research-only/no-live-trading boundary, track separation (confirmatory `BLOCKED_DATA_GATE`, exploratory `EXPLORATORY_ONLY`/`INCONCLUSIVE`).
+2. Ran exact validation commands:
+   - `python3 -m compileall -q src scripts tests` = OK
+   - `PYTHONPATH=src python3 -m unittest discover -s tests -v` = 319 tests OK
+   - `PYTHONPATH=src python3 scripts/validate_research.py` = RESEARCH_VALIDATION=PASS (grid 108, anchor FVD053, NOT_RUN, no metrics)
+   - `python3 scripts/validate_skills.py` = SKILLS_VALIDATION=PASS count=4
+   - `PYTHONPATH=src python3 scripts/validate_all.py` = ALL_VALIDATIONS=PASS count=23
+   - `git diff --check` clean; `git status --short` clean.
+3. Frozen artifacts unchanged (`configs/cross_venue_funding_dispersion_grid_v1.json` sha `6be218bc84bf118cf67c238ad1c13ef1e445658db3b1346cd64ccaccc7aa5f07`; `research_state/run_manifest.json` sha `4f162ce128c741434addf6aa2fa7c7dbf1bf189d4a81b8893ed96899412c7aaf` BLOCKED_DATA_GATE, backtest_completed=false, performance_metrics_computed=false). Confirmatory campaign BLOCKED_DATA_GATE; exploratory track EXPLORATORY_ONLY/INCONCLUSIVE, no promotion/trading. No performance metrics claimed.
+
+## Next measurable task
+
+The data gate remains `BLOCKED_DATA_GATE`; do not run the empirical grid or claim performance metrics until a free public source passes the historical point-in-time market-cap gate with verified publication/as-of timestamps per the adaptive research-gate policy. Deterministic hardening is complete and green. If no new hardening gap appears, the next measurable work is source monitoring for a materially different free public source family satisfying the PIT market-cap gate, with a new separately-versioned exploratory ID only if the trigger is met. Preserve frozen grid (FVD001–FVD108, anchor FVD053), free-public-data-only rule, expanding historical point-in-time market-cap universe, and research-only/no-live-trading boundary.
