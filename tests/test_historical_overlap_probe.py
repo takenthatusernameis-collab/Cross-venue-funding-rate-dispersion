@@ -87,12 +87,35 @@ class HistoricalOverlapProbeTests(unittest.TestCase):
         self.assertEqual(meta["response_shape"], "oversize")
         self.assertIsNone(payload)
         self.assertIsNotNone(meta["error"])
+        self.assertFalse(meta["response_hash_complete"])
+        self.assertIsNone(meta["response_sha256"])
+        self.assertEqual(meta["response_prefix_sha256"], hashlib.sha256(body).hexdigest())
 
     def test_lookback_bounds_reject_short_or_excessive_windows(self):
         with self.assertRaises(ValueError):
             probe.run_probe(89)
         with self.assertRaises(ValueError):
             probe.run_probe(181)
+
+    def test_network_failure_never_marks_data_or_original_gate_passed(self):
+        def no_network(url, payload=None, timeout=probe.TIMEOUT_SECONDS, opener=None):
+            return ({
+                "url": url, "method": "POST" if payload is not None else "GET",
+                "request_sha256": None, "http_status": None,
+                "response_bytes_read": None, "response_sha256": None,
+                "response_prefix_sha256": None, "response_hash_complete": False,
+                "response_shape": None, "latency_ms": 0.0,
+                "error": "URLError: Temporary failure in name resolution",
+            }, None)
+        with patch.object(probe, "request_json", side_effect=no_network):
+            report = probe.run_probe(120, 1)
+        self.assertEqual(report["status"], "NETWORK_UNAVAILABLE_FROM_THIS_HOST")
+        self.assertEqual(report["historical_coverage_gate"], "NOT_PASSED_BY_COVERAGE_PROBE")
+        self.assertEqual(report["original_confirmatory_gate"], "BLOCKED_DATA_GATE")
+        self.assertEqual(report["source_responses_with_http_status"], 0)
+        self.assertFalse(report["backtest_completed"])
+        self.assertFalse(report["performance_metrics_computed"])
+        self.assertEqual(report["candidate_asset_count"], 0)
 
     def test_probe_status_does_not_assume_data_gate_pass(self):
         # The report-level invariant is enforced by the output constructor.
