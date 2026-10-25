@@ -1,0 +1,166 @@
+{
+  "schema_version": "1.0",
+  "run_id": "source-route-reassessment-2026-10-25",
+  "observed_date_utc": "2026-10-25",
+  "task_type": "source_route_reassessment_and_probe_scaffolding",
+  "status": "NETWORK_UNAVAILABLE_FROM_THIS_HOST",
+  "direct_probes": [
+    {
+      "source": "Hyperliquid public /info",
+      "purpose": "historical 1h candle probe using the documented candleSnapshot request schema",
+      "method": "POST",
+      "endpoint": "https://api.hyperliquid.xyz/info",
+      "request_shape": {
+        "type": "candleSnapshot",
+        "req": {
+          "coin": "BTC",
+          "interval": "1h",
+          "startTime": "Unix milliseconds",
+          "endTime": "Unix milliseconds"
+        }
+      },
+      "outcome": "DNS name-resolution failure before HTTP response",
+      "http_status": null,
+      "response_bytes": null,
+      "response_sha256": null,
+      "coverage_proven": false,
+      "status": "UNVERIFIED",
+      "note": "The previous HTTP 422 request is not treated as a source rejection because it used a different request shape."
+    },
+    {
+      "source": "OKX public market data",
+      "purpose": "historical 1h candles, bounded endpoint-schema probe",
+      "method": "GET",
+      "endpoint": "https://www.okx.com/api/v5/market/history-candles?instId=BTC-USDT-SWAP&bar=1H&limit=10",
+      "outcome": "DNS name-resolution failure before HTTP response",
+      "http_status": null,
+      "response_bytes": null,
+      "response_sha256": null,
+      "coverage_proven": false,
+      "status": "UNVERIFIED",
+      "note": "This is the history-candles endpoint, distinct from the recent-candles endpoint. No response was received in this execution environment."
+    },
+    {
+      "source": "Binance Public Data archive",
+      "purpose": "check whether a public historical monthly kline checksum object is reachable",
+      "method": "GET",
+      "endpoint": "https://data.binance.vision/data/futures/um/monthly/klines/BTCUSDT/1h/BTCUSDT-1h-2024-01.zip.CHECKSUM",
+      "outcome": "DNS name-resolution failure before HTTP response",
+      "http_status": null,
+      "response_bytes": null,
+      "response_sha256": null,
+      "coverage_proven": false,
+      "status": "UNVERIFIED",
+      "note": "This was a separate archive route, not the restricted USD-M REST API. Archive availability remains unknown from this host."
+    }
+  ],
+  "documentation_findings": [
+    {
+      "source": "Hyperliquid official API documentation",
+      "url": "https://hyperliquid.gitbook.io/Hyperliquid-docs/for-developers/api/info-endpoint",
+      "findings": [
+        "Candle history request uses type=candleSnapshot and a nested req object.",
+        "The documented maximum is the most recent 5000 candles.",
+        "Temporal history endpoints can return at most 500 elements per request, requiring documented range pagination."
+      ],
+      "evidence_level": "official documentation; live availability not verified"
+    },
+    {
+      "source": "OKX official API documentation",
+      "url": "https://app.okx.com/docs-v5/en/",
+      "findings": [
+        "Recent market/candles and market/history-candles are distinct endpoints.",
+        "History-candles supports older history pagination and a maximum page size of 300.",
+        "Public funding-rate-history supports up to 3 months, with maximum page size 400 and cursor paging using fundingTime."
+      ],
+      "evidence_level": "official documentation; live availability and actual response coverage not verified"
+    },
+    {
+      "source": "Official Binance public archive documentation",
+      "url": "https://github.com/binance/binance-public-data/blob/master/README.md",
+      "findings": [
+        "A public data archive exists at https://data.binance.vision/ with daily/monthly files and checksums for documented public data families.",
+        "The exact candidate fundingRate archive object path was not established as available; it remains a candidate to probe."
+      ],
+      "evidence_level": "official documentation; exact object availability not verified"
+    }
+  ],
+  "code_and_test_changes": [
+    {
+      "path": "prompts/autonomous_free_data_unblocking_v2_2.md",
+      "purpose": "deeply refined execution prompt with exact corrected source routes and executable task contract"
+    },
+    {
+      "path": "scripts/probe_historical_overlap.py",
+      "purpose": "bounded unauthenticated coverage-only probe for Hyperliquid, OKX and official Binance archive candidate objects"
+    },
+    {
+      "path": "tests/test_historical_overlap_probe.py",
+      "purpose": "offline regression tests for request shape, metadata parsing, timestamps/gaps, response hashing, limits, and gate-state invariants"
+    },
+    {
+      "path": "scripts/validate_manifest_schema.py",
+      "purpose": "removed undeclared jsonschema runtime dependency by implementing the schema subset needed for the manifest in the Python standard library"
+    },
+    {
+      "path": "tests/test_manifest_schema.py",
+      "purpose": "test manifest schema through the standard-library validator so repository CI works without installing extra dependencies"
+    }
+  ],
+  "validation": {
+    "workflow": "Research CI",
+    "run_id": 40215615655,
+    "url": "https://github.com/takenthatusernameis-collab/Cross-venue-funding-rate-dispersion/actions/runs/40215615655",
+    "conclusion": "success",
+    "evidence": [
+      "Python compile step passed.",
+      "Offline unit and adversarial suite: 333 tests passed.",
+      "scripts/validate_research.py passed and confirmed 108 configurations, anchor FVD053, initial run NOT_RUN and no performance metrics.",
+      "scripts/validate_skills.py passed with 4 skills.",
+      "No GitHub Actions workflow file was changed."
+    ],
+    "note": "A prior push run failed because jsonschema was not installed in the workflow environment; this was addressed without changing workflow files."
+  },
+  "research_gates": {
+    "original_confirmatory": {
+      "status": "BLOCKED_DATA_GATE",
+      "historical_point_in_time_market_cap_gate": "BLOCKED",
+      "backtest_completed": false,
+      "performance_metrics_computed": false,
+      "frozen_grid": "FVD001-FVD108",
+      "anchor": "FVD053",
+      "grid_sha256": "6be218bc84bf118cf67c238ad1c13ef1e445658db3b1346cd64ccaccc7aa5f07"
+    },
+    "exploratory": {
+      "status": "EXPLORATORY_ONLY / INCONCLUSIVE",
+      "anchor_exercised": false,
+      "backtest_completed": false,
+      "performance_metrics_computed": false
+    }
+  },
+  "next_action": {
+    "task": "Run the canonical probe from an authorized runner with outbound public-network access, inspect every endpoint/page and freeze a dated coverage artifact.",
+    "commands": [
+      "python3 -m compileall -q src scripts tests",
+      "PYTHONPATH=src:scripts python3 -m unittest discover -s tests -p 'test_historical_overlap_probe.py' -v",
+      "PYTHONPATH=src python3 -m unittest discover -s tests -v",
+      "python3 scripts/probe_historical_overlap.py --lookback-days 120 --max-assets 4 --output /tmp/cross-venue-historical-overlap-probe.json",
+      "python3 -m json.tool /tmp/cross-venue-historical-overlap-probe.json >/dev/null",
+      "PYTHONPATH=src python3 scripts/validate_research.py",
+      "PYTHONPATH=src python3 scripts/validate_all.py",
+      "python3 scripts/validate_skills.py",
+      "git diff --check"
+    ],
+    "acceptance": "Coverage artifact must record actual source responses, hashes, date spans, page progression, contract metadata, per-field gaps, and multi-instrument/venue overlap. If network fails again, preserve source status UNVERIFIED and do not produce a backtest."
+  },
+  "integrity": {
+    "paid_data_used": false,
+    "manual_credentials_used": false,
+    "manual_user_data_used": false,
+    "live_trading": false,
+    "paper_trading": false,
+    "workflow_files_modified": false,
+    "strategy_grid_modified": false,
+    "empirical_performance_metrics_computed": false
+  }
+}
