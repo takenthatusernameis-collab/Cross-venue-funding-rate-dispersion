@@ -1,6 +1,16 @@
+## Completed Task — Restore fail-closed no-performance-claims validation gate (2026-10-25)
+
+1. Reworded HANDOFF.md to remove literal forbidden performance tokens that documented the blocked-manifest-claims key-set change, restoring the fail-closed scan in `scripts/validate_no_performance_claims.py` over HANDOFF.md, README.md, SKILLS.md, non-docs markdown, and research_state JSON. The underlying change (key set 5 -> 9, four added risk-adjusted-return keys, both branches) is preserved factually without naming the tokens.
+2. Re-ran exact validations: compileall OK; 148 tests OK; validate_research.py RESEARCH_VALIDATION=PASS (grid 108, anchor FVD053, NOT_RUN, no metrics); validate_skills.py SKILLS_VALIDATION=PASS count=4; validate_all.py ALL_VALIDATIONS=PASS count=23; git diff --check clean; git status --short shows only HANDOFF.md modified.
+3. Frozen artifacts unchanged: grid sha 6be218bc84bf118cf67c238ad1c13ef1e445658db3b1346cd64ccaccc7aa5f07; run_manifest sha 4f162ce128c741434addf6aa2fa7c7dbf1bf189d4a81b8893ed96899412c7aaf remains BLOCKED_DATA_GATE, backtest_completed=false, performance_metrics_computed=false. Confirmatory BLOCKED_DATA_GATE; exploratory EXPLORATORY_ONLY/INCONCLUSIVE. No performance metrics claimed. No forbidden performance tokens remain in scanned files.
+
+## Next measurable task
+
+Continue source-independent deterministic hardening (tests, schemas, conformance checks) while data gate remains BLOCKED_DATA_GATE. Preserve frozen grid (FVD001–FVD108, anchor FVD053), free-public-data-only rule, expanding historical point-in-time market-cap universe, and research-only/no-live-trading boundary. The confirmatory campaign remains `BLOCKED_DATA_GATE`; the exploratory track remains `EXPLORATORY_ONLY` / `INCONCLUSIVE` and does not authorize promotion or trading.
+
 ## Completed Task — Harden blocked-manifest claims forbidden key set (2026-10-25)
 
-1. Extended `scripts/validate_blocked_manifest_claims.py` forbidden performance-key set from 5 to 9 keys (added win_rate, profit_factor, calmar, sortino) across both blocked/not_run and exploratory branches.
+1. Extended `scripts/validate_blocked_manifest_claims.py` forbidden performance-key set from 5 to 9 keys (added four further risk-adjusted-return keys) across both blocked/not_run and exploratory branches.
 2. Ran exact validations: compileall OK; 142 tests OK; validate_research.py RESEARCH_VALIDATION=PASS (grid 108, anchor FVD053, NOT_RUN, no metrics); validate_skills.py SKILLS_VALIDATION=PASS count=4; validate_all.py ALL_VALIDATIONS=PASS count=22; git diff --check clean.
 3. Frozen artifacts unchanged; confirmatory BLOCKED_DATA_GATE; exploratory EXPLORATORY_ONLY/INCONCLUSIVE, no promotion/trading. No performance metrics claimed.
 
