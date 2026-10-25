@@ -1,4 +1,16 @@
-## Completed Task — Track-separation and research-state validator test coverage (2026-10-25)
+## Completed Task — Validation coverage validator test coverage (2026-10-25)
+
+1. Refactored `scripts/validate_validation_coverage.py` to expose testable `validate_coverage(registered_text, script_names) -> list[str]` (backward-compatible `main()` unchanged).
+2. Added `tests/test_validation_coverage.py` (5 known-answer/adversarial tests): all registered passes; missing registration fails; empty list passes; sorted output; committed repo passes.
+3. Ran exact validations: `python3 -m compileall -q src scripts tests` OK; `PYTHONPATH=src python3 -m unittest discover -s tests -v` 214 OK; `PYTHONPATH=src python3 scripts/validate_research.py` RESEARCH_VALIDATION=PASS (grid 108, anchor FVD053, NOT_RUN, no metrics); `python3 scripts/validate_skills.py` SKILLS_VALIDATION=PASS count=4; `PYTHONPATH=src python3 scripts/validate_all.py` ALL_VALIDATIONS=PASS count=23; `git diff --check` clean.
+4. Frozen artifacts unchanged. Confirmatory campaign BLOCKED_DATA_GATE; exploratory track EXPLORATORY_ONLY/INCONCLUSIVE, no promotion/trading. No performance metrics claimed.
+
+## Next measurable task
+
+Continue source-independent deterministic hardening (tests, schemas, conformance checks) while data gate remains BLOCKED_DATA_GATE. Preserve frozen grid (FVD001–FVD108, anchor FVD053), free-public-data-only rule, expanding historical point-in-time market-cap universe, and research-only/no-live-trading boundary. The confirmatory campaign remains `BLOCKED_DATA_GATE`; the exploratory track remains `EXPLORATORY_ONLY` / `INCONCLUSIVE` and does not authorize promotion or trading.
+
+
+
 
 1. Refactored `scripts/validate_track_separation.py` to expose testable `validate_separation(confirmatory, exploratory, grid_digest)` (backward-compatible `main()` unchanged; computes on-disk grid digest and delegates); refactored `scripts/validate_research_state.py` to expose `validate_artifact_data(data, name) -> list[str]` and `validate_confirmatory(data) -> list[str]` (backward-compatible `main()` unchanged; fail-closed, standard library only, no network calls, no economic result).
 2. Added `tests/test_track_separation.py` (19 known-answer/adversarial tests): valid pair passes; committed pair passes; confirmatory status/backtest_completed/performance_metrics_computed/gate/grid-hash must be frozen; exploratory run_id present/namespace/anchor rules, status enum, backtest/metrics false, confirmatory_status_preserved, gate not passed, grid hash not altered, anchor only as frozen anchor; frozen grid digest mismatch fails. Added `tests/test_research_state.py` (18 known-answer/adversarial tests): valid manifest passes; committed manifests pass; missing top/state keys, non-object, unknown status, gate not blocked, non-UTC timestamps, bad date_utc, bad sha256 fail closed; confirmatory status/gate/grid-hash checks; exploratory/inconclusive statuses permitted.

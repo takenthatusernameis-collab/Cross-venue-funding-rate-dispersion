@@ -5,10 +5,15 @@ from pathlib import Path
 ROOT = Path(__file__).resolve().parents[1]
 
 
+def validate_coverage(registered_text: str, script_names: list[str]) -> list[str]:
+    """Return list of unregistered validator names (empty means pass)."""
+    return [name for name in sorted(script_names) if name not in registered_text]
+
+
 def main() -> int:
     registered_text = (ROOT / "scripts/validate_all.py").read_text(encoding="utf-8")
     validate_scripts = sorted(p.name for p in (ROOT / "scripts").glob("validate_*.py") if p.name != "validate_all.py")
-    missing = [name for name in validate_scripts if name not in registered_text]
+    missing = validate_coverage(registered_text, validate_scripts)
     if missing:
         print("VALIDATION_COVERAGE=FAIL")
         for name in missing:
