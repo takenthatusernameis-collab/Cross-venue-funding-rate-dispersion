@@ -3,7 +3,7 @@
   "run_id": "source-route-reassessment-2026-10-25",
   "observed_date_utc": "2026-10-25",
   "task_type": "source_route_reassessment_and_probe_scaffolding",
-  "status": "NETWORK_UNAVAILABLE_FROM_THIS_HOST",
+  "status": "PARTIAL_PUBLIC_DATA_ACCESS_VERIFIED",
   "direct_probes": [
     {
       "source": "Hyperliquid public /info",
@@ -139,19 +139,14 @@
     }
   },
   "next_action": {
-    "task": "Run the canonical probe from an authorized runner with outbound public-network access, inspect every endpoint/page and freeze a dated coverage artifact.",
-    "commands": [
-      "python3 -m compileall -q src scripts tests",
-      "PYTHONPATH=src:scripts python3 -m unittest discover -s tests -p 'test_historical_overlap_probe.py' -v",
-      "PYTHONPATH=src python3 -m unittest discover -s tests -v",
-      "python3 scripts/probe_historical_overlap.py --lookback-days 120 --max-assets 4 --output /tmp/cross-venue-historical-overlap-probe.json",
-      "python3 -m json.tool /tmp/cross-venue-historical-overlap-probe.json >/dev/null",
-      "PYTHONPATH=src python3 scripts/validate_research.py",
-      "PYTHONPATH=src python3 scripts/validate_all.py",
-      "python3 scripts/validate_skills.py",
-      "git diff --check"
-    ],
-    "acceptance": "Coverage artifact must record actual source responses, hashes, date spans, page progression, contract metadata, per-field gaps, and multi-instrument/venue overlap. If network fails again, preserve source status UNVERIFIED and do not produce a backtest."
+    "task": "Extend the successful Hyperliquid candle request to bounded 120-day coverage and historical-depth checks for the same five coins; separately paginate OKX historical candles and funding history for matching eligible instruments, then produce a per-underlying × venue × field overlap matrix.",
+    "guardrails": [
+      "Do not repeat the six-hour Hyperliquid candle request as if it were new evidence.",
+      "Record exact page or chunk hashes, timestamps, row counts, gaps and cursor progress.",
+      "Verify instrument/underlying identity and quote/settlement specifications rather than assuming symbol names alone prove equivalent contracts.",
+      "Do not calculate strategy outcomes unless the separately registered exploratory gates pass.",
+      "Original three-year PIT market-cap gate remains BLOCKED."
+    ]
   },
   "integrity": {
     "paid_data_used": false,
@@ -162,5 +157,61 @@
     "workflow_files_modified": false,
     "strategy_grid_modified": false,
     "empirical_performance_metrics_computed": false
+  },
+  "runner_observations": {
+    "artifact_path": "research_state/hyperliquid_candle_probe_2026-10-25.json",
+    "artifact_commit": "df7ef967590072738644395a7e49a57d2f5579e3",
+    "observed_at_utc": "2026-10-25T17:24:03.821567+00:00",
+    "source": "Hyperliquid public /info",
+    "method": "POST unauthenticated",
+    "request_shape": {
+      "type": "candleSnapshot",
+      "req": {
+        "coin": "<COIN>",
+        "interval": "1h",
+        "startTime": "ms",
+        "endTime": "ms"
+      }
+    },
+    "timestamp_range_utc": [
+      "2026-10-25T11:24:01.746000Z",
+      "2026-10-25T17:24:01.746000Z"
+    ],
+    "coins": [
+      "BTC",
+      "ETH",
+      "SOL",
+      "AVAX",
+      "LINK"
+    ],
+    "per_coin_results": {
+      "BTC": {
+        "http_status": 200,
+        "rows": 7,
+        "sha256": "27e5654669b940b60d11aff5df8b5e38ee6ff4cbeb42d64b7f24c065fc621af0"
+      },
+      "ETH": {
+        "http_status": 200,
+        "rows": 7,
+        "sha256": "4ace44a020bcd6d236bccd6b939ad13797417fcffc158dba27e82f1916dde284"
+      },
+      "SOL": {
+        "http_status": 200,
+        "rows": 7,
+        "sha256": "0ae2f06279c32742c9166cb9337f75b44da4c26b401376104849055f084cb8ee"
+      },
+      "AVAX": {
+        "http_status": 200,
+        "rows": 7,
+        "sha256": "c3e7755957d8e9c767c66e522c70c4bf5dc405c6d191c835c81a495012c8afb0"
+      },
+      "LINK": {
+        "http_status": 200,
+        "rows": 7,
+        "sha256": "b4b268b753630f04dcfc2605d386d5e18deda5ad2e9ef8232e3c9143c4938b61"
+      }
+    },
+    "coverage_assessment": "Corrected candle request is verified to return hourly OHLCV data from the repository runner for five Hyperliquid coins over only about six hours. This does not prove longer-history pagination, OKX overlap, funding coverage, cross-venue contract equivalence, or eligibility for FVD053.",
+    "independent_of_local_dns_failures": true
   }
 }
