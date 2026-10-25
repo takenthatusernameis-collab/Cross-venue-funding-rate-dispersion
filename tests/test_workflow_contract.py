@@ -76,7 +76,8 @@ class WorkflowContractTests(unittest.TestCase):
             "probe_artifact_blob_sha",
             "actions/upload-artifact@v7.0.2",
             "GITHUB_STEP_SUMMARY",
-            "performance metrics computed: false",
+            "Performance metrics computed: false",
+            "verify_remote_artifact",
         ):
             self.assertIn(item,text)
         self.assertNotIn("\\n  push:", text)
