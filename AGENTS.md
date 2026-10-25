@@ -53,12 +53,12 @@ The free-source inventory has already tested multiple independent source familie
 
 
 
-## Active source-data blocker prompt v2.5 — 2026-10-25
+## Active source-data blocker prompt v2.6 — 2026-10-25
 
-For the next unblocking task, read and execute `prompts/autonomous_free_data_gate_unblocking_v2_5.md` alongside the frozen `docs/research_protocol.md`, `docs/exploratory_protocol_v1.md`, relevant skills, current `HANDOFF.md`, and latest coverage/run artifacts.
+For the next unblocking task, read and execute `prompts/autonomous_free_data_gate_unblocking_v2_6.md` alongside the frozen `docs/research_protocol.md`, `docs/exploratory_protocol_v1.md`, relevant skills, current `HANDOFF.md`, and latest coverage/run artifacts.
 
-**Kilo execution reliability:** the controller now runs the bounded 120-day public-data coverage probe independently of model access, subject to `scripts/should_run_historical_probe.py` cooldowns. It then checks the live Kilo Gateway model catalog and can start Kilo only with routes explicitly priced at $0 input and $0 output that pass an unauthenticated tiny health check. On signup/access failures it rotates across the preflighted free routes and stops the activation when none remain; it must not repeatedly retry an account wall, use paid models, or request credentials.
+**Kilo execution reliability:** the controller runs the bounded 120-day public-data coverage probe before model preflight, subject to `scripts/should_run_historical_probe.py` cooldowns, and uses only live-catalog models explicitly priced at $0 input and $0 output that pass an unauthenticated health check. It rotates across preflighted free routes and stops when none remain. Scheduled activations are now capped at 40 minutes total and two sequential worker sessions, with the final five minutes reserved for verified checkpoint/recovery; manual dispatch retains the existing 355-minute budget. This prevents one scheduled worker from holding the shared concurrency lock for nearly six hours. Changes do not apply retroactively to a scheduled run already in progress.
 
-Read the newest `research_state/historical_overlap_probe_*.json` first. The verified short-window Hyperliquid request remains six hours only; the next substantive data evidence is the bounded multi-asset coverage probe. Current evidence and test status are recorded at the top of `HANDOFF.md`.
+Read the newest `research_state/historical_overlap_probe_*.json` first. A successful controller CI run is not proof that a live probe ran, a free model route worked, or sufficient multi-venue historical coverage exists. Record actual run evidence at the top of `HANDOFF.md`.
 
 A narrowly scoped, user-authorized edit to the existing `.github/workflows/main.yml` controller is permitted only for these recovery safeguards. Other workflow files, permissions, triggers, checkpointing and frozen research controls remain protected. No paid/manual inputs, credentials, live trading or paper trading.
