@@ -36,7 +36,18 @@ def main() -> int:
     if manifest.get("backtest_completed") is not False or manifest.get("performance_metrics_computed") is not False:
         errors.append("manifest must not claim a backtest or computed performance metrics")
     workflow = required[4].read_text(encoding="utf-8")
-    for phrase in ("kilo/kilo-auto/free", "HANDOFF.md", "checkpoint_reserve_seconds=300", "scripts/controller_progress.py"):
+    for phrase in (
+        "scripts/kilo_free_model_fallback.py",
+        "scripts/should_run_historical_probe.py",
+        "scripts/probe_historical_overlap.py",
+        "--lookback-days 120 --max-assets 4",
+        'kilo run --model "kilo/$current_model" --auto',
+        "sign[ -]?up for free",
+        "free-model-routes-exhausted",
+        "HANDOFF.md",
+        "checkpoint_reserve_seconds=300",
+        "scripts/controller_progress.py",
+    ):
         if phrase not in workflow:
             errors.append(f"Kilo workflow missing safeguard: {phrase}")
     if "workflow: write" in workflow.lower():
