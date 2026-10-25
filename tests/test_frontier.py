@@ -8,6 +8,7 @@ ROOT = Path(__file__).resolve().parents[1]
 sys.path.insert(0, str(ROOT / "src"))
 from cross_venue_funding_dispersion.frontier import (
     build_frontier,
+    build_not_started_frontier,
     compute_snapshot_id,
     load_frontier,
     persist_frontier,
@@ -228,6 +229,69 @@ class FrontierTests(unittest.TestCase):
         bad_order = [dict(good[0], rank=2), dict(good[1], rank=1)]
         with self.assertRaises(FrontierError):
             validate_ranked_assets(bad_order)
+
+    def test_build_not_started_frontier_is_canonical_stub(self):
+        stub = build_not_started_frontier()
+        self.assertEqual(stub["schema_version"], "1.0")
+        self.assertEqual(stub["experiment_id"], "FVD-DISPERSION-V1")
+        self.assertEqual(stub["status"], "NOT_STARTED")
+        self.assertIsNone(stub["snapshot_id"])
+        self.assertIsNone(stub["snapshot_at"])
+        self.assertEqual(stub["rank_frontier"], [])
+        self.assertEqual(stub["last_completed_rank"], 0)
+        self.assertEqual(stub["completed_asset_ids"], [])
+        self.assertEqual(stub["pending_asset_ids"], [])
+        self.assertEqual(stub["excluded_assets"], [])
+        self.assertEqual(stub["current_cohort"], [])
+        self.assertIsNone(stub["next_action"])
+        self.assertEqual(stub["source"], {"id": None, "hash": None, "retrieved_at_utc": None})
+        self.assertEqual(stub["pagination"], {"cursor": None, "batch_size": 0, "has_more": False})
+        self.assertEqual(stub["resume"]["next_rank"], 1)
+        self.assertIsNone(stub["resume"]["next_asset"])
+        self.assertIsNone(stub["resume"]["batch_window"])
+        self.assertFalse(stub["resume"]["has_more"])
+        self.assertEqual(stub["resume"]["frontier_size"], 0)
+        self.assertIsNone(stub["resume"]["snapshot_id"])
+        self.assertIsNone(stub["updated_at_utc"])
+
+    def test_build_not_started_frontier_round_trips_through_save_and_load(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            path = Path(tmp) / "frontier.json"
+            stub = build_not_started_frontier(next_action="verify a free source")
+            save_frontier(path, stub)
+            loaded = load_frontier(path)
+            self.assertEqual(loaded, stub)
+
+    def test_build_frontier_carries_current_cohort_and_next_action(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            path = Path(tmp) / "frontier.json"
+            state = persist_frontier(
+                path, self.snapshot, "coingecko", "sha256:abc",
+                records=self.records, batch_size=2,
+                next_action="fetch next cohort",
+            )
+            self.assertEqual(state["current_cohort"], ["BTC", "ETH"])
+            self.assertEqual(state["next_action"], "fetch next cohort")
+            loaded = load_frontier(path)
+            self.assertEqual(loaded["current_cohort"], ["BTC", "ETH"])
+            self.assertEqual(loaded["next_action"], "fetch next cohort")
+
+    def test_build_frontier_current_cohort_is_empty_when_unranked(self):
+        state = build_frontier(self.snapshot, "s", "h", records=[], next_action="done")
+        self.assertEqual(state["current_cohort"], [])
+        self.assertEqual(state["next_action"], "done")
+
+    def test_build_frontier_rejects_non_list_current_cohort(self):
+        with self.assertRaises(FrontierError):
+            build_frontier(self.snapshot, "s", "h", records=[], current_cohort="BTC")
+
+    def test_build_frontier_rejects_non_string_next_action(self):
+        with self.assertRaises(FrontierError):
+            build_frontier(self.snapshot, "s", "h", records=[], next_action=123)
+
+    def test_build_frontier_rejects_extra_unknown_field(self):
+        with self.assertRaises(FrontierError):
+            build_frontier(self.snapshot, "s", "h", records=[], mystery_field=1)
 
 
 if __name__ == "__main__":

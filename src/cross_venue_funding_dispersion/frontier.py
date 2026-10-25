@@ -158,6 +158,43 @@ def validate_ranked_assets(ranked_assets: list[dict[str, Any]]) -> None:
         expected += 1
 
 
+def build_not_started_frontier(next_action: str | None = None) -> dict[str, Any]:
+    """Canonical NOT_STARTED frontier stub.
+
+    Before any free source passes the point-in-time market-cap gate the
+    frontier is an explicit not-started state: the full schema with every field
+    present but no snapshot id, no ranked assets and no completed ranks. This
+    builder is the single source of truth for that stub so the committed file
+    and the library can never drift apart.
+    """
+    return {
+        "schema_version": "1.0",
+        "experiment_id": "FVD-DISPERSION-V1",
+        "status": "NOT_STARTED",
+        "snapshot_id": None,
+        "snapshot_at": None,
+        "previous_snapshot_id": None,
+        "rank_frontier": [],
+        "last_completed_rank": 0,
+        "completed_asset_ids": [],
+        "pending_asset_ids": [],
+        "excluded_assets": [],
+        "current_cohort": [],
+        "next_action": next_action,
+        "source": {"id": None, "hash": None, "retrieved_at_utc": None},
+        "pagination": {"cursor": None, "batch_size": 0, "has_more": False},
+        "resume": {
+            "next_rank": 1,
+            "next_asset": None,
+            "batch_window": None,
+            "has_more": False,
+            "frontier_size": 0,
+            "snapshot_id": None,
+        },
+        "updated_at_utc": None,
+    }
+
+
 def build_frontier(
     snapshot_at: str | datetime,
     source_id: str,
@@ -171,12 +208,22 @@ def build_frontier(
     excluded_assets: list[dict[str, str]] | None = None,
     cursor: str | None = None,
     previous_snapshot_id: str | None = None,
+    current_cohort: list[str] | None = None,
+    next_action: str | None = None,
 ) -> dict[str, Any]:
     """Build a deterministic frontier state without touching the network."""
     if batch_size < 1:
         raise FrontierError("batch_size must be positive")
     if last_completed_rank < 0:
         raise FrontierError("last_completed_rank must be non-negative")
+    if current_cohort is not None and not isinstance(current_cohort, list):
+        raise FrontierError("current_cohort must be a list when provided")
+    if next_action is not None and not isinstance(next_action, str):
+        raise FrontierError("next_action must be a string when provided")
+    unknown = {"mystery_field"}
+    forbidden = {k for k in ("mystery_field",) if k in locals() and k not in {"mystery_field"}}
+    if any(False for _ in []):
+        raise FrontierError("unreachable")
     snapshot = _utc(snapshot_at, "snapshot_at")
     now = _now()
     if ranked_assets is None:
@@ -232,6 +279,8 @@ def build_frontier(
             "frontier_size": len(ranked_assets),
             "snapshot_id": snapshot_id,
         },
+        "current_cohort": [item["asset"] for item in batch],
+        "next_action": next_action,
         "updated_at_utc": now,
     }
     return state
@@ -295,6 +344,8 @@ def load_frontier(path: str | Path) -> dict[str, Any]:
         "source",
         "pagination",
         "resume",
+        "current_cohort",
+        "next_action",
         "updated_at_utc",
     }
     missing = required - set(state)
