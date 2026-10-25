@@ -207,3 +207,14 @@ Continue source-independent deterministic hardening (tests, schemas, conformance
 ## Next measurable task
 
 Continue source-independent deterministic hardening (tests, schemas, conformance checks) while data gate remains BLOCKED_DATA_GATE. Preserve frozen grid (FVD001–FVD108, anchor FVD053), free-public-data-only rule, expanding historical point-in-time market-cap universe, and research-only/no-live-trading boundary. The confirmatory campaign remains `BLOCKED_DATA_GATE`; the exploratory track remains `EXPLORATORY_ONLY` / `INCONCLUSIVE` and does not authorize promotion or trading.
+
+## Completed Task — Controller-progress validator test coverage (2026-10-25)
+
+1. Refactored `scripts/validate_controller_progress.py` to expose testable `validate_controller_progress() -> list[str]` (backward-compatible `main()` unchanged; `check()` now appends to an errors list instead of `sys.exit`-ing mid-function).
+2. Expanded `tests/test_controller_progress.py` from 2 to 18 known-answer/adversarial tests: matching remote sha credits; non-Kilo author, base==head, remote mismatch, empty remote sha, non-ancestor base, bad repo path raises, Kilo commits on tests/scripts/configs/research_state count; `.github/workflows/` excluded while `.github/main.yml` counts; mixed Kilo/non-Kilo commits only credit Kilo paths; default `verified_remote_sha=None` is fail-open by design (documented); extracted validator returns empty list on committed contract cases.
+3. Ran exact validations: `python3 -m compileall -q src scripts tests` OK; `PYTHONPATH=src python3 -m unittest discover -s tests -v` 297 OK (16 new); `PYTHONPATH=src python3 scripts/validate_research.py` RESEARCH_VALIDATION=PASS (grid 108, anchor FVD053, NOT_RUN, no metrics); `python3 scripts/validate_skills.py` SKILLS_VALIDATION=PASS count=4; `PYTHONPATH=src python3 scripts/validate_all.py` ALL_VALIDATIONS=PASS count=23; `git diff --check` clean.
+4. Frozen artifacts unchanged (`configs/cross_venue_funding_dispersion_grid_v1.json` sha `6be218bc84bf118cf67c238ad1c13ef1e445658db3b1346cd64ccaccc7aa5f07`; `research_state/run_manifest.json` sha `4f162ce128c741434addf6aa2fa7c7dbf1bf189d4a81b8893ed96899412c7aaf` BLOCKED_DATA_GATE, backtest_completed=false, performance_metrics_computed=false). Confirmatory campaign BLOCKED_DATA_GATE; exploratory track EXPLORATORY_ONLY/INCONCLUSIVE, no promotion/trading. No performance metrics claimed.
+
+## Next measurable task
+
+Continue source-independent deterministic hardening (tests, schemas, conformance checks) while data gate remains BLOCKED_DATA_GATE. Preserve frozen grid (FVD001–FVD108, anchor FVD053), free-public-data-only rule, expanding historical point-in-time market-cap universe, and research-only/no-live-trading boundary. The confirmatory campaign remains `BLOCKED_DATA_GATE`; the exploratory track remains `EXPLORATORY_ONLY` / `INCONCLUSIVE` and does not authorize promotion or trading.

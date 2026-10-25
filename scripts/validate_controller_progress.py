@@ -22,10 +22,9 @@ from controller_progress import has_meaningful_committed_progress  # noqa: E402
 KILO_EMAIL = "kilo-autonomous@users.noreply.github.com"
 
 
-def check(cond, msg):
+def check(cond, msg, errors):
     if not cond:
-        print("FAIL:", msg)
-        sys.exit(1)
+        errors.append(msg)
 
 
 def git(repo, *args):
@@ -73,13 +72,21 @@ def other_commit(repo, path, content):
     return git(repo, "rev-parse", "HEAD")
 
 
-def main():
+def validate_controller_progress() -> list[str]:
+    """Return list of controller-progress conformance failures (empty means pass).
+
+    Each case mirrors a controller contract rule. Tests may call this directly
+    without spawning the throwaway repos themselves.
+    """
+    errors: list[str] = []
+
     # 1. Kilo-authored commit touching src/ counts as progress.
     repo, base, temp = fresh_repo()
     head = kilo_commit(repo, "src/new.py", "value=1\n")
     check(
         has_meaningful_committed_progress(repo, base, head, head),
         "kilo src commit should count",
+        errors,
     )
     temp.cleanup()
 
@@ -89,6 +96,7 @@ def main():
     check(
         not has_meaningful_committed_progress(repo, base, head, head),
         "workflow-only kilo commit must not count",
+        errors,
     )
     temp.cleanup()
 
@@ -98,6 +106,7 @@ def main():
     check(
         not has_meaningful_committed_progress(repo, base, head, head),
         "non-kilo commit must not count",
+        errors,
     )
     temp.cleanup()
 
@@ -106,6 +115,7 @@ def main():
     check(
         not has_meaningful_committed_progress(repo, base, base, base),
         "base==head must not count",
+        errors,
     )
     temp.cleanup()
 
@@ -115,6 +125,7 @@ def main():
     check(
         not has_meaningful_committed_progress(repo, base, head, "wrong"),
         "remote mismatch must fail closed",
+        errors,
     )
     temp.cleanup()
 
@@ -124,6 +135,7 @@ def main():
     check(
         not has_meaningful_committed_progress(repo, base, head, ""),
         "empty remote sha must fail closed",
+        errors,
     )
     temp.cleanup()
 
@@ -134,6 +146,7 @@ def main():
     check(
         not has_meaningful_committed_progress(repo, head, other_base, other_base),
         "non-ancestor base must fail closed",
+        errors,
     )
     temp.cleanup()
 
@@ -145,7 +158,7 @@ def main():
         has_meaningful_committed_progress("/nonexistent/repo/zzz", base, head, head)
     except (OSError, RuntimeError, ValueError):
         raised = True
-    check(raised, "bad repo path must raise")
+    check(raised, "bad repo path must raise", errors)
     temp.cleanup()
 
     # 9. Kilo commit touching tests/ counts (project files, not workflow).
@@ -154,6 +167,7 @@ def main():
     check(
         has_meaningful_committed_progress(repo, base, head, head),
         "kilo tests commit should count",
+        errors,
     )
     temp.cleanup()
 
@@ -163,6 +177,7 @@ def main():
     check(
         has_meaningful_committed_progress(repo, base, head, head),
         "kilo scripts commit should count",
+        errors,
     )
     temp.cleanup()
 
@@ -172,6 +187,7 @@ def main():
     check(
         has_meaningful_committed_progress(repo, base, head, head),
         "kilo configs commit should count",
+        errors,
     )
     temp.cleanup()
 
@@ -181,9 +197,20 @@ def main():
     check(
         has_meaningful_committed_progress(repo, base, head, head),
         "kilo research_state commit should count",
+        errors,
     )
     temp.cleanup()
 
+    return errors
+
+
+def main() -> int:
+    errors = validate_controller_progress()
+    if errors:
+        print("CONTROLLER_PROGRESS_VALIDATION=FAIL")
+        for e in errors:
+            print(e)
+        sys.exit(1)
     print("CONTROLLER_PROGRESS_VALIDATION=PASS")
 
 
