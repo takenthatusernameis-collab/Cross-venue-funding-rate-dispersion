@@ -53,12 +53,12 @@ The free-source inventory has already tested multiple independent source familie
 
 
 
-## Active source-data blocker prompt v2.2 — 2026-10-25
+## Active source-data blocker prompt v2.3 — 2026-10-25
 
-For the next unblocking task, read and execute `prompts/autonomous_free_data_unblocking_v2_2.md` with the frozen `docs/research_protocol.md`, `docs/exploratory_protocol_v1.md`, relevant skills, current `HANDOFF.md`, and latest manifests.
+For the next unblocking task, read and execute `prompts/autonomous_free_data_unblocking_v2_3.md` alongside the frozen `docs/research_protocol.md`, `docs/exploratory_protocol_v1.md`, relevant skills, current `HANDOFF.md`, and latest coverage/run artifacts.
 
-The repository now contains the bounded canonical probe `scripts/probe_historical_overlap.py` and offline tests `tests/test_historical_overlap_probe.py`. Run offline validation first; then execute the probe from a permitted runner with public outbound networking using the exact command in v2.2. Record the actual result and response hashes. DNS failure before HTTP must be recorded as a host-level execution limitation, not as endpoint denial or unavailable history.
+A corrected Hyperliquid `candleSnapshot` probe is already verified in `research_state/hyperliquid_candle_probe_2026-10-25.json`: HTTP 200, seven 1-hour candle rows each for BTC/ETH/SOL/AVAX/LINK, over a 6-hour window. Do not repeat this exact probe. Extend to a bounded 120-day historical-depth study, query Hyperliquid funding history, and paginate OKX historical candles/funding for compatible instruments. Verify contract identity and build the per-underlying × venue × field overlap matrix before any exploratory outcomes.
 
-The prompt adds the documented Hyperliquid `candleSnapshot` request shape and 5,000-candle ceiling, paginated funding history, OKX historical-candle/funding-history routes, and a separately public Binance archive/checksum route. HTTP success or code correctness is not a coverage pass.
+The source-route reassessment preserves separate local DNS failures (no HTTP response) and successful runner access; both must be reported for their own execution environments. HTTP reachability and six-hour coverage are not sufficient to exercise FVD053.
 
-All original invariants remain unchanged: FVD-DISPERSION-V1, FVD001–FVD108, FVD053, the original research protocol, and confirmatory `BLOCKED_DATA_GATE`. No workflow edits, no paid/manual inputs, no live or paper trading.
+All original invariants remain unchanged: FVD-DISPERSION-V1, FVD001–FVD108, FVD053, the original research protocol, and confirmatory `BLOCKED_DATA_GATE`. Do not edit `.github/workflows/**`; no paid/manual inputs, no live or paper trading.
