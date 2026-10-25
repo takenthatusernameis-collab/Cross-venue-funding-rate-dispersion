@@ -2,6 +2,7 @@
 
 **New task prompt:** `prompts/autonomous_free_data_unblocking_v2.md`  
 **Commit creating prompt:** `59a378e38275e296d06310791e02c730ac95eb26`  
+**Latest prompt refinement (schema-aligned terminal states):** `bd7356d736e803ec9e6386314c0c45da310f54c4`  
 **Active instruction pointer:** `AGENTS.md` section added at commit `44f9c5af645dfbe1958cb013a759d72b247f31e2`
 
 ## Scope and evidence status
