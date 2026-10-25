@@ -60,12 +60,3 @@ For the next task focused on unblocking free historical data, read and execute `
 The v2.1 prompt incorporates the documented Hyperliquid `candleSnapshot` request shape and 5,000-candle ceiling, paginated funding-history requests, OKX `market/history-candles` and funding-history routes, and the distinct official Binance public archive/checksum route. Documentation is not accepted as evidence that a live endpoint works or that adequate sample coverage exists; run bounded probes and preserve exact response hashes/coverage or record the actual host-level network failure without inventing response evidence.
 
 The v2.1 prompt does not supersede or modify FVD-DISPERSION-V1, FVD001–FVD108, FVD053, the original research protocol, or the confirmatory `BLOCKED_DATA_GATE` status. Do not edit `.github/workflows/**`; no paid/manual inputs or trading.
-
-
-For the next task focused on unblocking the free historical-data gate, read and execute `prompts/autonomous_free_data_unblocking_v2.md` alongside the frozen `docs/research_protocol.md`, `docs/exploratory_protocol_v1.md`, the relevant skills, and the current HANDOFF state.
-
-The v2 prompt is the operational plan for distinct free-data routes, current coverage, and resumption; it does **not** supersede or modify FVD-DISPERSION-V1, FVD001–FVD108, FVD053, or the original `BLOCKED_DATA_GATE` manifest.
-
-Prior exploratory evidence (reverify against the newest artifacts): FVD-EXPLORATORY-001 recorded funding overlap for BTC across OKX/Hyperliquid but only about four days of actionable hourly price overlap; the earlier Hyperliquid candle request returned HTTP 422 and contract identity was only symbol-matched. That did not exercise the anchor. Do not repeat the same payload/source scan without a concrete new reason. Prioritize a docs-correct historical candle probe or a separately available public archive route, then validate multi-instrument × venue coverage and instrument identity before freezing any new outcome run.
-
-This is a task pointer, not permission to alter workflow files, relax gates, or claim empirical results.
