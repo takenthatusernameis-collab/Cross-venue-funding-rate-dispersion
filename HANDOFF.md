@@ -1,51 +1,32 @@
-# Current Priority — Execute Free-Data Gate Unblocking Prompt v2.2 (2026-10-25)
+# Current Priority — Execute Free-Data Gate Unblocking Prompt v2.4 (2026-10-25)
 
-**Active prompt:** `prompts/autonomous_free_data_unblocking_v2_2.md`  
-**Prompt latest commit:** `f6d3672cac3660283297c618a55c0a16ab51e334`  
-**Active agent-instruction pointer:** `AGENTS.md`, latest update commit `8fc57798402be79358cfb6051ae0f4b8775a48c7`  
-**Canonical coverage probe:** `scripts/probe_historical_overlap.py`  
-**Offline probe regression tests:** `tests/test_historical_overlap_probe.py`  
-**Coverage route record:** `research_state/source_route_reassessment_2026-10-25.json`
+**Active prompt:** `prompts/autonomous_free_data_gate_unblocking_v2_4.md`  
+**Prompt creation commit:** `f3236ce0d9d9701600c7f4239e28e5c01f6b581d`  
+**Active agent-instruction pointer:** `AGENTS.md`, updated at `0d9ee14bcb0131efce3b019e8d27eca9791a0bb9`  
+**Latest Research CI run:** [#40217132305 — success](https://github.com/takenthatusernameis-collab/Cross-venue-funding-rate-dispersion/actions/runs/40217132305)
 
-## Execution summary — verified
+## Execution status — prompt refined; live 120-day probe still blocked
 
-- Completed the requested wait (>3 minutes) before the deep refinement and execution work.
-- Re-read the current repository instructions, frozen protocols/grid, prior BTC-only exploratory record, source matrices, skills and validators.
-- Added v2.2 as an immutable prompt version with corrected source request shapes, bounded page controls, explicit multi-instrument coverage requirements and an execution-environment network-failure rule.
-- Attempted three materially different public routes from this execution host: the correctly shaped Hyperliquid historical-candle request, the OKX `market/history-candles` endpoint, and a specific official Binance public-archive kline checksum object. All failed at DNS resolution **before HTTP response**. Therefore there are no response hashes, HTTP statuses, returned rows or coverage dates from these attempts. This is a limitation of the current execution host, not evidence that the sources deny access or lack history.
-- Implemented `scripts/probe_historical_overlap.py` to rerun bounded coverage probes from a permitted runner with public outbound access. Added offline request-shape, metadata-parsing, timestamps/gap, response-hash, size-limit and gate-invariant tests.
-- The first Research CI run failed because `jsonschema` was imported by existing manifest code/tests but is not installed by `research-ci.yml` and is not a declared project dependency. Fixed this without modifying workflow files: manifest validation and tests now use a standard-library implementation of the specific schema rules the repository requires.
-- Verified Research CI run [#40215615655](https://github.com/takenthatusernameis-collab/Cross-venue-funding-rate-dispersion/actions/runs/40215615655) concluded **success**: compile step passed, 333 offline unit/adversarial tests passed, frozen research-contract validation passed, and skills validation passed.
-- Added the machine-readable route assessment at `research_state/source_route_reassessment_2026-10-25.json`. All claims about failed live probes are marked as host-level network failures, with no invented response hashes or coverage.
-- Confirmed the original grid and anchor remain frozen. Original manifest remains `BLOCKED_DATA_GATE`, `backtest_completed=false`, and `performance_metrics_computed=false`. The exploratory FVD053 anchor remains unexercised. No performance metric or economic edge is claimed.
+- Completed the requested wait of more than three minutes before revising/executing this task.
+- Added v2.4 as an immutable prompt version. It reconciles the old malformed Hyperliquid HTTP 422 request with the newer verified corrected request, distinguishes six-hour request validation from historical-depth evidence, defines a bounded 120-day multi-instrument run, requires instrument metadata checks beyond matching base symbols, and states exactly how to report runner-access limitations.
+- Updated `AGENTS.md` to point to v2.4. The v2.3 prompt and all prior evidence remain intact.
+- Executed the current host's bounded GET attempts against the OKX historical-candles endpoint and the official Binance public archive checksum object. Both failed at DNS resolution before HTTP response. No HTTP status, response body, response hash or historical coverage was obtained. These failures apply to this host only and do not reject either source.
+- The available GitHub integration exposes workflow inspection and existing-run retrieval but no workflow-dispatch action. The existing `.github/workflows/public-source-preflight.yml` is `workflow_dispatch`-only. I did not change workflow files, use credentials, or invoke an unapproved runner.
+- The v2.4/AGENTS push triggered the existing Research CI. Run `40217132305` completed successfully: compile, offline unit/adversarial tests, frozen research-contract validation and skills validation all passed. This is not evidence that the live 120-day probe ran.
+- Current known short-window evidence remains `research_state/hyperliquid_candle_probe_2026-10-25.json`: HTTP 200 and seven 1-hour rows each for BTC, ETH, SOL, AVAX and LINK over approximately six hours. Historical depth, complete pagination, multi-venue price overlap and contract identity remain unverified.
+- Original confirmatory status is still `BLOCKED_DATA_GATE`; `FVD001–FVD108`, `FVD053`, and the original grid digest remain frozen. No backtest or performance metrics were computed.
 
-## Next measurable task — run the canonical probe on a networked repository runner
+## Exact next task
 
-From an authorized runner with outbound public-network access, execute:
+From a permitted networked runner, execute the v2.4 command:
 
 ```bash
-python3 -m compileall -q src scripts tests
-PYTHONPATH=src:scripts python3 -m unittest discover -s tests -p 'test_historical_overlap_probe.py' -v
-PYTHONPATH=src python3 -m unittest discover -s tests -v
 python3 scripts/probe_historical_overlap.py --lookback-days 120 --max-assets 4 --output /tmp/cross-venue-historical-overlap-probe.json
-python3 -m json.tool /tmp/cross-venue-historical-overlap-probe.json >/dev/null
-PYTHONPATH=src python3 scripts/validate_research.py
-PYTHONPATH=src python3 scripts/validate_all.py
-python3 scripts/validate_skills.py
-git diff --check
 ```
 
-Then read the full JSON (not just its console summary), and record response hashes, exact timestamps, page/cursor progression, symbols, instrument metadata, coverage and gaps by field/venue, contract-identity limitations, and reason-coded exclusions. Only freeze a new exploratory manifest if multiple underlyings have compatible contracts and enough overlapping funding **and** executable price history to satisfy unchanged threshold rules.
+Then audit the full JSON and create the per-underlying × venue × field overlap matrix, including request/response hashes, timestamps, gaps, pagination completeness, funding cadence and contract metadata. Do not calculate strategy outcomes unless the existing exploratory protocol's unchanged prerequisites pass and a new exploratory manifest is frozen first. If no approved runner dispatch mechanism is available, the live data task remains unexecuted; do not work around that by modifying workflows or misrepresenting CI success.
 
-If the runner also fails before receiving HTTP responses, preserve the exact network error, mark source coverage `UNVERIFIED`, and continue with the next materially different bounded route/source-independent check. Do not retry identical requests without new evidence. Do not run a backtest merely because code/tests pass.
-
-## Invariants
-
-- Keep FVD-DISPERSION-V1, FVD001–FVD108, FVD053 and the original data gate unchanged.
-- The original gate requires at least three years of verified point-in-time market-cap ranks and associated valid histories. A 120-day probe cannot pass it.
-- A narrower exploratory track may remain separately registered but cannot clear the original gate.
-- Do not change `.github/workflows/**`; do not use paid data, credentials, manual downloads, user-supplied data, live trading or paper trading.
-- Do not call the prompt upgrade, network probes or CI run a backtest.
+**Invariants:** no paid/manual data or credentials; no live/paper trading; no `.github/workflows/**` edits; no weakening of the original data gate; no unsupported performance claims.
 
 ---
 
