@@ -49,8 +49,10 @@ def request_json(url: str, payload: dict | None = None, timeout: int = TIMEOUT_S
         "method": req.get_method(),
         "request_sha256": hashlib.sha256(body).hexdigest() if body is not None else None,
         "http_status": None,
-        "response_bytes": None,
+        "response_bytes_read": None,
         "response_sha256": None,
+        "response_prefix_sha256": None,
+        "response_hash_complete": False,
         "response_shape": None,
         "latency_ms": None,
         "error": None,
@@ -75,12 +77,19 @@ def request_json(url: str, payload: dict | None = None, timeout: int = TIMEOUT_S
         metadata["latency_ms"] = round((time.monotonic() - start) * 1000, 1)
 
     if raw:
-        metadata["response_bytes"] = len(raw)
-        metadata["response_sha256"] = hashlib.sha256(raw).hexdigest()
+        metadata["response_bytes_read"] = len(raw)
+        digest = hashlib.sha256(raw).hexdigest()
         if len(raw) > MAX_RESPONSE_BYTES:
+            # urlopen.read(MAX_RESPONSE_BYTES + 1) intentionally truncates large
+            # responses. A digest of this prefix must never be mislabeled as the
+            # checksum of the complete source response.
+            metadata["response_prefix_sha256"] = digest
+            metadata["response_hash_complete"] = False
             metadata["response_shape"] = "oversize"
-            metadata["error"] = metadata["error"] or "response exceeded configured byte cap"
+            metadata["error"] = metadata["error"] or "response exceeded configured byte cap; only prefix was read"
             return metadata, None
+        metadata["response_sha256"] = digest
+        metadata["response_hash_complete"] = True
         try:
             parsed = json.loads(raw.decode("utf-8"))
             metadata["response_shape"] = "json"
