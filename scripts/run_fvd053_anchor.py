@@ -276,14 +276,23 @@ def _candle_map(rows: list[dict]) -> dict[int, tuple[float, float]]:
     return {row["time"]: (row["open"], row["close"]) for row in rows}
 
 
-def _funding_observations(rows: list[dict], interval_hours: float, start_ms: int, end_ms: int
-                          ) -> list[dict[str, Any]]:
-    """Normalized (8h) funding observations within [start_ms, end_ms], plus coverage guard."""
+def _funding_observations(rows: list[dict], interval_hours: float, start_ms: int, end_ms: int,
+                          venue: str = "") -> list[dict[str, Any]]:
+    """Normalized (8h) funding observations within [start_ms, end_ms], plus coverage guard.
+
+    Per the funding-accounting skill, each observation preserves the original rate,
+    the documented settlement interval (units), the event time, and the 8h-normalized
+    value so the normalization can be independently audited and the original rate
+    retained for cash-flow recomputation.
+    """
     obs = []
     for row in rows:
         if start_ms <= row["time"] <= end_ms:
             obs.append({
                 "timestamp": utc_iso(row["time"]),
+                "original_rate": row["rate"],
+                "interval_hours": interval_hours,
+                "venue": venue,
                 "rate_8h": normalize_funding_rate(row["rate"], interval_hours),
             })
     return obs
@@ -317,14 +326,14 @@ def compute_daily_dispersions(data: dict[str, dict], lookback_hours: int,
         daily[day_str] = {}
         for u in UNDERLYINGS:
             d = data[u]
-            hl_obs = _funding_observations(d["hl_funding"], 1.0, ws_ms, st_ms)
-            okx_obs = _funding_observations(d["okx_funding"], 8.0, ws_ms, st_ms)
+            hl_obs = _funding_observations(d["hl_funding"], 1.0, ws_ms, st_ms, venue="Hyperliquid")
+            okx_obs = _funding_observations(d["okx_funding"], 8.0, ws_ms, st_ms, venue="OKX")
             # Guard: observations must cover the window start; include history back one staleness limit.
             if not hl_obs or not okx_obs:
                 daily[day_str][u] = None
                 continue
-            hl_ext = _funding_observations(d["hl_funding"], 1.0, ws_ms - int(min_staleness_hours * 3600 * 1000), st_ms)
-            okx_ext = _funding_observations(d["okx_funding"], 8.0, ws_ms - int(min_staleness_hours * 3600 * 1000), st_ms)
+            hl_ext = _funding_observations(d["hl_funding"], 1.0, ws_ms - int(min_staleness_hours * 3600 * 1000), st_ms, venue="Hyperliquid")
+            okx_ext = _funding_observations(d["okx_funding"], 8.0, ws_ms - int(min_staleness_hours * 3600 * 1000), st_ms, venue="OKX")
             histories = {"Hyperliquid": hl_ext, "OKX": okx_ext}
             dispersion, _means = dispersion_from_venue_histories(
                 histories, window_start, signal_time.isoformat().replace("+00:00", "Z"),

@@ -11,6 +11,7 @@ from cross_venue_funding_dispersion.accounting import (
     pair_funding_cash_flow,
     price_pnl,
 )
+from cross_venue_funding_dispersion.signals import normalize_funding_rate
 
 
 def validate_accounting() -> list[str]:
@@ -45,6 +46,30 @@ def validate_accounting() -> list[str]:
             errors.append("zero notional cost wrong")
     except Exception as exc:
         errors.append(f"accounting basic raised: {exc}")
+
+    # 8-hour normalization with actual venue intervals (funding-accounting skill).
+    try:
+        # Hyperliquid hourly (1h) rate normalizes to 8h equivalent by x8.
+        if abs(normalize_funding_rate(0.0001, 1.0) - 0.0008) > 1e-15:
+            errors.append("HL 1h->8h normalization wrong")
+        # OKX 8h rate is already 8h equivalent (identity).
+        if abs(normalize_funding_rate(0.0002, 8.0) - 0.0002) > 1e-15:
+            errors.append("OKX 8h normalization wrong")
+        # Linear: r_8h = r_event * 8 / interval_hours
+        if abs(normalize_funding_rate(0.001, 4.0) - 0.002) > 1e-15:
+            errors.append("4h->8h normalization wrong")
+    except Exception as exc:
+        errors.append(f"normalization check raised: {exc}")
+
+    # Invalid normalization inputs must fail closed.
+    for bad_args in [(0.001, 0), (float("nan"), 8), (0.001, -1)]:
+        try:
+            normalize_funding_rate(*bad_args)
+            errors.append("invalid normalization input accepted")
+        except ValueError:
+            pass
+        except Exception as exc:
+            errors.append(f"invalid normalization raised wrong type: {exc}")
 
     # Invalid inputs must fail closed with ValueError.
     for fn, args in [

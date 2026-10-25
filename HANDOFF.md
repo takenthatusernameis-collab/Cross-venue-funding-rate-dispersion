@@ -4,6 +4,58 @@
 **Controller status:** [kilo_controller_v3_3_status.md](https://github.com/takenthatusernameis-collab/Cross-venue-funding-rate-dispersion/blob/main/research_state/kilo_controller_v3_3_status.md)  
 **Latest passing controller/test CI:** [#40224632551](https://github.com/takenthatusernameis-collab/Cross-venue-funding-rate-dispersion/actions/runs/40224632551) on `0c8df56627795c5b6ce994ed523d106995d35434`. Subsequent Kilo checkpoint commit `98e195a9632ed29f090fee5398ee0c31d6da3029` was independently committed by the active worker and reports its own validations; it is not a CI run on that exact SHA.
 
+## Agent session — source-independent funding normalization hardening (2026-10-25)
+
+Verified the v3.3 acceptance checks against current state: (1) inspected commit timeline and latest run history — FVD-EXPLORATORY-002 checkpoint commit `98e195a9` at 19:08:55 UTC confirmed; (2) the manifest `research_state/exploratory_run_manifest_2026-10-25.json` continues to pass schema and artifact-hash validation; (3) FVD-EXPLORATORY-002 remains EXPLORATORY_ONLY, anchor_exercised=true, anchor_result=0 signals, backtest_completed=false, performance_metrics_computed=false; (4) confirmatory FVD001–FVD108/FVD053 and BLOCKED_DATA_GATE preserved. No checkpoints overwritten.
+
+The FVD053 anchor found 0 signals across 47 candidate dates (dispersion never exceeded the 80th-percentile threshold). Source-independent hardening was prioritized to ensure deterministic correctness before any further data expansion. This is the highest-priority measurable action that requires no live data and directly supports the funding-accounting and red-team skills.
+
+### Funding normalization hardening (`run_fvd053_anchor.py`)
+
+- **`_funding_observations` (scripts/run_fvd053_anchor.py:279)**: The function normalized funding to an 8-hour equivalent via `normalize_funding_rate(row["rate"], interval_hours)` but discarded the original rate, the settlement interval, and the venue. Per the funding-accounting skill ("preserve original rate, units, event time and normalized value"), the function now also stores `original_rate`, `interval_hours`, and `venue` alongside `rate_8h` and `timestamp` in each observation. This preserves an audit trail for independent cash-flow recomputation (red-team skill: "independent recomputation from immutable event-ledger rows") and makes the normalization verifiable.
+- **`compute_daily_dispersions` (scripts/run_fvd053_anchor.py:326-331)**: Updated all four `_funding_observations` call sites to pass `venue="Hyperliquid"` (interval 1.0h) and `venue="OKX"` (interval 8.0h) respectively, so each observation carries its venue provenance.
+- **No change to cash-flow sign conventions**: `simulate_signal` (scripts/run_fvd053_anchor.py:400-401) correctly uses the raw settled rate per venue at each settlement timestamp (`_latest_at_or_below(rates, row["time"])`) for `funding_cash_flow(side, notional, rate)`. Normalization to 8h is applied only for the cross-venue dispersion metric (via `_funding_observations` → `time_weighted_mean` → `dispersion_from_venue_histories`), not for per-settlement cash flows. This is verified by a new known-answer test.
+
+### Known-answer and adversarial tests (`tests/test_run_fvd053_anchor.py`)
+
+Added `FundingObservationsTests` (8 tests):
+1. `test_preserves_original_rate_interval_and_venue` — observation includes `original_rate`, `interval_hours`, `venue`, and correctly computed `rate_8h`.
+2. `test_hyperliquid_1h_to_8h_normalization` — Hyperliquid hourly rate (0.0001) over 24 settlements normalizes to 0.0008 per observation (×8/1).
+3. `test_okx_8h_normalization_preserves_rate` — OKX 8h rate (0.0002) is identity (×8/8 = unchanged).
+4. `test_window_filtering` — observations outside `[start, end]` are excluded.
+5. `test_disjoint_intervals_preserved` — a 4h-interval venue normalizes by ×8/4 = ×2.
+6. `test_cash_flow_uses_raw_not_normalized_rate` — known-answer: 24 HL hourly settlements × 0.0001 + 3 OKX 8h settlements × 0.0002 = 9.0 net (not 93.0 if normalized rates were wrongly used for cash flow).
+7. `test_partial_venue_coverage_fails_closed` — with one venue's observations empty, `dispersion_from_venue_histories` returns None and excludes the empty venue.
+8. `test_non_finite_funding_rate_rejected` — `normalize_funding_rate` rejects NaN/Inf/zero/negative intervals, and `_funding_observations` propagates the ValueError.
+
+### Accounting validation conformance (`scripts/validate_accounting.py`)
+
+- Added `normalize_funding_rate` import and conformance checks for the actual venue intervals used in this project: 1h (Hyperliquid) → 8h equivalent, 8h (OKX) → identity, 4h → ×2. Also added fail-closed validation for invalid inputs (zero interval, NaN rate, negative interval).
+
+### Validation commands run
+- `python3 -m compileall -q src scripts tests` = OK
+- `PYTHONPATH=src python3 -m unittest discover -s tests -v` = **375 tests OK** (8 new FundingObservationsTests)
+- `PYTHONPATH=src python3 scripts/validate_research.py` = RESEARCH_VALIDATION=PASS (grid 108, anchor FVD053, NOT_RUN, no metrics)
+- `PYTHONPATH=src python3 scripts/validate_all.py` = ALL_VALIDATIONS=PASS count=23
+- `python3 scripts/validate_skills.py` = SKILLS_VALIDATION=PASS count=4
+- `PYTHONPATH=src:scripts python3 scripts/validate_manifest_schema.py` = MANIFEST_SCHEMA_VALIDATION=PASS
+- `PYTHONPATH=src:scripts python3 scripts/validate_track_separation.py` = TRACK_SEPARATION_VALIDATION=PASS
+- `PYTHONPATH=src:scripts python3 scripts/validate_research_state_artifacts.py` = RESEARCH_STATE_ARTIFACTS_VALIDATION=PASS files=24
+- `python3 scripts/validate_accounting.py` = ACCOUNTING_VALIDATION=PASS
+- `git diff --check` = clean
+
+### Frozen artifacts verified unchanged
+- `configs/cross_venue_funding_dispersion_grid_v1.json` sha `6be218bc84bf118cf67c238ad1c13ef1e445658db3b1346cd64ccaccc7aa5f07` (unchanged)
+- `research_state/run_manifest.json` sha `4f162ce128c741434addf6aa2fa7c7dbf1bf189d4a81b8893ed96899412c7aaf` (unchanged, BLOCKED_DATA_GATE, backtest_completed=false, performance_metrics_computed=false)
+- `research_state/fvd053_anchor_run_2026-10-25.json` sha `50b328baf5854dec40105a0f5ebe498bf589906f9c033ce659843659927ca4c2` (unchanged, anchor=0 signals, INCONCLUSIVE)
+
+### Modified files
+- `scripts/run_fvd053_anchor.py` (lines 279-295, 330-336: preserve original_rate/interval/venue in observations; pass venue to call sites)
+- `scripts/validate_accounting.py` (added normalize_funding_rate conformance check)
+- `tests/test_run_fvd053_anchor.py` (added FundingObservationsTests, 8 new tests)
+
+
+
 ## Latest v3.3 update — preserve checkpoint progress and independent coverage execution (2026-10-25)
 
 - Completed the requested terminal wait in 19 sequential ten-second increments (190 seconds) before reviewing state.
@@ -25,9 +77,15 @@
 - **Frozen artifacts verified unchanged**: `configs/cross_venue_funding_dispersion_grid_v1.json` sha `6be218bc84bf118cf67c238ad1c13ef1e445658db3b1346cd64ccaccc7aa5f07`; `research_state/run_manifest.json` sha `4f162ce128c741434addf6aa2fa7c7dbf1bf189d4a81b8893ed96899412c7aaf` (BLOCKED_DATA_GATE, backtest_completed=false, performance_metrics_computed=false). FVD001–FVD108 and FVD053 remain frozen. Confirmatory campaign remains `BLOCKED_DATA_GATE`. Exploratory track remains `EXPLORATORY_ONLY` / `INCONCLUSIVE`. No performance metrics claimed.
 - **No changes to**: frozen grid, confirmatory run manifest, any `.github/workflows/` files, paid data, credentials, live trading, or paper trading.
 
-## Next measurable task — source-independent hardening while exploratory anchor remains INCONCLUSIVE (0 signals)
+## Next measurable task — extend funding normalization hardening and audit dispersion on synthetic coverage (no network)
 
-The FVD-EXPLORATORY-002 manifest is now reconciled and registered in all validators, but the FVD053 anchor found 0 signals across 47 candidate dates (dispersion never exceeded the 80th-percentile threshold). The ~97-day window is below the 3-year confirmatory requirement, and contract identity remains symbol-only/unverified. Next bounded, no-cost action: expand the verified overlap to additional underlyings (e.g., DOGE, BNB, HYPE, AVAX, ARB, OP present in Hyperliquid universe) and/or extend the funding/price history window via OKX pagination beyond the documented 3-month limit, then re-evaluate whether the anchor can form any signal episodes. Alternatively, continue source-independent work: audit the dispersion computation for the known-answer fixtures, harden the funding normalization (1h vs 8h interval), or add adversarial tests for edge cases (partial venue coverage, missing candles, contract migrations). Keep FVD-EXPLORATORY-002 status `EXPLORATORY_ONLY` / `INCONCLUSIVE`; do not run the full 108-cell grid; do not alter frozen confirmatory artifacts; do not claim any performance metrics until a signal is actually formed and independently audited.
+The funding normalization is now auditable: `_funding_observations` preserves original rate, interval, and venue alongside the 8h-normalized rate, with 8 known-answer/adversarial tests and an accounting conformance check. Next bounded, no-cost actions (choose by information gain, no live data required):
+
+1. **Audit `simulate_signal` cash-flow accumulation for duplicate-timestamp handling**: `_latest_at_or_below(rates, row["time"])` is called inside a loop already iterating over `rates`; verify no double-counting occurs when multiple settlements share a timestamp, and add a known-answer fixture for that case.
+2. **Add a multi-venue dispersion known-answer test** in `test_signals.py` using the actual 1h/8h intervals: verify that a Hyperliquid hourly rate of r and an OKX 8h rate of 8r produce zero normalized dispersion (they should normalize to the same 8h rate), while raw rates differing by 8× produce nonzero dispersion only after normalization.
+3. **Extend `validate_signals.py` conformance** to assert `normalize_funding_rate(0.0001, 1.0) == 0.0008` and `normalize_funding_rate(0.0002, 8.0) == 0.0002` directly in the standard validator (currently only validates interval=4).
+
+Confirmatory status remains `BLOCKED_DATA_GATE`; FVD001–FVD108, FVD053, and the frozen grid remain unchanged. Exploratory FVD-EXPLORATORY-002 remains `EXPLORATORY_ONLY` / `INCONCLUSIVE` with 0 signals and no performance metrics claimed. Do not run the full 108-cell grid; do not alter frozen confirmatory artifacts; do not claim any performance metrics until a signal is actually formed and independently audited.
 
 ## Previous assessment (v2.9) — mechanisms improved; live research unblocking not yet verified
 

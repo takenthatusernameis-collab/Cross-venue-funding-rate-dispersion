@@ -203,6 +203,115 @@ class LatestAtOrBeforeTests(unittest.TestCase):
         self.assertIsNone(anchor._latest_at_or_before(rows, 500))
 
 
+class FundingObservationsTests(unittest.TestCase):
+    """Verify _funding_observations preserves original rate/units/venue and normalizes correctly."""
+
+    def test_preserves_original_rate_interval_and_venue(self):
+        rows = [{"time": START_MS, "rate": 0.0001}]
+        obs = anchor._funding_observations(rows, 1.0, START_MS, END_MS, venue="Hyperliquid")
+        self.assertEqual(len(obs), 1)
+        self.assertAlmostEqual(obs[0]["original_rate"], 0.0001)
+        self.assertEqual(obs[0]["interval_hours"], 1.0)
+        self.assertEqual(obs[0]["venue"], "Hyperliquid")
+        self.assertAlmostEqual(obs[0]["rate_8h"], 0.0008)
+
+    def test_hyperliquid_1h_to_8h_normalization(self):
+        """Hyperliquid hourly rate normalizes to 8h equivalent by multiplying by 8."""
+        rows = [{"time": START_MS + i * 3_600_000, "rate": 0.0001} for i in range(24)]
+        obs = anchor._funding_observations(rows, 1.0, START_MS, START_MS + 12 * 3_600_000, venue="Hyperliquid")
+        self.assertEqual(len(obs), 13)
+        for entry in obs:
+            self.assertAlmostEqual(entry["original_rate"], 0.0001)
+            self.assertEqual(entry["interval_hours"], 1.0)
+            self.assertEqual(entry["venue"], "Hyperliquid")
+            self.assertAlmostEqual(entry["rate_8h"], 0.0008)  # 0.0001 * 8 / 1
+
+    def test_okx_8h_normalization_preserves_rate(self):
+        """OKX 8h rate is already 8h equivalent; normalization is identity."""
+        rows = [{"time": START_MS, "rate": 0.0002}]
+        obs = anchor._funding_observations(rows, 8.0, START_MS, END_MS, venue="OKX")
+        self.assertEqual(len(obs), 1)
+        self.assertAlmostEqual(obs[0]["original_rate"], 0.0002)
+        self.assertEqual(obs[0]["interval_hours"], 8.0)
+        self.assertEqual(obs[0]["venue"], "OKX")
+        self.assertAlmostEqual(obs[0]["rate_8h"], 0.0002)  # 0.0002 * 8 / 8
+
+    def test_window_filtering(self):
+        early = START_MS - 3_600_000
+        late = END_MS + 3_600_000
+        rows = [
+            {"time": early, "rate": 0.1},
+            {"time": START_MS, "rate": 0.2},
+            {"time": END_MS, "rate": 0.3},
+            {"time": late, "rate": 0.4},
+        ]
+        obs = anchor._funding_observations(rows, 1.0, START_MS, END_MS, venue="Hyperliquid")
+        self.assertEqual(len(obs), 2)
+        self.assertAlmostEqual(obs[0]["original_rate"], 0.2)
+        self.assertAlmostEqual(obs[1]["original_rate"], 0.3)
+
+    def test_disjoint_intervals_preserved(self):
+        """A 4h-interval venue normalizes by multiplying by 2 (8/4)."""
+        rows = [{"time": START_MS, "rate": 0.001}]
+        obs = anchor._funding_observations(rows, 4.0, START_MS, END_MS, venue="Bitfinex")
+        self.assertAlmostEqual(obs[0]["rate_8h"], 0.002)
+        self.assertEqual(obs[0]["interval_hours"], 4.0)
+
+    def test_cash_flow_uses_raw_not_normalized_rate(self):
+        """Funding cash flow must use the actual settled rate, not the 8h-normalized rate.
+
+        This is a known-answer test: a 1h venue rate of 0.0001 over 24 settlements
+        produces 24 * 0.0001 = 0.0024 nominal rate on 5000 notional = 12.0 cash flow.
+        The normalized (0.0008) rate would wrongly produce 96.0.
+        """
+        u = "BTC"
+        notional = 5000.0
+        entry = dt.datetime(2026, 8, 2, 23, 0, tzinfo=dt.timezone.utc)
+        exit_ = dt.datetime(2026, 8, 3, 23, 0, tzinfo=dt.timezone.utc)
+        data = {
+            "BTC": {
+                "hl_funding": internal_hl_funding_series(START_MS, END_MS, HL_RATE),
+                "okx_funding": internal_okx_funding_series(START_MS, END_MS, OKX_RATE),
+                "hl_candles": internal_candle_list(START_MS, END_MS, PRICE_OPEN, PRICE_CLOSE),
+                "okx_candles": internal_candle_list(START_MS, END_MS, PRICE_OPEN, PRICE_CLOSE),
+            }
+        }
+        res = anchor.simulate_signal(
+            u, "OKX", "Hyperliquid", notional, entry, exit_, data,
+            anchor.ANCHOR_PARAMS["fee_bps_per_side"],
+            anchor.ANCHOR_PARAMS["slippage_bps_per_side"],
+        )
+        # HL (short, side=-1): 24 settlements * funding_cash_flow(-1, 5000, 0.0001) = +12.0
+        # OKX (long, side=1): 3 settlements * funding_cash_flow(1, 5000, 0.0002) = -3.0
+        self.assertAlmostEqual(res["funding_cash_flow"], 9.0)
+        self.assertEqual(res["funding_settlements"], 27)
+
+    def test_partial_venue_coverage_fails_closed(self):
+        """When only one venue has funding in the lookback window, dispersion fails closed."""
+        start = "2026-08-02T23:00:00Z"
+        end = "2026-08-02T23:30:00Z"
+        histories = {
+            "Hyperliquid": [
+                {"timestamp": start, "rate_8h": 0.001,
+                 "original_rate": 0.000125, "interval_hours": 1.0, "venue": "Hyperliquid"},
+            ],
+            "OKX": [],
+        }
+        from cross_venue_funding_dispersion.signals import dispersion_from_venue_histories
+        disp, means = dispersion_from_venue_histories(
+            histories, start, end, minimum_venues=2, max_staleness_hours=24,
+        )
+        self.assertIsNone(disp)
+        self.assertIn("Hyperliquid", means)
+        self.assertNotIn("OKX", means)
+
+    def test_non_finite_funding_rate_in_observations_skipped_or_raises(self):
+        """normalize_funding_rate must reject non-finite rates; observations use it."""
+        rows = [{"time": START_MS, "rate": 0.001}, {"time": START_MS + 3600000, "rate": float("nan")}]
+        with self.assertRaises(ValueError):
+            anchor._funding_observations(rows, 1.0, START_MS, END_MS, venue="Hyperliquid")
+
+
 class SimulateSignalTests(unittest.TestCase):
     def _data(self):
         return {
