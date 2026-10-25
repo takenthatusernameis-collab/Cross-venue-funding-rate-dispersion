@@ -2,7 +2,6 @@
 
 **Version:** 2.1 — evidence-led route correction and execution contract
 
-**Version:** 2.0  
 **Purpose:** unblock valid research progress without paid data or human intervention  
 **Repository:** https://github.com/takenthatusernameis-collab/Cross-venue-funding-rate-dispersion  
 **Authority:** subordinate to `AGENTS.md`, the frozen original protocol, and existing skills; it does not alter the FVD-DISPERSION-V1 estimand.
@@ -91,7 +90,7 @@ Use this ordered, evidence-driven source plan:
 
 The prior probes tested some wrong or insufficient routes. These are not interchangeable endpoints; use the documented forms below and record the exact result. Official documentation establishes a supported request schema or intended history capability, not actual coverage: only a live response and data audit may establish coverage.
 
-**Hyperliquid public `/info`**
+**Hyperliquid public `/info`** ([official documentation](https://hyperliquid.gitbook.io/Hyperliquid-docs/for-developers/api/info-endpoint))
 
 - POST to `https://api.hyperliquid.xyz/info` with `Content-Type: application/json`.
 - Discover available perpetual symbols with body `{"type":"meta"}`; choose probe candidates from the returned `universe`, not a hard-coded assertion that every symbol exists.
@@ -106,7 +105,7 @@ The prior probes tested some wrong or insufficient routes. These are not interch
 - Do not send `{"type":"candle","coin":...}` or put `coin`, `interval`, `startTime`, and `endTime` at the top level for candle data. The documented candle operation is `candleSnapshot` with a nested `req`.
 - Preserve the actual returned row fields (`t`, `T`, `o`, `h`, `l`, `c`, `v`, `s`, `i`, `n` where present), compute SHA-256 of the exact response bytes, and record range, cadence, duplicates, gaps and source time. Do not treat candle coverage as funding coverage.
 
-**OKX public market-data APIs**
+**OKX public market-data APIs** ([official documentation](https://app.okx.com/docs-v5/en/))
 
 - Discover and verify instrument identity using `GET https://www.okx.com/api/v5/public/instruments?instType=SWAP`. For the exploratory USDT-linear cohort, retain and report fields such as `instId`, `baseCcy`, `quoteCcy`, `settleCcy`, `ctType`, `state`, and relevant listing/creation fields if returned. Current `state=live` metadata is not a substitute for historical listing/delisting evidence.
 - Do **not** treat `GET /api/v5/market/candles` as the long-history test. Official documentation describes that endpoint as recent candles (up to 1,440 records in the documented endpoint). Probe the separate `GET https://www.okx.com/api/v5/market/history-candles?instId=BTC-USDT-SWAP&bar=1H&limit=300`. Documentation says it serves historical candles from recent years, with `after` for records earlier than a timestamp and `before` for records newer than a timestamp. Use `after` to page backward, record the oldest timestamp per page, and stop if the cursor stalls, the requested start is reached, or the bounded page budget is exhausted.
@@ -114,7 +113,7 @@ The prior probes tested some wrong or insufficient routes. These are not interch
 - Funding uses `GET https://www.okx.com/api/v5/public/funding-rate-history?instId=BTC-USDT-SWAP&limit=400`. Official documentation says this endpoint can return up to three months, with a maximum page size of 400 and `after` for records earlier than the specified `fundingTime`. Paginate to the extent genuinely available, record `fundingTime`, `fundingRate`, `realizedRate`, `formulaType`, `instId`, and settlement/interval clues, and do not assume a 90-day threshold can be constructed until actual dates and valid daily observations prove it.
 - Respect the documented per-IP/per-instrument limits. Backfill only a small representative cohort and bounded date range first. Persist page hashes, cursor progression, returned row counts and min/max times; then expand only if the coverage gate passes.
 
-**Binance Public Data archive — a separate route from restricted API hosts**
+**Binance Public Data archive — a separate route from restricted API hosts** ([official archive documentation](https://github.com/binance/binance-public-data/blob/master/README.md))
 
 - Check the official public archive at `https://data.binance.vision/` and its public-data documentation, even if `fapi.binance.com` returned HTTP 451. The REST restriction neither proves nor disproves the availability of a separate archive route. Use it only if the specific object is truly unauthenticated, public and terms-compliant; do not bypass a restriction.
 - The official archive documentation describes public daily/monthly files for USD-M futures klines and companion `.CHECKSUM` files. Probe an exact historical monthly object and its checksum with small bounded requests before downloading larger data.
