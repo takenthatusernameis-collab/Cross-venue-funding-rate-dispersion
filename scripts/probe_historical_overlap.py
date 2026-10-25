@@ -127,9 +127,9 @@ def extract_okx_linear_usdt_swaps(payload: Any) -> dict[str, dict]:
     for item in payload["data"]:
         if not isinstance(item, dict):
             continue
-        if (item.get("ctType") == "linear" and item.get("quoteCcy") == "USDT"
-                and item.get("settleCcy") == "USDT" and item.get("state") == "live"):
-            base = item.get("baseCcy")
+        if (item.get("ctType") == "linear" and item.get("settleCcy") == "USDT"
+                and item.get("state") == "live"):
+            base = item.get("baseCcy") or str(item.get("instId", "")).split("-")[0]
             if base and base not in out:
                 out[str(base)] = item
     return out

@@ -1,0 +1,119 @@
+{
+  "schema_version": "1.0",
+  "run_type": "bounded_free_historical_overlap_probe",
+  "probe_id": "historical-overlap-probe-2026-10-25",
+  "observed_at_utc": "2026-10-25T18:07:05.075065Z",
+  "lookback_days_requested": 120,
+  "max_assets": 4,
+  "window_start_utc": "2026-06-27T17:59:59.999000Z",
+  "window_end_utc": "2026-10-25T17:59:59.999000Z",
+  "status": "SOURCE_PROBE_COMPLETED",
+  "source_responses_with_http_status": 8,
+  "candidate_assets_intersection": ["BTC", "ETH", "SOL", "XRP"],
+  "candidate_asset_count": 4,
+  "candidate_selection_note": "Intersection of Hyperliquid meta universe (234 coins; sha aa725f96...) and OKX linear USDT-settled live swaps (507 of 522; sha 2ab2c709...). Capped at max_assets=4: BTC, ETH, SOL, XRP probed. Remaining priority bases (DOGE, BNB, HYPE, AVAX, ARB, OP) are present in Hyperliquid universe; OKX presence not individually verified in this bounded run.",
+  "instrument_discovery": {
+    "hyperliquid_meta": {
+      "url": "https://api.hyperliquid.xyz/info",
+      "method": "POST",
+      "request_shape": {"type": "meta"},
+      "http_status": 200,
+      "response_sha256": "aa725f96351e898c95ab7cbc4062208200ea4fa7346478a10f60748e928b82e5",
+      "response_bytes_read": 17628,
+      "coins": 234,
+      "response_hash_complete": true
+    },
+    "okx_instruments": {
+      "url": "https://www.okx.com/api/v5/public/instruments?instType=SWAP",
+      "method": "GET",
+      "http_status": 200,
+      "response_sha256": "2ab2c70978aa0623a817200f802275a68e42af2588d0ae13c8a4077662a47b8c",
+      "response_bytes_read": 560616,
+      "total_swaps": 522,
+      "linear_usdt_settled_live": 507,
+      "extractor_note": "OKX returns quoteCcy=\"\" and baseCcy=\"\" for linear swaps; base derived from instId (e.g. BTC-USDT-SWAP -> BTC), eligibility via ctType=linear, settleCcy=USDT, state=live.",
+      "response_hash_complete": true
+    }
+  },
+  "binance_archive_candidates": [
+    {
+      "url": "https://data.binance.vision/data/futures/um/monthly/klines/BTCUSDT/1h/BTCUSDT-1h-2024-01.zip.CHECKSUM",
+      "field": "USD-M hourly kline archive checksum",
+      "http_status": 200,
+      "response_sha256": "ee1d42fdcdb8dea97af0f4e33a583691a89b3e1c8dd6085724e84ac7607dce8d",
+      "response_bytes_read": 89,
+      "response_shape": "non-json",
+      "coverage_proven": false,
+      "note": "checksum object only; archive bytes not downloaded/validated"
+    },
+    {
+      "url": "https://data.binance.vision/data/futures/um/monthly/fundingRate/BTCUSDT/BTCUSDT-fundingRate-2024-01.zip.CHECKSUM",
+      "field": "candidate fundingRate archive checksum",
+      "http_status": 200,
+      "response_sha256": "82c89e0e825c4a5d839cd7eb5afe60e3ca4e84f0f850cdb8253da6676359acb2",
+      "response_bytes_read": 98,
+      "response_shape": "non-json",
+      "coverage_proven": false,
+      "note": "object availability verified via checksum response; archive bytes not downloaded/validated"
+    }
+  ],
+  "per_asset_coverage": {
+    "BTC": {
+      "okx_instId": "BTC-USDT-SWAP",
+      "hyperliquid_1h_candles": {"rows": 2881, "earliest_utc": "2026-06-27T17:00:00Z", "latest_utc": "2026-10-25T17:00:00Z", "gaps": 0, "duplicates": 0, "response_sha256": "3f4741bf1fc121a793dbb0bb108446e2e970e24e0f3237feaf61aa6a0966183e"},
+      "hyperliquid_settled_funding": {"rows": 2880, "earliest_utc": "2026-06-27T18:00:00.108000Z", "latest_utc": "2026-10-25T17:00:00.047000Z", "gaps": 0, "duplicates": 0, "pages": 6, "stop_reason": "window_reached_or_page_not_full", "settled_rate_nonempty": 2880, "response_sha256_page1": "5a2557f2e32873c03c0f508ad5dee8e551c5d4a7b06dcc7be04641e526017f12"},
+      "okx_1h_candles": {"rows": 2880, "earliest_utc": "2026-06-27T18:00:00Z", "latest_utc": "2026-10-25T17:00:00Z", "gaps": 0, "duplicates": 0, "pages": 10, "stop_reason": "window_start_reached", "response_sha256_page1": "960c089fc4bea78e25e938358f598179026ba0f24a2481772042e57d1a57e398"},
+      "okx_funding_rate_history": {"rows": 292, "earliest_utc": "2026-07-20T16:00:00Z", "latest_utc": "2026-10-25T16:00:00Z", "gaps": 0, "duplicates": 0, "pages": 1, "stop_reason": "page_not_full", "realized_rate_nonempty": 292, "response_sha256_page1": "020ecf6f0a2d5c46d2177ac3910b66c875dd2920797844d1e78a7edabb43cab3"}
+    },
+    "ETH": {
+      "okx_instId": "ETH-USDT-SWAP",
+      "hyperliquid_1h_candles": {"rows": 2881, "earliest_utc": "2026-06-27T17:00:00Z", "latest_utc": "2026-10-25T17:00:00Z", "gaps": 0, "duplicates": 0, "response_sha256": "4ee24537fabf8c6589455665d016eed348ef5622b31cdc13c02bfe8d2cfac742"},
+      "hyperliquid_settled_funding": {"rows": 2880, "earliest_utc": "2026-06-27T18:00:00.108000Z", "latest_utc": "2026-10-25T17:00:00.047000Z", "gaps": 0, "duplicates": 0, "pages": 6, "stop_reason": "window_reached_or_page_not_full", "settled_rate_nonempty": 2880, "response_sha256_page1": "bdc8096bde910474a53df99e49d08672fafd30135375221cce1a03518627fc24"},
+      "okx_1h_candles": {"rows": 2880, "earliest_utc": "2026-06-27T18:00:00Z", "latest_utc": "2026-10-25T17:00:00Z", "gaps": 0, "duplicates": 0, "pages": 10, "stop_reason": "window_start_reached", "response_sha256_page1": "8243254e6a68df48b942eb088ee9485b09b6d3cc32810d289552346970804a78"},
+      "okx_funding_rate_history": {"rows": 292, "earliest_utc": "2026-07-20T16:00:00Z", "latest_utc": "2026-10-25T16:00:00Z", "gaps": 0, "duplicates": 0, "pages": 1, "stop_reason": "page_not_full", "realized_rate_nonempty": 292, "response_sha256_page1": "9b1c88582f0c985a09289f52485bb233b8161c52bea870a6f97ee266d4251a0b"}
+    },
+    "SOL": {
+      "okx_instId": "SOL-USDT-SWAP",
+      "hyperliquid_1h_candles": {"rows": 2881, "earliest_utc": "2026-06-27T17:00:00Z", "latest_utc": "2026-10-25T17:00:00Z", "gaps": 0, "duplicates": 0, "response_sha256": "e3bd19fc907e40a551d37176f70e35ba87a00143f43035e627948f5e1a69cf56"},
+      "hyperliquid_settled_funding": {"rows": 2880, "earliest_utc": "2026-06-27T18:00:00.108000Z", "latest_utc": "2026-10-25T17:00:00.047000Z", "gaps": 0, "duplicates": 0, "pages": 6, "stop_reason": "window_reached_or_page_not_full", "settled_rate_nonempty": 2880, "response_sha256_page1": "0a2dbe7498885f4ca14bbb094dc0d41baa9417ce3311abffccd29de11b0dd89f"},
+      "okx_1h_candles": {"rows": 2880, "earliest_utc": "2026-06-27T18:00:00Z", "latest_utc": "2026-10-25T17:00:00Z", "gaps": 0, "duplicates": 0, "pages": 10, "stop_reason": "window_start_reached", "response_sha256_page1": "a716d0974c56c7093ffe36bca939b8d3168856b5d98c809fcab6662e82318790"},
+      "okx_funding_rate_history": {"rows": 292, "earliest_utc": "2026-07-20T16:00:00Z", "latest_utc": "2026-10-25T16:00:00Z", "gaps": 0, "duplicates": 0, "pages": 1, "stop_reason": "page_not_full", "realized_rate_nonempty": 292, "response_sha256_page1": "0621f9f99dbc2df9aba31f290f6429c336a4fcbe516284dbbd76a7541ef13a42"}
+    },
+    "XRP": {
+      "okx_instId": "XRP-USDT-SWAP",
+      "hyperliquid_1h_candles": {"rows": 2881, "earliest_utc": "2026-06-27T17:00:00Z", "latest_utc": "2026-10-25T17:00:00Z", "gaps": 0, "duplicates": 0, "response_sha256": "f600c3f98555a761fac6103298e7c673225c20daf6f0a3c3f5259777b0b375bb"},
+      "hyperliquid_settled_funding": {"rows": 2880, "earliest_utc": "2026-06-27T18:00:00.108000Z", "latest_utc": "2026-10-25T17:00:00.047000Z", "gaps": 0, "duplicates": 0, "pages": 6, "stop_reason": "window_reached_or_page_not_full", "settled_rate_nonempty": 2880, "response_sha256_page1": "b701443e50c944f61200785dd061606d62888516ba6d7c25962fffc801a70b3c"},
+      "okx_1h_candles": {"rows": 2880, "earliest_utc": "2026-06-27T18:00:00Z", "latest_utc": "2026-10-25T17:00:00Z", "gaps": 0, "duplicates": 0, "pages": 10, "stop_reason": "window_start_reached", "response_sha256_page1": "9c5f82dd8b8cbc6beb828cdf2bfedf8d9313dd0c07a31cd8655b9a67125715f3"},
+      "okx_funding_rate_history": {"rows": 292, "earliest_utc": "2026-07-20T16:00:00Z", "latest_utc": "2026-10-25T16:00:00Z", "gaps": 0, "duplicates": 0, "pages": 1, "stop_reason": "page_not_full", "realized_rate_nonempty": 292, "response_sha256_page1": "2aac0b26f0d1b1fb156acf962d5621cfe7793683d97a7024c5cc4cbbb89bc763"}
+    }
+  },
+  "overlap_assessment": {
+    "underlyings_with_both_venues": 4,
+    "venues": ["Hyperliquid perpetual", "OKX USDT-linear swap"],
+    "common_price_window_utc": ["2026-06-27T18:00:00Z", "2026-10-25T17:00:00Z"],
+    "common_funding_window_utc": ["2026-07-20T16:00:00Z", "2026-10-25T16:00:00Z"],
+    "overlapping_funding_plus_price_days": 97,
+    "okx_funding_is_limiting_factor": true,
+    "settlement_intervals": {"Hyperliquid": "1h", "OKX": "8h"},
+    "normalization_required": true,
+    "contract_identity_note": "Hyperliquid coin <-> OKX instId mapping by underlying symbol only (e.g. BTC <-> BTC-USDT-SWAP); not independently verified; historical listing/delisting and contract lifecycle not established."
+  },
+  "gate_assessments": {
+    "historical_coverage_gate": "NOT_PASSED_BY_COVERAGE_PROBE",
+    "original_confirmatory_gate": "BLOCKED_DATA_GATE",
+    "backtest_completed": false,
+    "performance_metrics_computed": false,
+    "confirmatory_3year_pit_market_cap_requirement": "UNMET - this 120-day probe (~97-day funding overlap) cannot satisfy it"
+  },
+  "full_output": "/tmp/cross-venue-historical-overlap-probe.json (per-page response hashes and full request/response metadata retained there; not committed to Git)",
+  "limitations": [
+    "Bounded source probe, not a strategy backtest; no performance metrics computed.",
+    "Current instrument metadata does not prove historical listing/delisting or contract identity.",
+    "Candidate list (4 assets) is a probe sample, not the full expanding research universe.",
+    "Response availability does not prove data completeness, event maturity, executable fills, or point-in-time market-cap ranks.",
+    "OKX funding history is ~97 days (documented up to three months); short of the 3-year confirmatory requirement.",
+    "No response hash or coverage is reported for requests that failed before receiving response bytes."
+  ],
+  "performance_metrics_computed": false,
+  "backtest_completed": false
+}
