@@ -1,17 +1,19 @@
-# Current Priority — Verify Kilo can unblock free-data research (v3.2, 2026-10-25)
+# Current Priority — Verify Kilo can unblock free-data research (v3.3, 2026-10-25)
 
-**Active prompt:** [autonomous_free_data_gate_unblocking_v3_2.md](https://github.com/takenthatusernameis-collab/Cross-venue-funding-rate-dispersion/blob/main/prompts/autonomous_free_data_gate_unblocking_v3_2.md)  
-**Current status:** [kilo_controller_v3_2_status.md](https://github.com/takenthatusernameis-collab/Cross-venue-funding-rate-dispersion/blob/main/research_state/kilo_controller_v3_2_status.md)  
-**Latest code/test passing CI:** [#40224477106](https://github.com/takenthatusernameis-collab/Cross-venue-funding-rate-dispersion/actions/runs/40224477106) on `8ad67453bc25a0fb7095648084d20c91fdf48f5a`. Documentation commits after that run require a final CI check.
+**Active prompt:** [autonomous_free_data_gate_unblocking_v3_3.md](https://github.com/takenthatusernameis-collab/Cross-venue-funding-rate-dispersion/blob/main/prompts/autonomous_free_data_gate_unblocking_v3_3.md)  
+**Controller status:** [kilo_controller_v3_3_status.md](https://github.com/takenthatusernameis-collab/Cross-venue-funding-rate-dispersion/blob/main/research_state/kilo_controller_v3_3_status.md)  
+**Latest passing controller/test CI:** [#40224632551](https://github.com/takenthatusernameis-collab/Cross-venue-funding-rate-dispersion/actions/runs/40224632551) on `0c8df56627795c5b6ce994ed523d106995d35434`. Subsequent Kilo checkpoint commit `98e195a9632ed29f090fee5398ee0c31d6da3029` was independently committed by the active worker and reports its own validations; it is not a CI run on that exact SHA.
 
-## Latest v3.2 update — independent probe and shell-test correction (2026-10-25)
+## Latest v3.3 update — preserve checkpoint progress and independent coverage execution (2026-10-25)
 
 - Completed the requested terminal wait in 19 sequential ten-second increments (190 seconds) before reviewing state.
 - The old Kilo run #40209613351 remained in progress on SHA 6b5e16819c4b3de281ef908b333a55dee1a4c09f as of the latest check, holding the old workflow's shared concurrency group. The newer main workflow cannot make that old run execute its new early probe, and this tool interface exposes no supported cancel or dispatch action.
 - Added a separate schedule-only coverage workflow with a distinct concurrency group and no Kilo invocation. It runs at minutes 13 and 43, respects the existing six-hour normal / fifteen-minute host-network-failure cooldown, and persists unique coverage artifacts with bounded retries and remote blob verification. It does not write the diagnostics ledger or alter any research protocol. The checkpoint loop was then tightened so a successful push is verified immediately, even on the last retry.
 - Added regression coverage to assert this workflow remains isolated and that the probe shell parses with Bash. Its first CI found a case-sensitive assertion mismatch and failed; the follow-up fixes the test and adds same-attempt remote blob verification. The follow-up CI must pass before validation is claimed.
 - Live acceptance remains outstanding. The last committed probe artifact was observed at 2026-10-25T18:07:05Z; with the current cooldown policy a full probe is due after about 2026-10-26T00:07Z, then at the next scheduled slot if GitHub runs on time. A cooldown skip is not new coverage evidence.
-- No backtest or performance metrics were computed. The original confirmatory status is still BLOCKED_DATA_GATE; FVD001–FVD108 and FVD053 remain frozen.
+- No backtest or performance metrics were computed in the controller changes. The original confirmatory status is still BLOCKED_DATA_GATE; FVD001–FVD108 and FVD053 remain frozen.
+- Commit history audit found that Kilo run #40209613351 had stale workflow updated_at metadata but had actually written a meaningful research checkpoint at 19:08:55 UTC (commit 98e195a9632ed29f090fee5398ee0c31d6da3029). The checkpoint froze FVD-EXPLORATORY-002, preserved EXPLORATORY_ONLY and BLOCKED_DATA_GATE separation, and left all performance fields false. This is why run-health assessment now requires inspecting both run/job state and repository commit evidence.
+- v3.3 prompt adds these checks and updates AGENTS to point to it.
 
 ## Previous assessment (v2.9) — mechanisms improved; live research unblocking not yet verified
 
