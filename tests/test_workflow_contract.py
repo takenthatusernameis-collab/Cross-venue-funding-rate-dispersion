@@ -101,7 +101,7 @@ class WorkflowContractTests(unittest.TestCase):
                 script.append(line[base_indent:] if indent>=base_indent else "")
             else:
                 script.append("")
-        result=subprocess.run(["bash","-n"],input="\\n".join(script),text=True,capture_output=True,check=False)
+        result=subprocess.run(["bash","-n"],input="\n".join(script),text=True,capture_output=True,check=False)
         self.assertEqual(result.returncode,0,result.stderr)
 
     def test_ci_is_read_only(self):
