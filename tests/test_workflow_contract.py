@@ -17,7 +17,10 @@ class WorkflowContractTests(unittest.TestCase):
             'kilo run --model "kilo/$current_model" --auto',
             "session_models_tried",
             "free-model-routes-exhausted",
-            "timeout-minutes: 360",
+            "timeout-minutes: ${{ github.event_name ==",
+            "&& 360 || 45",
+            "KILO_JOB_START_EPOCH=$(date +%s)",
+            "job_start_epoch + activation_minutes * 60",
             "checkpoint_reserve_seconds=300",
             "scripts/controller_progress.py",
             "HANDOFF.md",
@@ -25,6 +28,14 @@ class WorkflowContractTests(unittest.TestCase):
             "actions/upload-artifact@v7.0.2",
         ):
             self.assertIn(item,text)
+        self.assertLess(
+            text.index("Run and checkpoint bounded historical coverage before Kilo setup"),
+            text.index("Inspect completed runs and update the diagnostics ledger"),
+        )
+        self.assertLess(
+            text.index("Run and checkpoint bounded historical coverage before Kilo setup"),
+            text.index("Run general-purpose Kilo agent loop"),
+        )
         self.assertIn("catalog explicitly prices both input and",text)
         self.assertIn("output at zero.",text)
         self.assertNotIn("kilo/kilo-auto/free",text)
