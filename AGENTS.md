@@ -52,7 +52,15 @@ The free-source inventory has already tested multiple independent source familie
 
 
 
-## Active source-data blocker prompt v2 — 2026-10-25
+
+## Active source-data blocker prompt v2.1 — 2026-10-25
+
+For the next task focused on unblocking free historical data, read and execute `prompts/autonomous_free_data_unblocking_v2_1.md` alongside the frozen `docs/research_protocol.md`, `docs/exploratory_protocol_v1.md`, relevant agent skills, and the current `HANDOFF.md`.
+
+The v2.1 prompt incorporates the documented Hyperliquid `candleSnapshot` request shape and 5,000-candle ceiling, paginated funding-history requests, OKX `market/history-candles` and funding-history routes, and the distinct official Binance public archive/checksum route. Documentation is not accepted as evidence that a live endpoint works or that adequate sample coverage exists; run bounded probes and preserve exact response hashes/coverage or record the actual host-level network failure without inventing response evidence.
+
+The v2.1 prompt does not supersede or modify FVD-DISPERSION-V1, FVD001–FVD108, FVD053, the original research protocol, or the confirmatory `BLOCKED_DATA_GATE` status. Do not edit `.github/workflows/**`; no paid/manual inputs or trading.
+
 
 For the next task focused on unblocking the free historical-data gate, read and execute `prompts/autonomous_free_data_unblocking_v2.md` alongside the frozen `docs/research_protocol.md`, `docs/exploratory_protocol_v1.md`, the relevant skills, and the current HANDOFF state.
 
