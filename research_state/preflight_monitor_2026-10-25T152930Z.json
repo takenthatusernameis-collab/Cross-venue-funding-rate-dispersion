@@ -1,0 +1,70 @@
+{
+  "schema_version": "1.0",
+  "run_type": "public_endpoint_reachability_only",
+  "status": "PREFLIGHT_ONLY",
+  "observed_at_utc": "2026-10-25T15:31:41.433255+00:00",
+  "performance_metrics_computed": false,
+  "historical_point_in_time_market_cap_gate": "NOT_VERIFIED",
+  "timeout_seconds": 8,
+  "max_response_bytes": 1000000,
+  "probes": [
+    {
+      "source_id": "binance-usdm-time",
+      "url": "https://fapi.binance.com/fapi/v1/time",
+      "method": "GET",
+      "http_status": 451,
+      "reachable": false,
+      "latency_ms": 126.5,
+      "response_shape": null,
+      "error": "HTTPError: 451",
+      "historical_coverage_proven": false
+    },
+    {
+      "source_id": "bybit-public-time",
+      "url": "https://api.bybit.com/v5/market/time",
+      "method": "GET",
+      "http_status": 403,
+      "reachable": false,
+      "latency_ms": 47.6,
+      "response_shape": null,
+      "error": "HTTPError: 403",
+      "historical_coverage_proven": false
+    },
+    {
+      "source_id": "okx-public-time",
+      "url": "https://www.okx.com/api/v5/public/time",
+      "method": "GET",
+      "http_status": 200,
+      "reachable": true,
+      "latency_ms": 224.2,
+      "response_shape": "json",
+      "error": null,
+      "historical_coverage_proven": false
+    },
+    {
+      "source_id": "coingecko-public-ping",
+      "url": "https://api.coingecko.com/api/v3/ping",
+      "method": "GET",
+      "http_status": 200,
+      "reachable": true,
+      "latency_ms": 97.9,
+      "response_shape": "json",
+      "error": null,
+      "historical_coverage_proven": false
+    },
+    {
+      "source_id": "hyperliquid-public-info",
+      "url": "https://api.hyperliquid.xyz/info",
+      "method": "POST",
+      "http_status": 200,
+      "reachable": true,
+      "latency_ms": 201.6,
+      "response_shape": "json",
+      "error": null,
+      "historical_coverage_proven": false
+    }
+  ],
+  "limitations": [
+    "Endpoint reachability does not prove usable history, pagination completeness, delisted coverage, contract mapping, or point-in-time market-cap availability."
+  ]
+}
