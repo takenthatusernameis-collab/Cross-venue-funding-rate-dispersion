@@ -25,7 +25,11 @@ class ResearchStateArtifactTests(unittest.TestCase):
         (self.root / "research_state").mkdir()
         (self.root / "scripts").mkdir()
         (self.root / "src").mkdir()
-        # Point the module at the temporary root.
+        # Save module globals and point the module at the temporary root.
+        self._saved_root = v.ROOT
+        self._saved_state_dir = v.STATE_DIR
+        self._saved_corrections_path = v.CORRECTIONS_PATH
+        self._saved_manifests = v.MANIFESTS
         v.ROOT = self.root
         v.STATE_DIR = self.root / "research_state"
         v.CORRECTIONS_PATH = v.STATE_DIR / "artifact_hash_corrections_2026-10-25.json"
@@ -33,6 +37,12 @@ class ResearchStateArtifactTests(unittest.TestCase):
 
     def tearDown(self):
         shutil.rmtree(self.tmp, ignore_errors=True)
+        # Restore module globals so later tests that import this module see
+        # the real repository root, not the deleted temp directory.
+        v.ROOT = self._saved_root
+        v.STATE_DIR = self._saved_state_dir
+        v.CORRECTIONS_PATH = self._saved_corrections_path
+        v.MANIFESTS = self._saved_manifests
 
     def _state(self, name, data):
         path = v.STATE_DIR / name
