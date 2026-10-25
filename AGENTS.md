@@ -50,3 +50,14 @@ The free-source inventory has already tested multiple independent source familie
 - Allocate a new ID from the registry; reuse the anchor parameters only as a frozen exploratory candidate, not as a confirmatory result. Start with the smallest discriminating data-coverage and single-anchor evaluation; expand only if the data and implementation gates pass.
 - A shorter history is allowed only for this labeled exploratory version, with observed interval, number of settlements/events, uncertainty and costs disclosed. It does not satisfy the frozen three-year confirmatory requirement or authorize promotion/trading.
 
+
+
+## Active source-data blocker prompt v2 — 2026-10-25
+
+For the next task focused on unblocking the free historical-data gate, read and execute `prompts/autonomous_free_data_unblocking_v2.md` alongside the frozen `docs/research_protocol.md`, `docs/exploratory_protocol_v1.md`, the relevant skills, and the current HANDOFF state.
+
+The v2 prompt is the operational plan for distinct free-data routes, current coverage, and resumption; it does **not** supersede or modify FVD-DISPERSION-V1, FVD001–FVD108, FVD053, or the original `BLOCKED_DATA_GATE` manifest.
+
+Prior exploratory evidence (reverify against the newest artifacts): FVD-EXPLORATORY-001 recorded funding overlap for BTC across OKX/Hyperliquid but only about four days of actionable hourly price overlap; the earlier Hyperliquid candle request returned HTTP 422 and contract identity was only symbol-matched. That did not exercise the anchor. Do not repeat the same payload/source scan without a concrete new reason. Prioritize a docs-correct historical candle probe or a separately available public archive route, then validate multi-instrument × venue coverage and instrument identity before freezing any new outcome run.
+
+This is a task pointer, not permission to alter workflow files, relax gates, or claim empirical results.
