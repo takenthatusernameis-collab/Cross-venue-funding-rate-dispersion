@@ -1,9 +1,10 @@
 # Current Priority — Verify Kilo can unblock free-data research (v2.9, 2026-10-25)
 
 **Active prompt:** [`prompts/autonomous_free_data_gate_unblocking_v2_9.md`](https://github.com/takenthatusernameis-collab/Cross-venue-funding-rate-dispersion/blob/main/prompts/autonomous_free_data_gate_unblocking_v2_9.md)  
-**Latest controller change commit:** `82c3a0cff4cbdc215fc1e4a393271786dd2ae67a`  
+**Latest controller change commit:** `913874dd4fe41785741daad2b5ca559f002ebdc3`  
 **Latest status artifact:** [`research_state/kilo_controller_v2_9_status.md`](https://github.com/takenthatusernameis-collab/Cross-venue-funding-rate-dispersion/blob/main/research_state/kilo_controller_v2_9_status.md)  
 **AGENTS pointer update:** `aab7c9b52650deba8c3f574ff3b69778058234c0`
+**Latest passing Research CI:** [#40222908322](https://github.com/takenthatusernameis-collab/Cross-venue-funding-rate-dispersion/actions/runs/40222908322)
 
 ## Current assessment — mechanisms improved; live research unblocking not yet verified
 
