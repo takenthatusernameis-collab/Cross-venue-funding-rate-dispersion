@@ -618,3 +618,13 @@ The data gate remains `BLOCKED_DATA_GATE`; do not run the empirical grid or clai
 ## Next measurable task
 
 Continue source-independent deterministic hardening (tests, schemas, conformance checks) while data gate remains BLOCKED_DATA_GATE. Preserve frozen grid (FVD001–FVD108, anchor FVD053), free-public-data-only rule, expanding historical point-in-time market-cap universe, and research-only/no-live-trading boundary. The confirmatory campaign remains `BLOCKED_DATA_GATE`; the exploratory track remains `EXPLORATORY_ONLY` / `INCONCLUSIVE` and does not authorize promotion or trading.
+
+## Completed Task — Corrected Hyperliquid candleSnapshot probe (2026-10-25)
+
+1. Verified the prior HTTP 422 was a request-shape error, not a source failure: the old payload used `{"type":"candle",...}` with top-level startTime/endTime; the documented shape is `{"type":"candleSnapshot","req":{"coin","interval","startTime","endTime"}}`. The corrected shape returns HTTP 200 with OHLCV rows (fields t,T,s,i,o,c,h,l,v,n) for BTC/ETH/SOL/AVAX/LINK over a bounded 6h window.
+2. Captured bounded probe artifact `research_state/hyperliquid_candle_probe_2026-10-25.json` with exact URL, access mode, timestamp range, fields, per-coin row counts, and SHA-256 hashes. No performance metrics computed; confirmatory gate remains NOT_VERIFIED.
+3. Contract identity remains by underlying symbol only (Hyperliquid coin names vs OKX instId); not independently verified. Multi-instrument × multi-venue overlap and historical depth/pagination remain unverified.
+
+## Next measurable task
+
+Extend the corrected Hyperliquid candle probe to a historical-depth + pagination study across BTC/ETH/SOL/AVAX/LINK (request larger bounded windows, record earliest available timestamp, row counts, gaps, and SHA-256 per chunk) and cross-check OKX 1H candle retention via `before`/`after` pagination with a concrete reason; then produce a per-underlying × venue × field coverage matrix. Do not calculate outcomes or freeze a new exploratory manifest until coverage and contract identity pass. Preserve all prior evidence; no workflow edits, no paid/manual inputs, no trading, no unsupported performance claim.

@@ -1,0 +1,148 @@
+{
+  "schema_version": "1.0",
+  "run_type": "bounded_free_data_probe",
+  "probe_id": "hyperliquid-candleSnapshot-corrected-2026-10-25",
+  "observed_at_utc": "2026-10-25T17:24:03.821567+00:00",
+  "source_id": "hyperliquid-public-info",
+  "endpoint": "https://api.hyperliquid.xyz/info",
+  "method": "POST",
+  "request_shape": {
+    "type": "candleSnapshot",
+    "req": {
+      "coin": "<COIN>",
+      "interval": "1h",
+      "startTime": "<ms>",
+      "endTime": "<ms>"
+    }
+  },
+  "access_mode": "unauthenticated public POST",
+  "timestamp_range_utc": [
+    "2026-10-25T11:24:01.746000Z",
+    "2026-10-25T17:24:01.746000Z"
+  ],
+  "interval_tested": "1h",
+  "coins_probed": [
+    "BTC",
+    "ETH",
+    "SOL",
+    "AVAX",
+    "LINK"
+  ],
+  "results": {
+    "BTC": {
+      "http_status": 200,
+      "rows": 7,
+      "sha256": "27e5654669b940b60d11aff5df8b5e38ee6ff4cbeb42d64b7f24c065fc621af0",
+      "bytes": 966,
+      "first_t": 1792926000000,
+      "last_t": 1792947600000,
+      "fields": [
+        "t",
+        "T",
+        "s",
+        "i",
+        "o",
+        "c",
+        "h",
+        "l",
+        "v",
+        "n"
+      ]
+    },
+    "ETH": {
+      "http_status": 200,
+      "rows": 7,
+      "sha256": "4ace44a020bcd6d236bccd6b939ad13797417fcffc158dba27e82f1916dde284",
+      "bytes": 941,
+      "first_t": 1792926000000,
+      "last_t": 1792947600000,
+      "fields": [
+        "t",
+        "T",
+        "s",
+        "i",
+        "o",
+        "c",
+        "h",
+        "l",
+        "v",
+        "n"
+      ]
+    },
+    "SOL": {
+      "http_status": 200,
+      "rows": 7,
+      "sha256": "0ae2f06279c32742c9166cb9337f75b44da4c26b401376104849055f084cb8ee",
+      "bytes": 929,
+      "first_t": 1792926000000,
+      "last_t": 1792947600000,
+      "fields": [
+        "t",
+        "T",
+        "s",
+        "i",
+        "o",
+        "c",
+        "h",
+        "l",
+        "v",
+        "n"
+      ]
+    },
+    "AVAX": {
+      "http_status": 200,
+      "rows": 7,
+      "sha256": "c3e7755957d8e9c767c66e522c70c4bf5dc405c6d191c835c81a495012c8afb0",
+      "bytes": 921,
+      "first_t": 1792926000000,
+      "last_t": 1792947600000,
+      "fields": [
+        "t",
+        "T",
+        "s",
+        "i",
+        "o",
+        "c",
+        "h",
+        "l",
+        "v",
+        "n"
+      ]
+    },
+    "LINK": {
+      "http_status": 200,
+      "rows": 7,
+      "sha256": "b4b268b753630f04dcfc2605d386d5e18deda5ad2e9ef8232e3c9143c4938b61",
+      "bytes": 916,
+      "first_t": 1792926000000,
+      "last_t": 1792947600000,
+      "fields": [
+        "t",
+        "T",
+        "s",
+        "i",
+        "o",
+        "c",
+        "h",
+        "l",
+        "v",
+        "n"
+      ]
+    }
+  },
+  "prior_failed_shape": {
+    "type": "candle",
+    "coin": "BTC",
+    "interval": "1h",
+    "startTime": 1789862400000,
+    "endTime": 1792886400000,
+    "http_status": 422
+  },
+  "contract_identity_note": "Coin names BTC/ETH/SOL/AVAX/LINK match Hyperliquid meta universe; mapping to OKX instruments (e.g. BTC-USDT-SWAP) is by underlying symbol only and not independently verified.",
+  "performance_metrics_computed": false,
+  "backtest_completed": false,
+  "historical_point_in_time_market_cap_gate": "NOT_VERIFIED",
+  "limitations": [
+    "Probe covers ~6h only; does not establish historical depth, pagination, delisted coverage, or contract equivalence."
+  ]
+}
