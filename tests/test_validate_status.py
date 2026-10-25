@@ -1,15 +1,25 @@
-import sys
-from pathlib import Path
-ROOT = Path(__file__).resolve().parents[1]
-sys.path.insert(0, str(ROOT / "scripts"))
-import validate_status as v
+import unittest
+
+from scripts import validate_status
 
 
-def test_validate_status_passes():
-    assert v.validate_status() == []
+class TestValidateStatus(unittest.TestCase):
+    def test_validate_status_passes(self):
+        errors = validate_status.validate_status()
+        self.assertEqual(errors, [])
+
+    def test_main_exits_zero_on_pass(self):
+        # run main
+        import io
+        from contextlib import redirect_stdout
+        f = io.StringIO()
+        with redirect_stdout(f):
+            try:
+                validate_status.main()
+            except SystemExit as e:
+                self.assertEqual(e.code, 0)
+        self.assertIn("STATUS_VALIDATION=PASS", f.getvalue())
 
 
-def test_validate_status_main_passes(capsys):
-    v.main()
-    out = capsys.readouterr().out
-    assert "STATUS_VALIDATION=PASS" in out
+if __name__ == "__main__":
+    unittest.main()
