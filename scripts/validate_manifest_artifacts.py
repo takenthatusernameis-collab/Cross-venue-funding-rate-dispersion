@@ -26,62 +26,65 @@ def sha256_file(p):
     return h.hexdigest()
 
 
-def check(cond, msg):
-    if not cond:
-        print("FAIL:", msg)
-        return False
-    return True
-
-
-def main():
-    ok = True
-    for mf in MANIFESTS:
-        if not check(mf.is_file(), f"manifest missing: {mf}"):
-            ok = False
+def validate_manifest_artifacts(manifest_paths, root):
+    """Return list of error messages (empty means pass)."""
+    errors = []
+    for mf in manifest_paths:
+        mf = Path(mf)
+        if not mf.is_file():
+            errors.append(f"manifest missing: {mf}")
             continue
         try:
-            data = json.loads(mf.read_text())
+            data = json.loads(mf.read_text(encoding="utf-8"))
         except (OSError, json.JSONDecodeError) as e:
-            print("FAIL:", mf, e)
-            ok = False
+            errors.append(f"{mf}: {e}")
             continue
         artifacts = data.get("output_artifacts", [])
         if not isinstance(artifacts, list):
-            print("FAIL:", mf, "output_artifacts not a list")
-            ok = False
+            errors.append(f"{mf}: output_artifacts not a list")
             continue
         for art in artifacts:
             if not isinstance(art, dict):
-                print("FAIL:", mf, "artifact not an object")
-                ok = False
+                errors.append(f"{mf}: artifact not an object")
                 continue
             rel = art.get("path")
             digest = art.get("sha256")
             if not isinstance(rel, str) or not rel:
-                print("FAIL:", mf, "artifact missing path")
-                ok = False
+                errors.append(f"{mf}: artifact missing path")
                 continue
             if not isinstance(digest, str) or len(digest) != 64:
-                print("FAIL:", mf, "artifact bad sha256:", rel)
-                ok = False
+                errors.append(f"{mf}: artifact bad sha256: {rel}")
                 continue
-            target = ROOT / rel
+            target = Path(root) / rel
             if not target.is_file():
-                print("FAIL:", mf, "artifact file missing:", rel)
-                ok = False
+                errors.append(f"{mf}: artifact file missing: {rel}")
                 continue
             actual = sha256_file(target)
             if actual != digest:
-                print("FAIL:", mf, "sha256 mismatch:", rel, "expected", digest, "got", actual)
-                ok = False
+                errors.append(f"{mf}: sha256 mismatch: {rel}")
             else:
-                print("OK:", rel)
+                pass
+    return errors
+
+
+def main():
+    errors = validate_manifest_artifacts(MANIFESTS, ROOT)
+    for e in errors:
+        print("FAIL:", e)
+    # print OK lines? keep minimal; original printed OK per artifact. Preserve for committed.
+    # Recompute OK lines for passing artifacts to match original output style.
+    ok = not errors
     if ok:
+        for mf in MANIFESTS:
+            data = json.loads(Path(mf).read_text(encoding="utf-8"))
+            for art in data.get("output_artifacts", []):
+                print("OK:", art.get("path"))
         print("MANIFEST_ARTIFACTS_VALIDATION=PASS")
     else:
         print("MANIFEST_ARTIFACTS_VALIDATION=FAIL")
         sys.exit(1)
+    return 0
 
 
 if __name__ == "__main__":
-    main()
+    raise SystemExit(main())
