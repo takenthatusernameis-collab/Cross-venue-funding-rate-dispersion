@@ -53,12 +53,12 @@ The free-source inventory has already tested multiple independent source familie
 
 
 
-## Active source-data blocker prompt v2.3 — 2026-10-25
+## Active source-data blocker prompt v2.4 — 2026-10-25
 
-For the next unblocking task, read and execute `prompts/autonomous_free_data_unblocking_v2_3.md` alongside the frozen `docs/research_protocol.md`, `docs/exploratory_protocol_v1.md`, relevant skills, current `HANDOFF.md`, and latest coverage/run artifacts.
+For the next unblocking task, read and execute `prompts/autonomous_free_data_gate_unblocking_v2_4.md` alongside the frozen `docs/research_protocol.md`, `docs/exploratory_protocol_v1.md`, relevant skills, current `HANDOFF.md`, and latest coverage/run artifacts.
 
-A corrected Hyperliquid `candleSnapshot` probe is already verified in `research_state/hyperliquid_candle_probe_2026-10-25.json`: HTTP 200, seven 1-hour candle rows each for BTC/ETH/SOL/AVAX/LINK, over a 6-hour window. Do not repeat this exact probe. Extend to a bounded 120-day historical-depth study, query Hyperliquid funding history, and paginate OKX historical candles/funding for compatible instruments. Verify contract identity and build the per-underlying × venue × field overlap matrix before any exploratory outcomes.
+Evidence correction: `research_state/hyperliquid_candle_probe_2026-10-25.json` verifies the documented nested `candleSnapshot` request returned HTTP 200 and seven hourly rows each for BTC/ETH/SOL/AVAX/LINK over about six hours. This validates the short-window request shape only; historical depth, complete pagination, cross-venue price overlap and contract identity remain unverified. Do not repeat the exact six-hour probe. The next data task is the bounded 120-day historical-depth run and per-underlying × venue × field overlap matrix, with exact contract metadata checks.
 
-The source-route reassessment preserves separate local DNS failures (no HTTP response) and successful runner access; both must be reported for their own execution environments. HTTP reachability and six-hour coverage are not sufficient to exercise FVD053.
+The source-route reassessment records DNS failures from the chat execution host, not source rejection. If this environment cannot dispatch the existing `workflow_dispatch`-only public-source workflow, do not alter workflows or claim that the live 120-day run was executed. Complete possible offline validations and report the exact remaining runner limitation.
 
 All original invariants remain unchanged: FVD-DISPERSION-V1, FVD001–FVD108, FVD053, the original research protocol, and confirmatory `BLOCKED_DATA_GATE`. Do not edit `.github/workflows/**`; no paid/manual inputs, no live or paper trading.
