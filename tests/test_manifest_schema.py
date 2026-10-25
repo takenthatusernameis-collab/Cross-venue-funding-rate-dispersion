@@ -92,6 +92,11 @@ class ManifestSchemaTests(unittest.TestCase):
         with self.assertRaises(SystemExit):
             validate_contract(bad, CONFIRMATORY, allow_extra=False)
 
+    def test_bad_date_utc_format_fails(self):
+        bad = dict(BASE_MANIFEST, date_utc="2026/01/01")
+        with self.assertRaises(SystemExit):
+            validate_contract(bad, CONFIRMATORY, allow_extra=False)
+
     def test_caveats_must_be_array_of_strings(self):
         bad = dict(BASE_MANIFEST, caveats="no performance claim")
         with self.assertRaises(SystemExit):
