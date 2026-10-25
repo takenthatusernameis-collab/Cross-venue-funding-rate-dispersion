@@ -285,3 +285,11 @@ Continue source-independent deterministic hardening (tests, schemas, conformance
 ## Next measurable task
 
 Continue source-independent deterministic hardening (tests, schemas, conformance checks) while data gate remains BLOCKED_DATA_GATE. Preserve frozen grid (FVD001–FVD108, anchor FVD053), free-public-data-only rule, expanding historical point-in-time market-cap universe, and research-only/no-live-trading boundary. The confirmatory campaign remains `BLOCKED_DATA_GATE`; the exploratory track remains `EXPLORATORY_ONLY` / `INCONCLUSIVE` and does not authorize promotion or trading.
+
+## Completed Task — Expose testable validate_skills function (2026-10-25)
+
+Refactored scripts/validate_skills.py to expose validate_skills(root, skill_root) -> list[str]; backward-compatible main() unchanged. Extended tests/test_validate_skills.py with a known-answer/adversarial test. Ran exact validations: compileall OK; unittest OK; validate_skills SKILLS_VALIDATION=PASS count=4; validate_all ALL_VALIDATIONS=PASS count=23; git diff --check clean. Frozen artifacts unchanged; confirmatory BLOCKED_DATA_GATE; exploratory EXPLORATORY_ONLY/INCONCLUSIVE; no performance metrics claimed.
+
+## Next measurable task
+
+Continue source-independent deterministic hardening (tests, schemas, conformance checks) while data gate remains BLOCKED_DATA_GATE. Preserve frozen grid (FVD001–FVD108, anchor FVD053), free-public-data-only rule, expanding historical point-in-time market-cap universe, and research-only/no-live-trading boundary. The confirmatory campaign remains BLOCKED_DATA_GATE; the exploratory track remains EXPLORATORY_ONLY / INCONCLUSIVE and does not authorize promotion or trading.
