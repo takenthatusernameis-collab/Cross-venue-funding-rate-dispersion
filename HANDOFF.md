@@ -1,3 +1,13 @@
+## Completed Task — Harden blocked-manifest claims forbidden key set (2026-10-25)
+
+1. Extended `scripts/validate_blocked_manifest_claims.py` forbidden performance-key set from 5 to 9 keys (added win_rate, profit_factor, calmar, sortino) across both blocked/not_run and exploratory branches.
+2. Ran exact validations: compileall OK; 142 tests OK; validate_research.py RESEARCH_VALIDATION=PASS (grid 108, anchor FVD053, NOT_RUN, no metrics); validate_skills.py SKILLS_VALIDATION=PASS count=4; validate_all.py ALL_VALIDATIONS=PASS count=22; git diff --check clean.
+3. Frozen artifacts unchanged; confirmatory BLOCKED_DATA_GATE; exploratory EXPLORATORY_ONLY/INCONCLUSIVE, no promotion/trading. No performance metrics claimed.
+
+## Next measurable task
+
+Continue source-independent deterministic hardening (tests, schemas, conformance checks) while data gate remains BLOCKED_DATA_GATE. Preserve frozen grid (FVD001–FVD108, anchor FVD053), free-public-data-only rule, expanding historical point-in-time market-cap universe, and research-only/no-live-trading boundary. The confirmatory campaign remains `BLOCKED_DATA_GATE`; the exploratory track remains `EXPLORATORY_ONLY` / `INCONCLUSIVE` and does not authorize promotion or trading.
+
 ## Completed Task — Manifest schema conformance check (2026-10-24)
 
 1. Added `scripts/validate_manifest_schema.py`: offline conformance check validating research-state run manifests against `schemas/run-manifest.schema.json`. The confirmatory `run_manifest.json` is validated strictly (additionalProperties: false, frozen 108-config grid sha, BLOCKED_DATA_GATE, no backtest/metric claims); the separately-versioned exploratory manifest is validated against the shared required-field contract (types, enums, required keys, the backtest_completed => performance_metrics_computed invariant, UTC/date timestamp formats, 64-hex sha256 fields) with its versioned exploratory-only fields permitted. Standard library + jsonschema; no network calls; no economic result.

@@ -48,14 +48,14 @@ def main() -> int:
             check(m.get("performance_metrics_computed") is False,
                   f"{p.name}: blocked/not_run must have performance_metrics_computed=false")
             # Also ensure no performance metric keys present
-            for key in ("sharpe", "annualized_return", "max_drawdown", "pnl_total", "equity_curve"):
+            for key in ("sharpe", "annualized_return", "max_drawdown", "pnl_total", "equity_curve", "win_rate", "profit_factor", "calmar", "sortino"):
                 check(key not in m, f"{p.name}: must not contain performance key {key}")
         elif status in {"EXPLORATORY_ONLY", "INCONCLUSIVE"}:
             check(m.get("backtest_completed") is False,
                   f"{p.name}: exploratory must have backtest_completed=false")
             check(m.get("performance_metrics_computed") is False,
                   f"{p.name}: exploratory must have performance_metrics_computed=false")
-            for key in ("sharpe", "annualized_return", "max_drawdown", "pnl_total", "equity_curve"):
+            for key in ("sharpe", "annualized_return", "max_drawdown", "pnl_total", "equity_curve", "win_rate", "profit_factor", "calmar", "sortino"):
                 check(key not in m, f"{p.name}: must not contain performance key {key}")
 
     print("BLOCKED_MANIFEST_CLAIMS_VALIDATION=PASS")
