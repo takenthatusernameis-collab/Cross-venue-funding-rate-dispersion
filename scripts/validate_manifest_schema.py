@@ -32,6 +32,7 @@ REQUIRED_KEYS = (
     "historical_point_in_time_market_cap_gate", "output_artifacts", "caveats",
 )
 SHA256_KEYS = ("grid_config_sha256", "source_manifest_sha256", "sha256")
+HASH_MAP_KEYS = ("source_code_hashes", "config_hashes")
 
 
 def check(cond, msg):
@@ -93,6 +94,11 @@ def validate_contract(data: dict, path: Path, allow_extra: bool) -> None:
     for key in SHA256_KEYS:
         if key in data:
             check(is_64_hex(data[key]), f"{path.name} {key} must be 64-hex sha256")
+    for key in HASH_MAP_KEYS:
+        if key in data and data[key] is not None:
+            check(isinstance(data[key], dict), f"{path.name} {key} must be an object if present")
+            for subkey, subval in data[key].items():
+                check(is_64_hex(subval), f"{path.name} {key}.{subkey} must be 64-hex sha256")
     if not allow_extra:
         schema_keys = set(load_schema()["properties"])
         extra = set(data) - schema_keys
