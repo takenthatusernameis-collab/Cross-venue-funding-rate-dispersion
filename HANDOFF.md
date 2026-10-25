@@ -1,11 +1,10 @@
-# Current Priority — Verify Kilo can unblock free-data research (v3.1, 2026-10-25)
+# Current Priority — Verify Kilo can unblock free-data research (v3.2, 2026-10-25)
 
-**Active prompt:** [autonomous_free_data_gate_unblocking_v3_1.md](https://github.com/takenthatusernameis-collab/Cross-venue-funding-rate-dispersion/blob/main/prompts/autonomous_free_data_gate_unblocking_v3_1.md)  
-**Current status:** [kilo_controller_v3_1_status.md](https://github.com/takenthatusernameis-collab/Cross-venue-funding-rate-dispersion/blob/main/research_state/kilo_controller_v3_1_status.md)  
-**Last passing Research CI before the independent-probe change:** [#40222978575](https://github.com/takenthatusernameis-collab/Cross-venue-funding-rate-dispersion/actions/runs/40222978575)  
-**CI for the independent-probe commit:** [#40224032011](https://github.com/takenthatusernameis-collab/Cross-venue-funding-rate-dispersion/actions/runs/40224032011) failed on a case-sensitive regression-test assertion; v3.1 fixes it and must be revalidated.
+**Active prompt:** [autonomous_free_data_gate_unblocking_v3_2.md](https://github.com/takenthatusernameis-collab/Cross-venue-funding-rate-dispersion/blob/main/prompts/autonomous_free_data_gate_unblocking_v3_2.md)  
+**Current status:** [kilo_controller_v3_2_status.md](https://github.com/takenthatusernameis-collab/Cross-venue-funding-rate-dispersion/blob/main/research_state/kilo_controller_v3_2_status.md)  
+**Latest code/test passing CI:** [#40224477106](https://github.com/takenthatusernameis-collab/Cross-venue-funding-rate-dispersion/actions/runs/40224477106) on `8ad67453bc25a0fb7095648084d20c91fdf48f5a`. Documentation commits after that run require a final CI check.
 
-## Latest v3.1 update — independent probe and checkpoint verification (2026-10-25)
+## Latest v3.2 update — independent probe and shell-test correction (2026-10-25)
 
 - Completed the requested terminal wait in 19 sequential ten-second increments (190 seconds) before reviewing state.
 - The old Kilo run #40209613351 remained in progress on SHA 6b5e16819c4b3de281ef908b333a55dee1a4c09f as of the latest check, holding the old workflow's shared concurrency group. The newer main workflow cannot make that old run execute its new early probe, and this tool interface exposes no supported cancel or dispatch action.
