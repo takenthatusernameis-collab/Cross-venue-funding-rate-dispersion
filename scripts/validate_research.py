@@ -9,19 +9,18 @@ sys.path.insert(0, str(ROOT / "src"))
 from cross_venue_funding_dispersion.grid import load_grid, validate_grid  # noqa: E402
 
 
-def main() -> int:
+def validate_research(root: Path = ROOT) -> list[str]:
     errors = []
     required = [
-        ROOT / "configs/cross_venue_funding_dispersion_grid_v1.json",
-        ROOT / "prompts/cross_venue_funding_rate_dispersion_research_v1.md",
-        ROOT / "docs/research_protocol.md",
-        ROOT / "research_state/run_manifest.json",
-        ROOT / ".github/workflows/main.yml",
+        root / "configs/cross_venue_funding_dispersion_grid_v1.json",
+        root / "prompts/cross_venue_funding_rate_dispersion_research_v1.md",
+        root / "docs/research_protocol.md",
+        root / "research_state/run_manifest.json",
+        root / ".github/workflows/main.yml",
     ]
-    errors.extend(f"missing required file: {p.relative_to(ROOT)}" for p in required if not p.is_file())
+    errors.extend(f"missing required file: {p.relative_to(root)}" for p in required if not p.is_file())
     if errors:
-        print("\n".join(["RESEARCH_VALIDATION=FAIL", *errors]))
-        return 1
+        return errors
     grid = load_grid(required[0])
     errors.extend(validate_grid(grid))
     combined = (required[1].read_text(encoding="utf-8") + "\n" + required[2].read_text(encoding="utf-8")).lower()
@@ -52,6 +51,11 @@ def main() -> int:
             errors.append(f"Kilo workflow missing safeguard: {phrase}")
     if "workflow: write" in workflow.lower():
         errors.append("Kilo workflow must not grant workflow permission")
+    return errors
+
+
+def main() -> int:
+    errors = validate_research()
     if errors:
         print("RESEARCH_VALIDATION=FAIL")
         for error in errors:
