@@ -1,3 +1,4 @@
+import subprocess
 import unittest
 from pathlib import Path
 ROOT=Path(__file__).resolve().parents[1]
@@ -29,6 +30,23 @@ class WorkflowContractTests(unittest.TestCase):
         self.assertNotIn("kilo/kilo-auto/free",text)
         self.assertNotIn("workflow: write",text.lower())
         self.assertNotIn("tests/test_controller_progress_accounting.py",text)
+
+    def test_kilo_controller_shell_script_parses_with_bash(self):
+        lines=(ROOT/".github/workflows/main.yml").read_text(encoding="utf-8").splitlines()
+        step=next(i for i,line in enumerate(lines) if "- name: Run general-purpose Kilo agent loop" in line)
+        run=next(i for i in range(step, len(lines)) if lines[i].strip()=="run: |")
+        base_indent=len(lines[run])-len(lines[run].lstrip())+2
+        script=[]
+        for line in lines[run+1:]:
+            if line.strip():
+                indent=len(line)-len(line.lstrip())
+                if indent < base_indent:
+                    break
+                script.append(line[base_indent:] if indent >= base_indent else "")
+            else:
+                script.append("")
+        result=subprocess.run(["bash","-n"],input="\n".join(script),text=True,capture_output=True,check=False)
+        self.assertEqual(result.returncode,0,result.stderr)
 
     def test_ci_is_read_only(self):
         text=(ROOT/".github/workflows/research-ci.yml").read_text(encoding="utf-8")
