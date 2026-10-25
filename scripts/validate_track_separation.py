@@ -43,17 +43,13 @@ def load_json(path: Path) -> dict:
         sys.exit(1)
 
 
-def main() -> int:
-    confirm_path = ROOT / "research_state/run_manifest.json"
-    expl_path = ROOT / "research_state/exploratory_run_manifest_2026-10-24.json"
-    grid_path = ROOT / "configs/cross_venue_funding_dispersion_grid_v1.json"
+def validate_separation(confirmatory: dict, exploratory: dict, grid_digest: str) -> None:
+    """Fail-closed: validate confirmatory/exploratory track separation.
 
-    for path in (confirm_path, expl_path, grid_path):
-        check(path.is_file(), f"missing required artifact {path.name}")
-
-    confirmatory = load_json(confirm_path)
-    exploratory = load_json(expl_path)
-
+    `grid_digest` is the sha256 of the frozen grid file as read from disk; it
+    must equal the registered frozen grid hash. Exposed for known-answer and
+    adversarial testing; `main()` computes the on-disk digest and delegates here.
+    """
     # --- Confirmatory track must remain frozen and blocked -------------------
     check(confirmatory.get("status") == CONFIRMATORY_STATUS,
           "confirmatory run_manifest status must remain BLOCKED_DATA_GATE")
@@ -95,9 +91,22 @@ def main() -> int:
           "exploratory manifest may only reference FVD053 as a frozen anchor, never as a result")
 
     # --- Frozen grid file on disk is untouched --------------------------------
+    check(grid_digest == FROZEN_GRID_SHA, "frozen grid file on disk must match the recorded sha256")
+
+
+def main() -> int:
+    confirm_path = ROOT / "research_state/run_manifest.json"
+    expl_path = ROOT / "research_state/exploratory_run_manifest_2026-10-24.json"
+    grid_path = ROOT / "configs/cross_venue_funding_dispersion_grid_v1.json"
+
+    for path in (confirm_path, expl_path, grid_path):
+        check(path.is_file(), f"missing required artifact {path.name}")
+
+    confirmatory = load_json(confirm_path)
+    exploratory = load_json(expl_path)
     import hashlib
     digest = hashlib.sha256(grid_path.read_bytes()).hexdigest()
-    check(digest == FROZEN_GRID_SHA, "frozen grid file on disk must match the recorded sha256")
+    validate_separation(confirmatory, exploratory, digest)
 
     print("TRACK_SEPARATION_VALIDATION=PASS")
     return 0

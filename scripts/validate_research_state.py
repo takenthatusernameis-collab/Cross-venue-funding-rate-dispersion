@@ -21,6 +21,8 @@ ROOT = Path(__file__).resolve().parents[1]
 sys.path.insert(0, str(ROOT / "src"))
 from cross_venue_funding_dispersion.status import ResearchStatus  # noqa: E402
 
+FROZEN_GRID_SHA = "6be218bc84bf118cf67c238ad1c13ef1e445658db3b1346cd64ccaccc7aa5f07"
+
 NON_PERFORMANCE_STATUSES = {
     "NOT_RUN",
     "BLOCKED_DATA_GATE",
@@ -52,40 +54,75 @@ def load_json(path: Path) -> dict:
     return data
 
 
-def validate_artifact(path: Path) -> None:
-    data = load_json(path)
+def validate_artifact_data(data: dict, name: str) -> list[str]:
+    """Validate one research-state artifact dict; return a list of violations.
+
+    Empty list means the artifact passes. Fail-closed: every violation is
+    recorded rather than raised, so callers can report the full defect set.
+    """
+    errors: list[str] = []
+    if not isinstance(data, dict):
+        return [f"{name} must be a JSON object"]
     for key in REQUIRED_TOP_KEYS:
-        check(key in data, f"{path.name} missing required key {key}")
+        if key not in data:
+            errors.append(f"{name} missing required key {key}")
+            return errors
     status = data["status"]
-    check(status in NON_PERFORMANCE_STATUSES, f"{path.name} status {status!r} is not a registered non-performance status")
+    if status not in NON_PERFORMANCE_STATUSES:
+        errors.append(f"{name} status {status!r} is not a registered non-performance status")
     try:
         ResearchStatus(status)
     except ValueError:
-        check(False, f"{path.name} status {status!r} is not a registered ResearchStatus")
+        errors.append(f"{name} status {status!r} is not a registered ResearchStatus")
     for key in REQUIRED_STATE_KEYS:
-        check(key in data, f"{path.name} missing required key {key}")
-        check(data[key] is False, f"{path.name} {key} must be false")
+        if key not in data:
+            errors.append(f"{name} missing required key {key}")
+        elif data[key] is not False:
+            errors.append(f"{name} {key} must be false")
     # Confirmatory gate must remain blocked when the empirical grid has not run.
     if "historical_point_in_time_market_cap_gate" in data:
-        check(
-            data["historical_point_in_time_market_cap_gate"] in ("BLOCKED", "BLOCKED_DATA_GATE"),
-            f"{path.name} historical_point_in_time_market_cap_gate must be BLOCKED/BLOCKED_DATA_GATE",
-        )
+        if data["historical_point_in_time_market_cap_gate"] not in ("BLOCKED", "BLOCKED_DATA_GATE"):
+            errors.append(
+                f"{name} historical_point_in_time_market_cap_gate {data['historical_point_in_time_market_cap_gate']!r} "
+                "must be BLOCKED/BLOCKED_DATA_GATE"
+            )
     # UTC timestamp sanity: *_at_utc fields must be ISO-8601 Z-suffixed timestamps;
     # date_utc is a calendar date and must be YYYY-MM-DD.
     for key, value in data.items():
-        if isinstance(value, str) and key.endswith("_at_utc"):
-            check(value.endswith("Z") or "+00:00" in value, f"{path.name} {key} must be UTC ISO-8601")
-        elif key == "date_utc":
-            import re
-            check(bool(re.fullmatch(r"\d{4}-\d{2}-\d{2}", value)), f"{path.name} date_utc must be YYYY-MM-DD")
+        if isinstance(value, str):
+            if key.endswith("_at_utc"):
+                if not (value.endswith("Z") or "+00:00" in value):
+                    errors.append(f"{name} {key} must be UTC ISO-8601")
+            elif key == "date_utc":
+                if not re.fullmatch(r"\d{4}-\d{2}-\d{2}", value):
+                    errors.append(f"{name} date_utc must be YYYY-MM-DD")
     # Hash fields, when present, must be 64-hex digests.
     for key, value in data.items():
         if key.endswith("_sha256") or key == "sha256" or key == "grid_config_sha256":
-            check(
-                isinstance(value, str) and len(value) == 64 and all(c in "0123456789abcdef" for c in value),
-                f"{path.name} {key} must be a 64-hex sha256",
-            )
+            if not (isinstance(value, str) and len(value) == 64 and all(c in "0123456789abcdef" for c in value)):
+                errors.append(f"{name} {key} must be a 64-hex sha256")
+    return errors
+
+
+def validate_artifact(path: Path) -> None:
+    data = load_json(path)
+    errors = validate_artifact_data(data, path.name)
+    if errors:
+        for error in errors:
+            print("FAIL:", error)
+        sys.exit(1)
+
+
+def validate_confirmatory(data: dict) -> list[str]:
+    """Confirmatory-specific frozen-gate checks (grid hash, blocked status)."""
+    errors = validate_artifact_data(data, "run_manifest.json")
+    if data.get("status") != "BLOCKED_DATA_GATE":
+        errors.append("confirmatory run_manifest status must remain BLOCKED_DATA_GATE")
+    if data.get("historical_point_in_time_market_cap_gate") != "BLOCKED":
+        errors.append("confirmatory historical_point_in_time_market_cap_gate must be BLOCKED")
+    if data.get("grid_config_sha256") != FROZEN_GRID_SHA:
+        errors.append("confirmatory grid sha256 must remain the frozen 108-config grid")
+    return errors
 
 
 def main() -> int:
@@ -97,21 +134,22 @@ def main() -> int:
         if not path.is_file():
             print("FAIL: missing research-state artifact", path.name)
             return 1
-        validate_artifact(path)
+        try:
+            data = load_json(path)
+        except SystemExit:
+            return 1
+        errors = validate_artifact_data(data, path.name)
+        if errors:
+            for error in errors:
+                print("FAIL:", error)
+            return 1
     # Confirmatory manifest must preserve the blocked gate.
     confirmatory = load_json(artifacts[0])
-    check(
-        confirmatory.get("status") == "BLOCKED_DATA_GATE",
-        "confirmatory run_manifest must remain BLOCKED_DATA_GATE",
-    )
-    check(
-        confirmatory.get("historical_point_in_time_market_cap_gate") == "BLOCKED",
-        "confirmatory historical_point_in_time_market_cap_gate must be BLOCKED",
-    )
-    check(
-        confirmatory.get("grid_config_sha256") == "6be218bc84bf118cf67c238ad1c13ef1e445658db3b1346cd64ccaccc7aa5f07",
-        "confirmatory grid sha256 must remain the frozen 108-config grid",
-    )
+    confirm_errors = validate_confirmatory(confirmatory)
+    if confirm_errors:
+        for error in confirm_errors:
+            print("FAIL:", error)
+        return 1
     print("RESEARCH_STATE_VALIDATION=PASS")
     return 0
 
