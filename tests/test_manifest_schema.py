@@ -102,8 +102,8 @@ class ManifestSchemaTests(unittest.TestCase):
         with self.assertRaises(SystemExit):
             validate_contract(bad, CONFIRMATORY, allow_extra=False)
 
-    def test_caveats_must_be_array_of_strings(self):
-        bad = dict(BASE_MANIFEST, caveats="no performance claim")
+    def test_output_artifact_extra_property_fails(self):
+        bad = dict(BASE_MANIFEST, output_artifacts=[{"path": "research_state/art.json", "sha256": "a" * 64, "extra": "x"}])
         with self.assertRaises(SystemExit):
             validate_contract(bad, CONFIRMATORY, allow_extra=False)
 

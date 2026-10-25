@@ -82,6 +82,8 @@ def validate_contract(data: dict, path: Path, allow_extra: bool) -> None:
     for item in data["output_artifacts"]:
         check(isinstance(item, dict) and "path" in item and "sha256" in item,
               f"{path.name} output_artifacts entry must carry path and sha256")
+        check(set(item.keys()) <= {"path", "sha256"},
+              f"{path.name} output_artifacts entry must not have extra properties")
         check(is_64_hex(item["sha256"]), f"{path.name} output_artifacts sha256 must be 64-hex")
     check(isinstance(data["caveats"], list) and all(isinstance(item, str) for item in data["caveats"]),
           f"{path.name} caveats must be an array of strings")
