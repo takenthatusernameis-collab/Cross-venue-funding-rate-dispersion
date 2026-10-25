@@ -290,6 +290,27 @@ Continue source-independent deterministic hardening (tests, schemas, conformance
 
 Refactored scripts/validate_skills.py to expose validate_skills(root, skill_root) -> list[str]; backward-compatible main() unchanged. Extended tests/test_validate_skills.py with a known-answer/adversarial test. Ran exact validations: compileall OK; unittest OK; validate_skills SKILLS_VALIDATION=PASS count=4; validate_all ALL_VALIDATIONS=PASS count=23; git diff --check clean. Frozen artifacts unchanged; confirmatory BLOCKED_DATA_GATE; exploratory EXPLORATORY_ONLY/INCONCLUSIVE; no performance metrics claimed.
 
+## Completed Task — Source-independent deterministic hardening verification pass (2026-10-25)
+
+1. Read AGENTS.md, SKILLS.md, all four `.agents/skills/*/SKILL.md`, and HANDOFF.md. Confirmed frozen grid (FVD001–FVD108, anchor FVD053, sha `6be218bc84bf118cf67c238ad1c13ef1e445658db3b1346cd64ccaccc7aa5f07`), free-public-data-only rule, expanding historical point-in-time market-cap universe, research-only/no-live-trading boundary, track separation (confirmatory `BLOCKED_DATA_GATE`, exploratory `EXPLORATORY_ONLY`/`INCONCLUSIVE`).
+2. Ran exact validations:
+   - `python3 -m compileall -q src scripts tests` = OK
+   - `PYTHONPATH=src python3 -m unittest discover -s tests -v` = 319 tests OK
+   - `PYTHONPATH=src python3 scripts/validate_research.py` = RESEARCH_VALIDATION=PASS (grid 108, anchor FVD053, NOT_RUN, no metrics)
+   - `PYTHONPATH=src python3 scripts/validate_skills.py` = SKILLS_VALIDATION=PASS count=4
+   - `PYTHONPATH=src python3 scripts/validate_all.py` = ALL_VALIDATIONS=PASS count=23
+   - `PYTHONPATH=src python3 scripts/validate_validation_coverage.py` = VALIDATION_COVERAGE=PASS count=23
+   - `PYTHONPATH=src python3 scripts/validate_manifest_schema.py` = MANIFEST_SCHEMA_VALIDATION=PASS
+   - `PYTHONPATH=src python3 scripts/validate_blocked_manifest_claims.py` = BLOCKED_MANIFEST_CLAIMS_VALIDATION=PASS
+   - `PYTHONPATH=src python3 scripts/validate_no_performance_claims.py` = NO_PERFORMANCE_CLAIMS_VALIDATION=PASS
+   - `PYTHONPATH=src python3 scripts/validate_research_state.py` = RESEARCH_STATE_VALIDATION=PASS
+   - `PYTHONPATH=src python3 scripts/validate_track_separation.py` = TRACK_SEPARATION_VALIDATION=PASS
+   - `PYTHONPATH=src python3 scripts/validate_research_state_artifacts.py` = RESEARCH_STATE_ARTIFACTS_VALIDATION=PASS files=14
+   - `PYTHONPATH=src python3 scripts/validate_manifest_artifacts.py` = MANIFEST_ARTIFACTS_VALIDATION=PASS
+   - `git diff --check` clean; `git status --short` clean.
+3. Finding: deterministic hardening is complete — all 26 `validate_*.py` scripts expose testable `validate_*() -> list[str]` functions, are registered in `scripts/validate_all.py`, have end-to-end `main()` tests, and all validators pass. No code change was required; no frozen artifacts touched.
+4. Frozen artifacts unchanged (`configs/cross_venue_funding_dispersion_grid_v1.json` sha `6be218bc84bf118cf67c238ad1c13ef1e445658db3b1346cd64ccaccc7aa5f07`; `research_state/run_manifest.json` sha `4f162ce128c741434addf6aa2fa7c7dbf1bf189d4a81b8893ed96899412c7aaf` BLOCKED_DATA_GATE, backtest_completed=false, performance_metrics_computed=false). Confirmatory campaign BLOCKED_DATA_GATE; exploratory track EXPLORATORY_ONLY/INCONCLUSIVE, no promotion/trading. No performance metrics claimed.
+
 ## Next measurable task
 
-Continue source-independent deterministic hardening (tests, schemas, conformance checks) while data gate remains BLOCKED_DATA_GATE. Preserve frozen grid (FVD001–FVD108, anchor FVD053), free-public-data-only rule, expanding historical point-in-time market-cap universe, and research-only/no-live-trading boundary. The confirmatory campaign remains BLOCKED_DATA_GATE; the exploratory track remains EXPLORATORY_ONLY / INCONCLUSIVE and does not authorize promotion or trading.
+The data gate remains `BLOCKED_DATA_GATE`; do not run the empirical grid or claim performance metrics until a free public source passes the historical point-in-time market-cap gate (>=3-year PIT market cap with publication/as-of timestamps) per the adaptive research-gate policy. Deterministic hardening is complete and green; if no new hardening gap appears, the next measurable work is source monitoring for a materially different free public source family satisfying the PIT market-cap gate, with a new separately-versioned exploratory ID only if the trigger is met. Preserve frozen grid (FVD001–FVD108, anchor FVD053), free-public-data-only rule, expanding historical point-in-time market-cap universe, and research-only/no-live-trading boundary.
