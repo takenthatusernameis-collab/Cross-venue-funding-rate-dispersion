@@ -238,7 +238,7 @@ def _build_valid_fixture(snapshot_at: str, source_id: str, source_hash: str, las
     )
 
 
-def main() -> int:
+def validate_frontier() -> list[str]:
     errors: list[str] = []
     snapshot_at = "2024-02-15T00:00:00Z"
 
@@ -366,6 +366,13 @@ def main() -> int:
         except FrontierError:
             pass
 
+    if errors:
+        return errors
+    return []
+
+
+def main() -> int:
+    errors = validate_frontier()
     if errors:
         print("UNIVERSE_FRONTIER_VALIDATION=FAIL")
         for error in errors:
