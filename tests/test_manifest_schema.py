@@ -8,9 +8,8 @@ ROOT = Path(__file__).resolve().parents[1]
 sys.path.insert(0, str(ROOT / "scripts"))
 sys.path.insert(0, str(ROOT / "src"))
 
-import jsonschema  # noqa: E402
 from validate_manifest_schema import (  # noqa: E402
-    CONFIRMATORY, EXPLORATORY, FROZEN_GRID_SHA, load_schema, validate_contract,
+    CONFIRMATORY, EXPLORATORY, FROZEN_GRID_SHA, load_schema, validate_contract, validate_json_schema,
 )
 
 BASE_MANIFEST = {
@@ -33,12 +32,12 @@ class ManifestSchemaTests(unittest.TestCase):
         self.schema = load_schema()
 
     def test_valid_confirmatory_manifest_passes_strict_schema(self):
-        jsonschema.validate(BASE_MANIFEST, self.schema)
+        self.assertEqual(validate_json_schema(BASE_MANIFEST, self.schema), [])
         validate_contract(dict(BASE_MANIFEST), CONFIRMATORY, allow_extra=False)
 
     def test_committed_confirmatory_manifest_passes_strict_schema(self):
         committed = json.loads(CONFIRMATORY.read_text(encoding="utf-8"))
-        jsonschema.validate(committed, self.schema)
+        self.assertEqual(validate_json_schema(committed, self.schema), [])
         validate_contract(committed, CONFIRMATORY, allow_extra=False)
         self.assertEqual(committed["status"], "BLOCKED_DATA_GATE")
         self.assertEqual(committed["grid_config_sha256"], FROZEN_GRID_SHA)
@@ -109,8 +108,7 @@ class ManifestSchemaTests(unittest.TestCase):
 
     def test_strict_schema_rejects_additional_properties(self):
         bad = dict(BASE_MANIFEST, extra_field="x")
-        with self.assertRaises(jsonschema.ValidationError):
-            jsonschema.validate(bad, self.schema)
+        self.assertTrue(validate_json_schema(bad, self.schema))
 
 
 if __name__ == "__main__":
