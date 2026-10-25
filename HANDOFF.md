@@ -1,3 +1,25 @@
+# Current Priority — Autonomous Free-Data Gate Unblocking Prompt v2 (2026-10-25)
+
+**New task prompt:** `prompts/autonomous_free_data_unblocking_v2.md`  
+**Commit creating prompt:** `59a378e38275e296d06310791e02c730ac95eb26`  
+**Active instruction pointer:** `AGENTS.md` section added at commit `44f9c5af645dfbe1958cb013a759d72b247f31e2`
+
+## Scope and evidence status
+
+- This update improves the research-agent prompt and handoff only. It did not run source probes, ingestion, a backtest, or performance evaluation.
+- Reverify all facts against the newest state before acting. The latest accessible original manifest historically showed `BLOCKED_DATA_GATE`, with `backtest_completed=false` and `performance_metrics_computed=false`; preserve that status unless the original requirements are actually satisfied.
+- Preserve `FVD001–FVD108`, `FVD053`, the original grid digest and protocol. Do not modify `.github/workflows/**`.
+- Existing `FVD-EXPLORATORY-001` coverage evidence recorded BTC funding on OKX and Hyperliquid, only about four days of usable OKX hourly price history, an unverified Hyperliquid candle path (prior request returned HTTP 422), and unverified contract equivalence beyond underlying-symbol matching. It did not exercise FVD053. Reinspect newest artifacts and do not repeat this route unless a documented, materially different request/schema or public archive path gives reason to expect new coverage.
+- The exact original PIT market-cap gate remains a distinct requirement. The existing alternative universe protocol can make narrower exploratory progress, but it cannot clear the original gate.
+
+## Next measurable task
+
+Read `prompts/autonomous_free_data_unblocking_v2.md`, `AGENTS.md`, the current original and exploratory protocols, source matrix, run manifests, and relevant skills. Then perform the highest-value untried free-data action: verify the documented Hyperliquid historical-candle request shape and/or a separate legitimately public downloadable archive route (only if not already tested). Capture a small response and hash; then determine actual multi-instrument × multi-venue overlap and contract identity. Do not calculate outcomes until a new exploratory manifest and sample construction are frozen and the existing exploratory gates pass.
+
+Acceptance check: a source/coverage artifact that records exact URL/request, access mode, timestamp range, fields, pagination, hashes, instruments/venues and contract-identity evidence—or an evidence-backed rejection plus a completed source-independent validation task. Preserve all prior evidence; no workflow edits, no paid/manual inputs, no trading, and no unsupported performance claim.
+
+---
+
 ## Completed Task — Full deterministic hardening verification pass (2026-10-25)
 
 1. Read AGENTS.md, SKILLS.md, all four `.agents/skills/*/SKILL.md`, and HANDOFF.md. Confirmed frozen grid (FVD001–FVD108, anchor FVD053, sha `6be218bc84bf118cf67c238ad1c13ef1e445658db3b1346cd64ccaccc7aa5f07`), free-public-data-only rule, expanding historical point-in-time market-cap universe, research-only/no-live-trading boundary, and track separation (confirmatory `BLOCKED_DATA_GATE`, exploratory `EXPLORATORY_ONLY`/`INCONCLUSIVE`).
