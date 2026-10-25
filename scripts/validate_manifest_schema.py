@@ -18,6 +18,7 @@ ROOT = Path(__file__).resolve().parents[1]
 SCHEMA_PATH = ROOT / "schemas" / "run-manifest.schema.json"
 CONFIRMATORY = ROOT / "research_state" / "run_manifest.json"
 EXPLORATORY = ROOT / "research_state" / "exploratory_run_manifest_2026-10-24.json"
+EXPLORATORY_002 = ROOT / "research_state" / "exploratory_run_manifest_2026-10-25.json"
 FROZEN_GRID_SHA = "6be218bc84bf118cf67c238ad1c13ef1e445658db3b1346cd64ccaccc7aa5f07"
 
 STATUS_ENUM = {
@@ -194,6 +195,7 @@ def main() -> int:
     schema = load_schema()
     confirm = load_json(CONFIRMATORY)
     expl = load_json(EXPLORATORY)
+    expl002 = load_json(EXPLORATORY_002)
 
     # Confirmatory: strict schema conformance (additionalProperties: false).
     schema_errors = validate_json_schema(confirm, schema)
@@ -215,6 +217,14 @@ def main() -> int:
     if "grid_config_sha256" in expl and expl["grid_config_sha256"] is not None:
         check(expl["grid_config_sha256"] == FROZEN_GRID_SHA,
               "exploratory manifest must not introduce a different confirmatory grid hash")
+
+    # Exploratory FVD-EXPLORATORY-002: contract conformance with same safeguards.
+    validate_contract(expl002, EXPLORATORY_002, allow_extra=True)
+    check(expl002.get("backtest_completed") is False and expl002.get("performance_metrics_computed") is False,
+          "exploratory FVD-EXPLORATORY-002 manifest must not claim a completed backtest or metrics")
+    if "grid_config_sha256" in expl002 and expl002["grid_config_sha256"] is not None:
+        check(expl002["grid_config_sha256"] == FROZEN_GRID_SHA,
+              "exploratory FVD-EXPLORATORY-002 manifest must not introduce a different confirmatory grid hash")
 
     print("MANIFEST_SCHEMA_VALIDATION=PASS confirmatory=strict exploratory=contract")
     return 0

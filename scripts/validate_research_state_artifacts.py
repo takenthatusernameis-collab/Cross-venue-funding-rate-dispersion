@@ -32,6 +32,7 @@ CORRECTIONS_PATH = STATE_DIR / "artifact_hash_corrections_2026-10-25.json"
 MANIFESTS = [
     STATE_DIR / "run_manifest.json",
     STATE_DIR / "exploratory_run_manifest_2026-10-24.json",
+    STATE_DIR / "exploratory_run_manifest_2026-10-25.json",
 ]
 
 

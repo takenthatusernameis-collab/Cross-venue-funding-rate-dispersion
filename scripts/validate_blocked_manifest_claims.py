@@ -12,6 +12,7 @@ ROOT = Path(__file__).resolve().parents[1]
 DEFAULT_PATHS = [
     ROOT / "research_state/run_manifest.json",
     ROOT / "research_state/exploratory_run_manifest_2026-10-24.json",
+    ROOT / "research_state/exploratory_run_manifest_2026-10-25.json",
 ]
 
 BLOCKED_STATUSES = {

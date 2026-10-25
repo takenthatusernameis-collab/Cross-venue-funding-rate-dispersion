@@ -9,7 +9,7 @@
   "performance_metrics_computed": false,
   "date_utc": "2026-10-25",
   "started_at_utc": "2026-10-25T19:07:59Z",
-  "completed_at_utc": "2026-10-25T19:07:59Z",
+  "completed_at_utc": "2026-10-25T21:28:43Z",
   "purpose": "Exploratory threshold-history eligibility assessment and manifest freeze for the verified historical overlap of BTC/ETH/SOL/AVAX/LINK across OKX and Hyperliquid (depth probe + coverage matrix). Separately versioned from FVD-DISPERSION-V1 and FVD-EXPLORATORY-001; does not modify frozen grid, FVD001-FVD108, FVD053, or original run manifest.",
   "data_cutoff_utc": "2026-10-25T16:00:00Z",
   "instrument_list": [
@@ -80,11 +80,11 @@
     ">=90 prior daily observations required for threshold"
   ],
   "data_gate_result": "PARTIAL \u2014 funding + 1h price history verified for both venues over ~97 common days; contract identity symbol-only/unverified; evaluation window ~7 signal days; short history vs 3-year confirmatory requirement",
-  "implementation_gate_result": "Source-independent primitives covered by known-answer/adversarial tests and conformance validators; real-data signal construction not yet exercised on this overlap",
-  "anchor_exercised": false,
-  "anchor_result": "Not exercised \u2014 manifest freeze and eligibility assessment only; anchor run requires separate data-gated step",
-  "conclusion": "EXPLORATORY_ONLY / INCONCLUSIVE for inference. Threshold-history eligibility met (97 prior daily observations >= 90) over the verified common funding intersection for 5 underlyings x 2 venues. Evaluation window remains ~7 signal days; contract identity unverified; no backtest, no performance metric, no economic edge claimed. Confirmatory gate BLOCKED_DATA_GATE preserved.",
-  "next_step": "Run single frozen anchor (FVD053 params) on this verified overlap with causal timing/accounting, then report descriptive outputs; keep EXPLORATORY_ONLY/INCONCLUSIVE status. Do not run full 108-cell grid.",
+  "implementation_gate_result": "Source-independent primitives covered by known-answer/adversarial tests; FVD053 anchor script exercised real-data signal construction on the verified overlap (tests/test_run_fvd053_anchor.py covers deterministic known-answer fixtures). Anchor produced 0 signals; no performance metrics computed.",
+  "anchor_exercised": true,
+  "anchor_result": "Exercise with actual live data (FVD053 frozen params: 24h dispersion lookback, 80th-percentile threshold, 24h hold, top 10% tail, 2 venues). Result: 0 signals generated across 47 candidate dates; 50 hourly candles skipped due to missing data; 0 funding settlements applied (no active pairs). INCONCLUSIVE: no signal episodes to evaluate. backtest_completed=false, performance_metrics_computed=false.",
+  "conclusion": "EXPLORATORY_ONLY / INCONCLUSIVE for inference. Threshold-history eligibility met (97 prior daily observations >= 90) over the verified common funding intersection for 5 underlyings x 2 venues. FVD053 anchor was exercised on actual live data but generated 0 signals across 47 candidate dates (dispersion never exceeded the 80th-percentile threshold). No backtest, no performance metric, no economic edge claimed. Confirmatory gate BLOCKED_DATA_GATE preserved.",
+  "next_step": "Signal count is 0; no performance to report. Source-independent accounting and known-answer tests remain covered by tests/test_run_fvd053_anchor.py. Next bounded action: expand the verified overlap to additional underlyings/venues or extend history, then re-evaluate anchor signal formation; keep EXPLORATORY_ONLY/INCONCLUSIVE status. Do not run full 108-cell grid.",
   "output_artifacts": [
     {
       "path": "research_state/historical_overlap_depth_probe_2026-10-25.json",
@@ -93,6 +93,10 @@
     {
       "path": "research_state/coverage_matrix_2026-10-25.json",
       "sha256": "96954273b59bdc4ebcdfeec00c164e164bb324cf9d08be2868cbb92bc99514ef"
+    },
+    {
+      "path": "research_state/fvd053_anchor_run_2026-10-25.json",
+      "sha256": "50b328baf5854dec40105a0f5ebe498bf589906f9c033ce659843659927ca4c2"
     }
   ],
   "source_code_hashes": {},
