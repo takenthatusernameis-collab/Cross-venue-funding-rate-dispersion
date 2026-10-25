@@ -1,0 +1,455 @@
+{
+  "artifact_type": "coverage_matrix",
+  "matrix": [
+    {
+      "funding_intersection": {
+        "common_end": "2026-10-25T16:00:00Z",
+        "common_start": "2026-07-20T16:00:00Z",
+        "hl_funding_count": 2880,
+        "hl_funding_end": "2026-10-25T17:00:00.047000Z",
+        "hl_funding_start": "2026-06-27T18:00:00.108000Z",
+        "notes": "OKX funding starts later (~2026-07-20) than HL funding (~2026-06-27); intersection limited by OKX start.",
+        "okx_funding_count": 292,
+        "okx_funding_end": "2026-10-25T16:00:00Z",
+        "okx_funding_start": "2026-07-20T16:00:00Z"
+      },
+      "underlying": "BTC",
+      "venues": {
+        "hyperliquid": {
+          "candles_1h": {
+            "coverage": {
+              "duplicate_timestamps": 0,
+              "earliest_utc": "2026-06-27T17:00:00Z",
+              "hourly_gap_count": 0,
+              "latest_utc": "2026-10-25T17:00:00Z",
+              "maximum_missing_hours_in_gap": 0,
+              "row_count": 2881,
+              "timestamp_count": 2881,
+              "unique_timestamp_count": 2881
+            },
+            "http_status": 200,
+            "pages": null
+          },
+          "contract_identity": {
+            "method": "coin_name_only",
+            "verified": false
+          },
+          "funding": {
+            "coverage": {
+              "duplicate_timestamps": 0,
+              "earliest_utc": "2026-06-27T18:00:00.108000Z",
+              "hourly_gap_count": 0,
+              "latest_utc": "2026-10-25T17:00:00.047000Z",
+              "maximum_missing_hours_in_gap": 0,
+              "row_count": 2880,
+              "timestamp_count": 2880,
+              "unique_timestamp_count": 2880
+            },
+            "http_status": null,
+            "pages": null,
+            "stop_reason": "window_reached_or_page_not_full"
+          }
+        },
+        "okx": {
+          "candles_1h": {
+            "coverage": {
+              "duplicate_timestamps": 0,
+              "earliest_utc": "2026-06-27T18:00:00Z",
+              "hourly_gap_count": 0,
+              "latest_utc": "2026-10-25T17:00:00Z",
+              "maximum_missing_hours_in_gap": 0,
+              "row_count": 2880,
+              "timestamp_count": 2880,
+              "unique_timestamp_count": 2880
+            },
+            "http_status": null,
+            "pages": null,
+            "stop_reason": "window_start_reached"
+          },
+          "contract_identity": {
+            "eligible": true,
+            "method": "instId_derived_from_underlying_only",
+            "verified": false
+          },
+          "funding": {
+            "coverage": {
+              "duplicate_timestamps": 0,
+              "earliest_utc": "2026-07-20T16:00:00Z",
+              "hourly_gap_count": 0,
+              "latest_utc": "2026-10-25T16:00:00Z",
+              "maximum_missing_hours_in_gap": 0,
+              "row_count": 292,
+              "timestamp_count": 292,
+              "unique_timestamp_count": 292
+            },
+            "http_status": null,
+            "pages": null,
+            "stop_reason": "page_not_full"
+          },
+          "instId": "BTC-USDT-SWAP"
+        }
+      }
+    },
+    {
+      "funding_intersection": {
+        "common_end": "2026-10-25T16:00:00Z",
+        "common_start": "2026-07-20T16:00:00Z",
+        "hl_funding_count": 2880,
+        "hl_funding_end": "2026-10-25T17:00:00.047000Z",
+        "hl_funding_start": "2026-06-27T18:00:00.108000Z",
+        "notes": "OKX funding starts later (~2026-07-20) than HL funding (~2026-06-27); intersection limited by OKX start.",
+        "okx_funding_count": 292,
+        "okx_funding_end": "2026-10-25T16:00:00Z",
+        "okx_funding_start": "2026-07-20T16:00:00Z"
+      },
+      "underlying": "ETH",
+      "venues": {
+        "hyperliquid": {
+          "candles_1h": {
+            "coverage": {
+              "duplicate_timestamps": 0,
+              "earliest_utc": "2026-06-27T17:00:00Z",
+              "hourly_gap_count": 0,
+              "latest_utc": "2026-10-25T17:00:00Z",
+              "maximum_missing_hours_in_gap": 0,
+              "row_count": 2881,
+              "timestamp_count": 2881,
+              "unique_timestamp_count": 2881
+            },
+            "http_status": 200,
+            "pages": null
+          },
+          "contract_identity": {
+            "method": "coin_name_only",
+            "verified": false
+          },
+          "funding": {
+            "coverage": {
+              "duplicate_timestamps": 0,
+              "earliest_utc": "2026-06-27T18:00:00.108000Z",
+              "hourly_gap_count": 0,
+              "latest_utc": "2026-10-25T17:00:00.047000Z",
+              "maximum_missing_hours_in_gap": 0,
+              "row_count": 2880,
+              "timestamp_count": 2880,
+              "unique_timestamp_count": 2880
+            },
+            "http_status": null,
+            "pages": null,
+            "stop_reason": "window_reached_or_page_not_full"
+          }
+        },
+        "okx": {
+          "candles_1h": {
+            "coverage": {
+              "duplicate_timestamps": 0,
+              "earliest_utc": "2026-06-27T18:00:00Z",
+              "hourly_gap_count": 0,
+              "latest_utc": "2026-10-25T17:00:00Z",
+              "maximum_missing_hours_in_gap": 0,
+              "row_count": 2880,
+              "timestamp_count": 2880,
+              "unique_timestamp_count": 2880
+            },
+            "http_status": null,
+            "pages": null,
+            "stop_reason": "window_start_reached"
+          },
+          "contract_identity": {
+            "eligible": true,
+            "method": "instId_derived_from_underlying_only",
+            "verified": false
+          },
+          "funding": {
+            "coverage": {
+              "duplicate_timestamps": 0,
+              "earliest_utc": "2026-07-20T16:00:00Z",
+              "hourly_gap_count": 0,
+              "latest_utc": "2026-10-25T16:00:00Z",
+              "maximum_missing_hours_in_gap": 0,
+              "row_count": 292,
+              "timestamp_count": 292,
+              "unique_timestamp_count": 292
+            },
+            "http_status": null,
+            "pages": null,
+            "stop_reason": "page_not_full"
+          },
+          "instId": "ETH-USDT-SWAP"
+        }
+      }
+    },
+    {
+      "funding_intersection": {
+        "common_end": "2026-10-25T16:00:00Z",
+        "common_start": "2026-07-20T16:00:00Z",
+        "hl_funding_count": 2880,
+        "hl_funding_end": "2026-10-25T17:00:00.047000Z",
+        "hl_funding_start": "2026-06-27T18:00:00.108000Z",
+        "notes": "OKX funding starts later (~2026-07-20) than HL funding (~2026-06-27); intersection limited by OKX start.",
+        "okx_funding_count": 292,
+        "okx_funding_end": "2026-10-25T16:00:00Z",
+        "okx_funding_start": "2026-07-20T16:00:00Z"
+      },
+      "underlying": "SOL",
+      "venues": {
+        "hyperliquid": {
+          "candles_1h": {
+            "coverage": {
+              "duplicate_timestamps": 0,
+              "earliest_utc": "2026-06-27T17:00:00Z",
+              "hourly_gap_count": 0,
+              "latest_utc": "2026-10-25T17:00:00Z",
+              "maximum_missing_hours_in_gap": 0,
+              "row_count": 2881,
+              "timestamp_count": 2881,
+              "unique_timestamp_count": 2881
+            },
+            "http_status": 200,
+            "pages": null
+          },
+          "contract_identity": {
+            "method": "coin_name_only",
+            "verified": false
+          },
+          "funding": {
+            "coverage": {
+              "duplicate_timestamps": 0,
+              "earliest_utc": "2026-06-27T18:00:00.108000Z",
+              "hourly_gap_count": 0,
+              "latest_utc": "2026-10-25T17:00:00.047000Z",
+              "maximum_missing_hours_in_gap": 0,
+              "row_count": 2880,
+              "timestamp_count": 2880,
+              "unique_timestamp_count": 2880
+            },
+            "http_status": null,
+            "pages": null,
+            "stop_reason": "window_reached_or_page_not_full"
+          }
+        },
+        "okx": {
+          "candles_1h": {
+            "coverage": {
+              "duplicate_timestamps": 0,
+              "earliest_utc": "2026-06-27T18:00:00Z",
+              "hourly_gap_count": 0,
+              "latest_utc": "2026-10-25T17:00:00Z",
+              "maximum_missing_hours_in_gap": 0,
+              "row_count": 2880,
+              "timestamp_count": 2880,
+              "unique_timestamp_count": 2880
+            },
+            "http_status": null,
+            "pages": null,
+            "stop_reason": "window_start_reached"
+          },
+          "contract_identity": {
+            "eligible": true,
+            "method": "instId_derived_from_underlying_only",
+            "verified": false
+          },
+          "funding": {
+            "coverage": {
+              "duplicate_timestamps": 0,
+              "earliest_utc": "2026-07-20T16:00:00Z",
+              "hourly_gap_count": 0,
+              "latest_utc": "2026-10-25T16:00:00Z",
+              "maximum_missing_hours_in_gap": 0,
+              "row_count": 292,
+              "timestamp_count": 292,
+              "unique_timestamp_count": 292
+            },
+            "http_status": null,
+            "pages": null,
+            "stop_reason": "page_not_full"
+          },
+          "instId": "SOL-USDT-SWAP"
+        }
+      }
+    },
+    {
+      "funding_intersection": {
+        "common_end": "2026-10-25T16:00:00Z",
+        "common_start": "2026-07-20T16:00:00Z",
+        "hl_funding_count": 2880,
+        "hl_funding_end": "2026-10-25T17:00:00.047000Z",
+        "hl_funding_start": "2026-06-27T18:00:00.108000Z",
+        "notes": "OKX funding starts later (~2026-07-20) than HL funding (~2026-06-27); intersection limited by OKX start.",
+        "okx_funding_count": 292,
+        "okx_funding_end": "2026-10-25T16:00:00Z",
+        "okx_funding_start": "2026-07-20T16:00:00Z"
+      },
+      "underlying": "AVAX",
+      "venues": {
+        "hyperliquid": {
+          "candles_1h": {
+            "coverage": {
+              "duplicate_timestamps": 0,
+              "earliest_utc": "2026-06-27T17:00:00Z",
+              "hourly_gap_count": 0,
+              "latest_utc": "2026-10-25T17:00:00Z",
+              "maximum_missing_hours_in_gap": 0,
+              "row_count": 2881,
+              "timestamp_count": 2881,
+              "unique_timestamp_count": 2881
+            },
+            "http_status": 200,
+            "pages": null
+          },
+          "contract_identity": {
+            "method": "coin_name_only",
+            "verified": false
+          },
+          "funding": {
+            "coverage": {
+              "duplicate_timestamps": 0,
+              "earliest_utc": "2026-06-27T18:00:00.108000Z",
+              "hourly_gap_count": 0,
+              "latest_utc": "2026-10-25T17:00:00.047000Z",
+              "maximum_missing_hours_in_gap": 0,
+              "row_count": 2880,
+              "timestamp_count": 2880,
+              "unique_timestamp_count": 2880
+            },
+            "http_status": null,
+            "pages": null,
+            "stop_reason": "window_reached_or_page_not_full"
+          }
+        },
+        "okx": {
+          "candles_1h": {
+            "coverage": {
+              "duplicate_timestamps": 0,
+              "earliest_utc": "2026-06-27T18:00:00Z",
+              "hourly_gap_count": 0,
+              "latest_utc": "2026-10-25T17:00:00Z",
+              "maximum_missing_hours_in_gap": 0,
+              "row_count": 2880,
+              "timestamp_count": 2880,
+              "unique_timestamp_count": 2880
+            },
+            "http_status": null,
+            "pages": null,
+            "stop_reason": "window_start_reached"
+          },
+          "contract_identity": {
+            "eligible": true,
+            "method": "instId_derived_from_underlying_only",
+            "verified": false
+          },
+          "funding": {
+            "coverage": {
+              "duplicate_timestamps": 0,
+              "earliest_utc": "2026-07-20T16:00:00Z",
+              "hourly_gap_count": 0,
+              "latest_utc": "2026-10-25T16:00:00Z",
+              "maximum_missing_hours_in_gap": 0,
+              "row_count": 292,
+              "timestamp_count": 292,
+              "unique_timestamp_count": 292
+            },
+            "http_status": null,
+            "pages": null,
+            "stop_reason": "page_not_full"
+          },
+          "instId": "AVAX-USDT-SWAP"
+        }
+      }
+    },
+    {
+      "funding_intersection": {
+        "common_end": "2026-10-25T16:00:00Z",
+        "common_start": "2026-07-20T16:00:00Z",
+        "hl_funding_count": 2880,
+        "hl_funding_end": "2026-10-25T17:00:00.047000Z",
+        "hl_funding_start": "2026-06-27T18:00:00.108000Z",
+        "notes": "OKX funding starts later (~2026-07-20) than HL funding (~2026-06-27); intersection limited by OKX start.",
+        "okx_funding_count": 292,
+        "okx_funding_end": "2026-10-25T16:00:00Z",
+        "okx_funding_start": "2026-07-20T16:00:00Z"
+      },
+      "underlying": "LINK",
+      "venues": {
+        "hyperliquid": {
+          "candles_1h": {
+            "coverage": {
+              "duplicate_timestamps": 0,
+              "earliest_utc": "2026-06-27T17:00:00Z",
+              "hourly_gap_count": 0,
+              "latest_utc": "2026-10-25T17:00:00Z",
+              "maximum_missing_hours_in_gap": 0,
+              "row_count": 2881,
+              "timestamp_count": 2881,
+              "unique_timestamp_count": 2881
+            },
+            "http_status": 200,
+            "pages": null
+          },
+          "contract_identity": {
+            "method": "coin_name_only",
+            "verified": false
+          },
+          "funding": {
+            "coverage": {
+              "duplicate_timestamps": 0,
+              "earliest_utc": "2026-06-27T18:00:00.108000Z",
+              "hourly_gap_count": 0,
+              "latest_utc": "2026-10-25T17:00:00.047000Z",
+              "maximum_missing_hours_in_gap": 0,
+              "row_count": 2880,
+              "timestamp_count": 2880,
+              "unique_timestamp_count": 2880
+            },
+            "http_status": null,
+            "pages": null,
+            "stop_reason": "window_reached_or_page_not_full"
+          }
+        },
+        "okx": {
+          "candles_1h": {
+            "coverage": {
+              "duplicate_timestamps": 0,
+              "earliest_utc": "2026-06-27T18:00:00Z",
+              "hourly_gap_count": 0,
+              "latest_utc": "2026-10-25T17:00:00Z",
+              "maximum_missing_hours_in_gap": 0,
+              "row_count": 2880,
+              "timestamp_count": 2880,
+              "unique_timestamp_count": 2880
+            },
+            "http_status": null,
+            "pages": null,
+            "stop_reason": "window_start_reached"
+          },
+          "contract_identity": {
+            "eligible": true,
+            "method": "instId_derived_from_underlying_only",
+            "verified": false
+          },
+          "funding": {
+            "coverage": {
+              "duplicate_timestamps": 0,
+              "earliest_utc": "2026-07-20T16:00:00Z",
+              "hourly_gap_count": 0,
+              "latest_utc": "2026-10-25T16:00:00Z",
+              "maximum_missing_hours_in_gap": 0,
+              "row_count": 292,
+              "timestamp_count": 292,
+              "unique_timestamp_count": 292
+            },
+            "http_status": null,
+            "pages": null,
+            "stop_reason": "page_not_full"
+          },
+          "instId": "LINK-USDT-SWAP"
+        }
+      }
+    }
+  ],
+  "observed_at_utc": "2026-10-25T18:19:43.252565Z",
+  "schema_version": "1.0",
+  "sources": [
+    "research_state/historical_overlap_depth_probe_2026-10-25.json"
+  ]
+}
