@@ -87,6 +87,11 @@ class ManifestSchemaTests(unittest.TestCase):
         with self.assertRaises(SystemExit):
             validate_contract(bad, CONFIRMATORY, allow_extra=False)
 
+    def test_hash_map_value_must_be_64_hex(self):
+        bad = dict(BASE_MANIFEST, source_code_hashes={"foo": "not-a-sha256"})
+        with self.assertRaises(SystemExit):
+            validate_contract(bad, CONFIRMATORY, allow_extra=False)
+
     def test_non_utc_timestamp_fails(self):
         bad = dict(BASE_MANIFEST, started_at_utc="2026-01-01T00:00:00")
         with self.assertRaises(SystemExit):
