@@ -981,7 +981,15 @@ jobs:
           JSON
           chmod 600 "$XDG_CONFIG_HOME/kilo/kilo.json"
 
-          cutoff_epoch=$(( $(date +%s) + 355 * 60 ))
+          # A six-hour activation starves the five-minute schedule of fresh
+          # controllers and keeps newly fixed logic queued behind a stale worker.
+          # Scheduled activations are deliberately short and resumable; manual
+          # workflow_dispatch keeps the longer research-session budget.
+          activation_minutes=355
+          if [[ "${GITHUB_EVENT_NAME:-}" == "schedule" ]]; then
+            activation_minutes=40
+          fi
+          cutoff_epoch=$(( $(date +%s) + activation_minutes * 60 ))
           # Reserve the final five minutes of the controller budget for checkpoint
           # reconciliation, push, remote-SHA verification, and recovery artifacts.
           checkpoint_reserve_seconds=300
@@ -1033,6 +1041,10 @@ jobs:
           if ! [[ "$agents" =~ ^[0-9]+$ ]]; then agents=1000; fi
           (( agents < 1 )) && agents=1
           (( agents > 1000 )) && agents=1000
+          if [[ "${GITHUB_EVENT_NAME:-}" == "schedule" ]] && (( agents > 2 )); then
+            agents=2
+            echo "Scheduled activation capped at two sequential worker sessions; durable checkpoints and the next scheduled activation resume the research."
+          fi
           idle_timeout="${KILO_IDLE_TIMEOUT_SECONDS:-900}"
           if ! [[ "$idle_timeout" =~ ^[0-9]+$ ]] || (( idle_timeout < 60 )); then idle_timeout=900; fi
 
