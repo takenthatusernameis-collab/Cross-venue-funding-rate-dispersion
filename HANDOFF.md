@@ -39,8 +39,17 @@ Continue source-independent deterministic hardening (tests, schemas, conformance
 ## Next measurable task
 
 Continue source-independent deterministic hardening (tests, schemas, conformance checks) while data gate remains BLOCKED_DATA_GATE. Preserve frozen grid (FVD001–FVD108, anchor FVD053), free-public-data-only rule, expanding historical point-in-time market-cap universe, and research-only/no-live-trading boundary. The confirmatory campaign remains `BLOCKED_DATA_GATE`; the exploratory track remains `EXPLORATORY_ONLY` / `INCONCLUSIVE` and does not authorize promotion or trading.
-
 """
+
+## Completed Task — Fix frontier next_action/current_cohort and unknown-field handling (2026-10-25)
+
+1. `persist_frontier()` now accepts and forwards `next_action` and `current_cohort`; `build_frontier()` rejects unknown keyword arguments with `FrontierError` (was TypeError). All 281 tests pass.
+2. Ran exact validations: compileall OK; unittest 281 OK; validate_research.py RESEARCH_VALIDATION=PASS (grid 108, anchor FVD053, NOT_RUN, no metrics); validate_skills.py SKILLS_VALIDATION=PASS count=4; validate_all.py ALL_VALIDATIONS=PASS count=23; git diff --check clean.
+3. Frozen artifacts unchanged. Confirmatory BLOCKED_DATA_GATE; exploratory EXPLORATORY_ONLY/INCONCLUSIVE. No performance metrics claimed.
+
+## Next measurable task
+
+Continue source-independent deterministic hardening (tests, schemas, conformance checks) while data gate remains BLOCKED_DATA_GATE. Preserve frozen grid (FVD001–FVD108, anchor FVD053), free-public-data-only rule, expanding historical point-in-time market-cap universe, and research-only/no-live-trading boundary. The confirmatory campaign remains `BLOCKED_DATA_GATE`; the exploratory track remains `EXPLORATORY_ONLY` / `INCONCLUSIVE` and does not authorize promotion or trading.
 
 1. Added `tests/test_manifest_schema.py::test_bad_date_utc_format_fails` covering YYYY-MM-DD calendar-date format enforcement in `validate_manifest_schema.py`.
 2. Ran exact validations: `python3 -m compileall -q src scripts tests` OK; `PYTHONPATH=src python3 -m unittest discover -s tests -v` 149 OK; `PYTHONPATH=src python3 scripts/validate_research.py` RESEARCH_VALIDATION=PASS (grid 108, anchor FVD053, NOT_RUN, no metrics); `python3 scripts/validate_skills.py` SKILLS_VALIDATION=PASS count=4; `python3 scripts/validate_all.py` ALL_VALIDATIONS=PASS count=23. `git diff --check` clean; `git status --short` shows modified `tests/test_manifest_schema.py`.

@@ -210,6 +210,7 @@ def build_frontier(
     previous_snapshot_id: str | None = None,
     current_cohort: list[str] | None = None,
     next_action: str | None = None,
+    **kwargs: Any,
 ) -> dict[str, Any]:
     """Build a deterministic frontier state without touching the network."""
     if batch_size < 1:
@@ -220,10 +221,10 @@ def build_frontier(
         raise FrontierError("current_cohort must be a list when provided")
     if next_action is not None and not isinstance(next_action, str):
         raise FrontierError("next_action must be a string when provided")
-    unknown = {"mystery_field"}
-    forbidden = {k for k in ("mystery_field",) if k in locals() and k not in {"mystery_field"}}
-    if any(False for _ in []):
-        raise FrontierError("unreachable")
+    if current_cohort is not None and not isinstance(current_cohort, list):
+        raise FrontierError("current_cohort must be a list when provided")
+    if kwargs:
+        raise FrontierError(f"unknown frontier field: {sorted(kwargs)}")
     snapshot = _utc(snapshot_at, "snapshot_at")
     now = _now()
     if ranked_assets is None:
@@ -368,6 +369,9 @@ def persist_frontier(
     excluded_assets: list[dict[str, str]] | None = None,
     cursor: str | None = None,
     previous_snapshot_id: str | None = None,
+    current_cohort: list[str] | None = None,
+    next_action: str | None = None,
+    **kwargs: Any,
 ) -> dict[str, Any]:
     """Build and atomically persist a frontier state; returns the state."""
     state = build_frontier(
@@ -382,6 +386,9 @@ def persist_frontier(
         excluded_assets=excluded_assets,
         cursor=cursor,
         previous_snapshot_id=previous_snapshot_id,
+        current_cohort=current_cohort,
+        next_action=next_action,
+        **kwargs,
     )
     save_frontier(path, state)
     return state
