@@ -20,6 +20,7 @@ def main() -> int:
         "scripts/validate_recompute.py",
         "scripts/validate_status.py",
         "scripts/validate_research_state.py",
+        "scripts/validate_research_state_artifacts.py",
         "scripts/validate_track_separation.py",
         "scripts/validate_grid.py",
         "scripts/validate_controller_progress.py",

@@ -1,0 +1,35 @@
+{
+  "schema_version": "1.0",
+  "correction_id": "ARTIFACT-HASH-CORRECTION-2026-10-25-001",
+  "created_at_utc": "2026-10-25T00:00:00Z",
+  "scope": "Self-referential output_artifacts sha256 citations in committed research-state evidence that do not match the digest of the file on disk.",
+  "policy": "Per AGENTS.md rule 11 and research_state/AGENTS.md, completed 2026-10-24 evidence is NOT rewritten. Defects are acknowledged here and surfaced by scripts/validate_research_state_artifacts.py, which remains fail-closed on any UNDOCUMENTED mismatch. Substantive findings, exclusions, statuses and conclusions of the affected artifacts are unchanged.",
+  "affected_evidence_preserved": true,
+  "corrections": [
+    {
+      "artifact": "research_state/exploratory_coverage_verified_2026-10-24.json",
+      "field": "output_artifacts[0].sha256 (self-reference)",
+      "recorded_sha256": "abe96e5fe51569faee596c4bb244475ca70b1438fedda933e5ed34a3bb4c981d",
+      "actual_sha256": "9ee31984f97ded6925e9e8f55d18ebb483679ec673ece23c7448da6c657a147e",
+      "action": "acknowledged_not_rewritten",
+      "note": "The file cites its own digest incorrectly. The correct digest (9ee31984...) is the value recorded for this same path in research_state/exploratory_run_manifest_2026-10-24.json and matches the bytes on disk. The stale value is a transcription defect in a self-citation, not a research result; the artifact's coverage findings, data_gate_assessment, conclusion (EXPLORATORY_ONLY / INCONCLUSIVE) and status are unchanged."
+    },
+    {
+      "artifact": "research_state/exploratory_run_manifest_2026-10-24.json",
+      "field": "output_artifacts[1].sha256 (cross-reference to exploratory_coverage_verified)",
+      "recorded_sha256": "a395803cf8cd853cf47ae53ffd027685e1a4380cd3ed8a8fca5bdfadb481f328",
+      "actual_sha256": "52ff9f66ee21226d1d7baef1b9c102428e936abd366a03213713e96de673c7e9",
+      "action": "acknowledged_not_rewritten",
+      "note": "The exploratory run manifest cites exploratory_coverage_verified_2026-10-24.json with a digest (a395803c...) that does not match the file on disk (52ff9f66...). The on-disk digest is the same value that exploratory_coverage_verified_2026-10-24.json records for itself in its own output_artifacts[0], so the two artifacts are mutually inconsistent. This is a stale citation defect in the run manifest, not a research result; the manifest's experiment_id, run_id, status (EXPLORATORY_ONLY), backtest_completed=false and performance_metrics_computed=false are unchanged."
+    }
+  ],
+  "also_discovered_and_fixed": [
+    {
+      "artifact": "research_state/source_coverage_matrix_2026-10-24_free_search2.json",
+      "defect": "malformed JSON: \"response_status\": 200/10012, (bare slash token, not a string or number)",
+      "action": "repaired to \"response_status\": \"200 or 10012\",",
+      "note": "Syntax-only repair; no semantic content changed. The file was unparseable and therefore could not be consulted as evidence at all."
+    }
+  ],
+  "verification": "scripts/validate_research_state_artifacts.py; see HANDOFF.md 2026-10-25 entry."
+}
