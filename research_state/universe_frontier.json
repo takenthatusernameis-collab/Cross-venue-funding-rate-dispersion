@@ -3,9 +3,32 @@
   "experiment_id": "FVD-DISPERSION-V1",
   "status": "NOT_STARTED",
   "snapshot_id": null,
+  "snapshot_at": null,
+  "previous_snapshot_id": null,
+  "rank_frontier": [],
   "last_completed_rank": 0,
   "completed_asset_ids": [],
+  "pending_asset_ids": [],
   "excluded_assets": [],
   "current_cohort": [],
-  "next_action": "Identify and verify a free historical point-in-time market-cap source before empirical backtesting."
+  "next_action": "Identify and verify a free historical point-in-time market-cap source before empirical backtesting.",
+  "source": {
+    "id": null,
+    "hash": null,
+    "retrieved_at_utc": null
+  },
+  "pagination": {
+    "cursor": null,
+    "batch_size": 0,
+    "has_more": false
+  },
+  "resume": {
+    "next_rank": 1,
+    "next_asset": null,
+    "batch_window": null,
+    "has_more": false,
+    "frontier_size": 0,
+    "snapshot_id": null
+  },
+  "updated_at_utc": null
 }

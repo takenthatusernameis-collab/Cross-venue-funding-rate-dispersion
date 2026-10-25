@@ -238,6 +238,102 @@ def _build_valid_fixture(snapshot_at: str, source_id: str, source_hash: str, las
     )
 
 
+FRONTIER_PATH = ROOT / "research_state" / "universe_frontier.json"
+
+
+def _check_valid_not_started(state: dict, errors: list[str], label: str) -> None:
+    """Conformance check for the committed NOT_STARTED frontier stub.
+
+    Before any free source passes the point-in-time market-cap gate, the
+    frontier is an explicit not-started state: it carries the full schema with
+    every field present but no snapshot id, no ranked assets and no completed
+    ranks. This is a valid state, not a defect, but it is still checked
+    deterministically so a stub that silently grew a rank frontier, a snapshot
+    id or a completed rank cannot pass.
+    """
+    missing = REQUIRED_FIELDS - set(state)
+    _check(not missing, f"{label}: missing fields {sorted(missing)}", errors)
+    if missing:
+        return
+
+    _check(state.get("schema_version") == "1.0", f"{label}: schema_version must be '1.0'", errors)
+    _check(state.get("experiment_id") == "FVD-DISPERSION-V1", f"{label}: experiment_id must be FVD-DISPERSION-V1", errors)
+    _check(state.get("status") == "NOT_STARTED", f"{label}: status must be NOT_STARTED, got {state.get('status')!r}", errors)
+    _check(state.get("snapshot_id") is None, f"{label}: snapshot_id must be null in NOT_STARTED state", errors)
+    _check(state.get("snapshot_at") is None, f"{label}: snapshot_at must be null in NOT_STARTED state", errors)
+
+    frontier = state.get("rank_frontier")
+    _check(frontier == [], f"{label}: rank_frontier must be an empty list in NOT_STARTED state", errors)
+    _check(int(state.get("last_completed_rank", -1)) == 0, f"{label}: last_completed_rank must be 0 in NOT_STARTED state", errors)
+    _check(state.get("completed_asset_ids") == [], f"{label}: completed_asset_ids must be an empty list in NOT_STARTED state", errors)
+    pending = state.get("pending_asset_ids")
+    _check(pending == [], f"{label}: pending_asset_ids must be an empty list in NOT_STARTED state", errors)
+    excluded = state.get("excluded_assets")
+    _check(excluded == [], f"{label}: excluded_assets must be an empty list in NOT_STARTED state", errors)
+
+    source = state.get("source")
+    _check(isinstance(source, dict), f"{label}: source must be an object in NOT_STARTED state", errors)
+    if isinstance(source, dict):
+        _check(source.get("id") is None and source.get("hash") is None and source.get("retrieved_at_utc") is None,
+               f"{label}: source id/hash/retrieved_at_utc must be null in NOT_STARTED state", errors)
+
+    pagination = state.get("pagination")
+    _check(isinstance(pagination, dict), f"{label}: pagination must be an object in NOT_STARTED state", errors)
+    if isinstance(pagination, dict):
+        _check(pagination.get("cursor") is None and pagination.get("batch_size") == 0 and pagination.get("has_more") is False,
+               f"{label}: pagination must be empty in NOT_STARTED state", errors)
+
+    resume = state.get("resume")
+    _check(isinstance(resume, dict), f"{label}: resume must be an object in NOT_STARTED state", errors)
+    if isinstance(resume, dict):
+        _check(
+            resume.get("next_rank") == 1
+            and resume.get("next_asset") is None
+            and resume.get("batch_window") is None
+            and resume.get("has_more") is False
+            and resume.get("frontier_size") == 0
+            and resume.get("snapshot_id") is None,
+            f"{label}: resume must be the empty-cursor form in NOT_STARTED state",
+            errors,
+        )
+
+    # Optional progress-note fields, when present, must be the correct type.
+    cohort = state.get("current_cohort")
+    if cohort is not None:
+        _check(isinstance(cohort, list), f"{label}: current_cohort must be a list when present", errors)
+    action = state.get("next_action")
+    if action is not None:
+        _check(isinstance(action, str), f"{label}: next_action must be a string when present", errors)
+
+    # Timestamps, when present, must be UTC ISO-8601; null is allowed because a
+    # not-started frontier has not yet been updated.
+    value = state.get("updated_at_utc")
+    if value is not None:
+        _check(isinstance(value, str) and value.endswith("Z"), f"{label}: updated_at_utc must be UTC ISO-8601", errors)
+        try:
+            _utc_iso(value)
+        except Exception as exc:
+            _check(False, f"{label}: invalid timestamp updated_at_utc {value!r}: {exc}", errors)
+
+
+def validate_committed_frontier() -> list[str]:
+    """Validate the on-disk research_state/universe_frontier.json stub."""
+    errors: list[str] = []
+    if not FRONTIER_PATH.is_file():
+        errors.append("committed frontier state missing: research_state/universe_frontier.json")
+        return errors
+    try:
+        state = json.loads(FRONTIER_PATH.read_text(encoding="utf-8"))
+    except (OSError, json.JSONDecodeError) as exc:
+        errors.append(f"committed frontier state unreadable: {exc}")
+        return errors
+    if not isinstance(state, dict):
+        errors.append("committed frontier state must be a JSON object")
+        return errors
+    _check_valid_not_started(state, errors, "committed frontier stub")
+    return errors
+
+
 def validate_frontier() -> list[str]:
     errors: list[str] = []
     snapshot_at = "2024-02-15T00:00:00Z"
@@ -365,6 +461,10 @@ def validate_frontier() -> list[str]:
             _check(False, "load_frontier accepted corrupt file", errors)
         except FrontierError:
             pass
+
+    # The committed on-disk frontier stub must also pass conformance. This is a
+    # positive check on the real artifact, not a synthetic fixture.
+    errors.extend(validate_committed_frontier())
 
     if errors:
         return errors
