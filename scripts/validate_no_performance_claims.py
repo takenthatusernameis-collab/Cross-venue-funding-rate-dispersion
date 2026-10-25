@@ -21,12 +21,16 @@ FORBIDDEN = (
 )
 
 
-def scan_text(text: str, name: str) -> None:
+def find_forbidden(text: str) -> list[str]:
     lowered = text.lower()
-    for key in FORBIDDEN:
-        if key in lowered:
-            print(f"FAIL: forbidden claim token '{key}' in {name}")
-            sys.exit(1)
+    return [key for key in FORBIDDEN if key in lowered]
+
+
+def scan_text(text: str, name: str) -> None:
+    offenders = find_forbidden(text)
+    if offenders:
+        print(f"FAIL: forbidden claim token '{offenders[0]}' in {name}")
+        sys.exit(1)
 
 
 def scan_path(p: Path) -> None:
