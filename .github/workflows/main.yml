@@ -36,8 +36,9 @@ concurrency:
 jobs:
   kilo:
     runs-on: ubuntu-24.04
-    # Leave five minutes of margin below GitHub's six-hour job ceiling.
-    timeout-minutes: 360
+    # Scheduled and diagnostics-only activations are hard-bounded; a manual research
+    # dispatch retains the longer session budget. Scheduled Kilo cutoff is job-wide.
+    timeout-minutes: ${{ github.event_name == 'workflow_dispatch' && inputs.diagnostics_only != true && 360 || 45 }}
 
     steps:
       - name: Checkout latest default branch
@@ -63,6 +64,8 @@ jobs:
           DEFAULT_BRANCH: ${{ github.event.repository.default_branch }}
         run: |
           set -Eeuo pipefail
+          # The scheduled activation's hard deadline starts before any expensive preflight.
+          echo "KILO_JOB_START_EPOCH=$(date +%s)" >> "$GITHUB_ENV"
           schedule_output="$RUNNER_TEMP/historical-probe-schedule.json"
           python3 scripts/should_run_historical_probe.py --state-dir research_state --output "$schedule_output"
           should_run_probe="$(python3 -c 'import json,sys; print("true" if json.load(open(sys.argv[1])).get("should_run") is True else "false")' "$schedule_output")"
@@ -1054,16 +1057,23 @@ jobs:
           activation_minutes=355
           if [[ "${GITHUB_EVENT_NAME:-}" == "schedule" ]]; then
             activation_minutes=40
+            job_start_epoch="${KILO_JOB_START_EPOCH:-$(date +%s)}"
+            cutoff_epoch=$(( job_start_epoch + activation_minutes * 60 ))
+          else
+            cutoff_epoch=$(( $(date +%s) + activation_minutes * 60 ))
           fi
-          cutoff_epoch=$(( $(date +%s) + activation_minutes * 60 ))
-          # Reserve the final five minutes of the controller budget for checkpoint
-          # reconciliation, push, remote-SHA verification, and recovery artifacts.
+          if (( cutoff_epoch <= $(date +%s) )); then
+            echo "::error::Activation-wide deadline expired before Kilo setup completed; source probe/checkpoints remain the priority."
+            exit 1
+          fi
+          # Scheduled deadline is 40 minutes from immediately after checkout, with
+          # a five-minute job-timeout reserve for final checkpoint/recovery.
           checkpoint_reserve_seconds=300
           install_backoff=5
           while ! timeout --signal=TERM --kill-after=10s 180s npm install --no-audit --no-fund --prefix "$RUNNER_TEMP/kilo" @kilocode/cli@7.8.8; do
             remaining=$((cutoff_epoch - $(date +%s)))
             if (( remaining <= 0 )); then
-              echo "::error::Kilo CLI could not be installed before the 355-minute cutoff."
+              echo "::error::Kilo CLI could not be installed before the activation cutoff."
               exit 1
             fi
             delay=$install_backoff
@@ -1441,7 +1451,7 @@ jobs:
           fi
 
           if (( run_kilo == 1 )); then
-            echo "Starting Kilo activation: target=${agents} sequential sessions, idle timeout=${idle_timeout}s, cutoff=355 minutes."
+            echo "Starting Kilo activation: target=${agents} sequential sessions, idle timeout=${idle_timeout}s, budget=${activation_minutes} minutes."
             echo "Repository default branch: ${DEFAULT_BRANCH}"
 
             for ((agent_index=1; agent_index<=agents; agent_index++)); do
@@ -1607,7 +1617,7 @@ jobs:
 
             if (( $(date +%s) >= cutoff_epoch )); then
               final_phase="cutoff"
-              final_detail="355-minute cutoff reached after a verified checkpoint"
+              final_detail="activation cutoff reached after a verified checkpoint"
               break
             fi
             if (( provider_pressure == 1 )); then
@@ -1645,7 +1655,7 @@ jobs:
 
           if (( $(date +%s) >= cutoff_epoch )); then
             final_phase="cutoff"
-            final_detail="355-minute cutoff reached; the last completed checkpoint was verified"
+            final_detail="activation cutoff reached; the last completed checkpoint was verified"
           fi
           echo "KILO_SESSIONS_STARTED=${session_started}" >> "$GITHUB_OUTPUT"
           echo "KILO_SESSIONS_COMPLETED=${session_completed}" >> "$GITHUB_OUTPUT"
