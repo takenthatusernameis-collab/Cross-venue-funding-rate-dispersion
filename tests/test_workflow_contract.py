@@ -80,7 +80,7 @@ class WorkflowContractTests(unittest.TestCase):
             "verify_remote_artifact",
         ):
             self.assertIn(item,text)
-        self.assertNotIn("\\n  push:", text)
+        self.assertNotIn("\n  push:", text)
         self.assertNotIn("workflow_dispatch:",text)
         self.assertNotIn("kilo run --model",text)
         self.assertNotIn("workflow_run_diagnostics.jsonl",text)
