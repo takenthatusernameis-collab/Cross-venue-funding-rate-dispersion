@@ -1,0 +1,158 @@
+name: Independent Free Historical Coverage Probe
+
+on:
+  # Run outside the shared Kilo worker concurrency group so a stale worker
+  # cannot prevent the next public-source feasibility check from starting.
+  schedule:
+    - cron: "13,43 * * * *"
+
+permissions:
+  contents: write
+
+# One coverage probe at a time; this is deliberately independent from Kilo.
+concurrency:
+  group: historical-coverage-probe
+  cancel-in-progress: false
+
+jobs:
+  coverage:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 20
+    steps:
+      - name: Checkout latest default branch
+        uses: actions/checkout@v7.0.1
+        with:
+          ref: ${{ github.ref_name }}
+          fetch-depth: 0
+          token: ${{ secrets.GITHUB_TOKEN }}
+          persist-credentials: true
+
+      - name: Check historical-probe cooldown
+        id: due
+        shell: bash
+        run: |
+          set -Eeuo pipefail
+          schedule_output="$RUNNER_TEMP/historical-probe-schedule.json"
+          python3 scripts/should_run_historical_probe.py --state-dir research_state --output "$schedule_output"
+          should_run="$(python3 -c 'import json,sys; print("true" if json.load(open(sys.argv[1])).get("should_run") is True else "false")' "$schedule_output")"
+          echo "should_run=$should_run" >> "$GITHUB_OUTPUT"
+          cat "$schedule_output"
+
+      - name: Run bounded public historical coverage probe
+        id: probe
+        if: ${{ steps.due.outputs.should_run == 'true' }}
+        shell: bash
+        env:
+          DEFAULT_BRANCH: ${{ github.ref_name }}
+        run: |
+          set -Eeuo pipefail
+          probe_output="$RUNNER_TEMP/historical_overlap_probe_$GITHUB_RUN_ID"_attempt_"$GITHUB_RUN_ATTEMPT".json
+          echo "PROBE_OUTPUT=$probe_output" >> "$GITHUB_ENV"
+          python3 scripts/probe_historical_overlap.py --lookback-days 120 --max-assets 4 --output "$probe_output"
+          python3 -m json.tool "$probe_output" >/dev/null
+
+          artifact_path="research_state/historical_overlap_probe_$GITHUB_RUN_ID"_attempt_"$GITHUB_RUN_ATTEMPT".json
+          mkdir -p research_state
+          cp "$probe_output" "$artifact_path"
+          git config user.name "historical-coverage-probe"
+          git config user.email "historical-coverage-probe@users.noreply.github.com"
+          git add -- "$artifact_path"
+          git diff --cached --check
+          git commit -m "research: record independent historical coverage probe"
+
+          backoff=2
+          for attempt in 1 2 3 4 5; do
+            if ! timeout --kill-after=3s 20s git fetch --prune origin "+refs/heads/$DEFAULT_BRANCH:refs/remotes/origin/$DEFAULT_BRANCH"; then
+              echo "::warning::Probe checkpoint fetch failed on attempt $attempt/5."
+            else
+              remote_ref="refs/remotes/origin/$DEFAULT_BRANCH"
+              remote_sha="$(git rev-parse "$remote_ref")"
+              local_sha="$(git rev-parse HEAD)"
+
+              if git merge-base --is-ancestor "$local_sha" "$remote_ref"; then
+                local_blob="$(git rev-parse "$local_sha:$artifact_path")"
+                remote_blob="$(git rev-parse "$remote_sha:$artifact_path" 2>/dev/null || true)"
+                if [[ -n "$remote_blob" && "$local_blob" == "$remote_blob" ]]; then
+                  echo "Verified the exact probe artifact blob on remote main $remote_sha."
+                  echo "probe_commit_sha=$local_sha" >> "$GITHUB_OUTPUT"
+                  echo "probe_artifact_blob_sha=$remote_blob" >> "$GITHUB_OUTPUT"
+                  exit 0
+                fi
+              elif git merge-base --is-ancestor "$remote_ref" "$local_sha"; then
+                if timeout --kill-after=3s 25s git push origin "HEAD:refs/heads/$DEFAULT_BRANCH"; then
+                  echo "Probe checkpoint pushed; the next bounded pass verifies the remote artifact blob."
+                else
+                  echo "::warning::Probe checkpoint push failed on attempt $attempt/5."
+                fi
+              else
+                if ! timeout --kill-after=3s 20s git rebase "$remote_ref"; then
+                  git rebase --abort >/dev/null 2>&1 || true
+                  echo "::warning::Probe checkpoint rebase conflicted or timed out on attempt $attempt/5."
+                fi
+              fi
+            fi
+
+            if (( attempt < 5 )); then
+              sleep "$backoff"
+              (( backoff < 16 )) && backoff=$((backoff * 2))
+            fi
+          done
+
+          echo "::error::The probe ran but its committed artifact could not be verified on the remote branch."
+          exit 1
+
+      - name: Summarize public-source coverage
+        if: always()
+        shell: bash
+        run: |
+          set -Eeuo pipefail
+          python3 <<'PYTHON'
+          import glob
+          import json
+          import os
+
+          temp = os.environ["RUNNER_TEMP"]
+          summary_path = os.environ["GITHUB_STEP_SUMMARY"]
+          schedule_path = os.path.join(temp, "historical-probe-schedule.json")
+          candidates = sorted(glob.glob(os.path.join(temp, "historical_overlap_probe_*.json")))
+          lines = ["## Independent historical coverage probe"]
+          try:
+              with open(schedule_path, encoding="utf-8") as handle:
+                  gate = json.load(handle)
+              lines.append(f"- Cooldown decision: should_run={gate.get('should_run')}; reason={gate.get('reason')}")
+              if gate.get("next_eligible_at_utc"):
+                  lines.append(f"- Next eligible time (UTC): {gate['next_eligible_at_utc']}")
+          except (OSError, json.JSONDecodeError) as exc:
+              lines.append(f"- Cooldown report unavailable: {type(exc).__name__}")
+
+          if candidates:
+              with open(candidates[-1], encoding="utf-8") as handle:
+                  report = json.load(handle)
+              lines.extend([
+                  f"- Probe status: {report.get('status', 'UNKNOWN')}",
+                  f"- Observed at (UTC): {report.get('observed_at_utc', 'unknown')}",
+                  f"- Candidate underlyings in this bounded probe: {report.get('candidate_asset_count', len(report.get('candidate_assets_intersection', [])))}",
+                  f"- Source responses with HTTP status: {report.get('source_responses_with_http_status', 'unknown')}",
+                  f"- Original confirmatory gate: {report.get('original_confirmatory_gate', 'BLOCKED_DATA_GATE')}",
+                  "- Backtest completed: false",
+                  "- Performance metrics computed: false",
+              ])
+          else:
+              lines.append("- Probe execution: skipped by cooldown or no probe output was produced.")
+              lines.append("- This run therefore establishes no new source-coverage evidence.")
+          with open(summary_path, "a", encoding="utf-8") as handle:
+              handle.write("\n".join(lines) + "\n")
+          print("\n".join(lines))
+          PYTHON
+
+      - name: Upload bounded probe and cooldown decision
+        if: always()
+        continue-on-error: true
+        uses: actions/upload-artifact@v7.0.2
+        with:
+          name: historical-coverage-probe-${{ github.run_id }}
+          path: |
+            ${{ runner.temp }}/historical-probe-schedule.json
+            ${{ runner.temp }}/historical_overlap_probe_*.json
+          if-no-files-found: error
+          retention-days: 7

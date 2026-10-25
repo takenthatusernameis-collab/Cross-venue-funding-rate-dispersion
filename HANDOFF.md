@@ -1,12 +1,19 @@
-# Current Priority — Verify Kilo can unblock free-data research (v2.9, 2026-10-25)
+# Current Priority — Verify Kilo can unblock free-data research (v3.0, 2026-10-25)
 
-**Active prompt:** [`prompts/autonomous_free_data_gate_unblocking_v2_9.md`](https://github.com/takenthatusernameis-collab/Cross-venue-funding-rate-dispersion/blob/main/prompts/autonomous_free_data_gate_unblocking_v2_9.md)  
-**Latest controller change commit:** `913874dd4fe41785741daad2b5ca559f002ebdc3`  
-**Latest status artifact:** [`research_state/kilo_controller_v2_9_status.md`](https://github.com/takenthatusernameis-collab/Cross-venue-funding-rate-dispersion/blob/main/research_state/kilo_controller_v2_9_status.md)  
-**AGENTS pointer update:** `aab7c9b52650deba8c3f574ff3b69778058234c0`
-**Latest passing Research CI:** [#40222908322](https://github.com/takenthatusernameis-collab/Cross-venue-funding-rate-dispersion/actions/runs/40222908322)
+**Active prompt:** [autonomous_free_data_gate_unblocking_v3_0.md](https://github.com/takenthatusernameis-collab/Cross-venue-funding-rate-dispersion/blob/main/prompts/autonomous_free_data_gate_unblocking_v3_0.md)  
+**Latest status artifact:** [kilo_controller_v3_0_status.md](https://github.com/takenthatusernameis-collab/Cross-venue-funding-rate-dispersion/blob/main/research_state/kilo_controller_v3_0_status.md)  
+**Prior passing Research CI:** [#40222978575](https://github.com/takenthatusernameis-collab/Cross-venue-funding-rate-dispersion/actions/runs/40222978575) on the pre-v3.0 controller revision. The v3.0 workflow/test revision must be checked separately.
 
-## Current assessment — mechanisms improved; live research unblocking not yet verified
+## Latest v3.0 update — independent coverage probe (2026-10-25)
+
+- Completed the requested terminal wait in 19 sequential ten-second increments (190 seconds) before reviewing state.
+- The old Kilo run #40209613351 remained in progress on SHA 6b5e16819c4b3de281ef908b333a55dee1a4c09f as of the latest check, holding the old workflow's shared concurrency group. The newer main workflow cannot make that old run execute its new early probe, and this tool interface exposes no supported cancel or dispatch action.
+- Added a separate schedule-only coverage workflow with a distinct concurrency group and no Kilo invocation. It runs at minutes 13 and 43, respects the existing six-hour normal / fifteen-minute host-network-failure cooldown, and persists unique coverage artifacts with bounded retries and remote blob verification. It does not write the diagnostics ledger or alter any research protocol.
+- Added regression coverage to assert this workflow remains isolated and that the probe shell parses with Bash. The complete Research CI result for this revision is pending at commit creation.
+- Live acceptance remains outstanding. The last committed probe artifact was observed at 2026-10-25T18:07:05Z; with the current cooldown policy a full probe is due after about 2026-10-26T00:07Z, then at the next scheduled slot if GitHub runs on time. A cooldown skip is not new coverage evidence.
+- No backtest or performance metrics were computed. The original confirmatory status is still BLOCKED_DATA_GATE; FVD001–FVD108 and FVD053 remain frozen.
+
+## Previous assessment (v2.9) — mechanisms improved; live research unblocking not yet verified
 
 - Completed the requested wait (>3 minutes) before the deep refinement and execution work.
 - Re-read the current repository instructions, frozen protocols/grid, prior BTC-only exploratory record, source matrices, skills and validators.
