@@ -9,8 +9,7 @@
 
 ## Validation
 
-- Research CI [#40224477106](https://github.com/takenthatusernameis-collab/Cross-venue-funding-rate-dispersion/actions/runs/40224477106) passed on code/test commit `8ad67453bc25a0fb7095648084d20c91fdf48f5a`.
-- This status file and v3.2 prompt pointer are documentation changes after that code/test commit; verify the newest Research CI result as well before considering the latest repository head validated.
+- Research CI [#40224573727](https://github.com/takenthatusernameis-collab/Cross-venue-funding-rate-dispersion/actions/runs/40224573727) passed on the then-latest repository head `ce9381652b21622c440a70d22cab56e7b24419b4`, including the v3.2 prompt pointer, status and handoff edits.
 - Live execution remains unverified: the independent scheduled workflow has not yet been observed completing a run. A cooldown skip is not fresh source evidence.
 
 ## Remaining limits
