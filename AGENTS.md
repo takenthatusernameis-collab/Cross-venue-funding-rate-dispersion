@@ -55,7 +55,7 @@ The free-source inventory has already tested multiple independent source familie
 
 ## Active source-data blocker prompt v2.7 — 2026-10-25
 
-For the next unblocking task, read and execute `prompts/autonomous_free_data_gate_unblocking_v3_2.md` alongside the frozen `docs/research_protocol.md`, `docs/exploratory_protocol_v1.md`, relevant skills, current `HANDOFF.md`, and latest coverage/run artifacts.
+For the next unblocking task, read and execute `prompts/autonomous_free_data_gate_unblocking_v3_3.md` alongside the frozen `docs/research_protocol.md`, `docs/exploratory_protocol_v1.md`, relevant skills, current `HANDOFF.md`, and latest coverage/run artifacts.
 
 **Kilo execution reliability:** a dedicated workflow step now runs the bounded 120-day public-data coverage probe and commits/verifies its artifact before Kilo CLI installation or model preflight. It respects `scripts/should_run_historical_probe.py` cooldowns and uploads recovery evidence if checkpointing fails. The later in-script probe remains a cooldown-protected fallback. Kilo uses only live-catalog models explicitly priced at $0 input and $0 output that pass an unauthenticated health check, rotates across free routes, and stops when none remain. Scheduled activations are capped at 40 minutes and two worker sessions, with the final five minutes reserved for verified checkpoint/recovery; manual dispatch retains the 355-minute budget. The short cap does not apply retroactively to an already-running activation.
 
