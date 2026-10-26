@@ -499,6 +499,8 @@ def run_probe(lookback_days: int = 120, max_assets: int = MAX_ASSETS) -> dict:
                 break
     common = common[:max_assets]
 
+    contract_identity = collect_contract_identity(hl_meta, okx_meta, tuple(common))
+
     routes = {
         "hyperliquid_meta": {**hl_meta_result, "source": "Hyperliquid", "field": "perpetual instrument metadata"},
         "okx_instruments": {**okx_meta_result, "source": "OKX", "field": "current linear USDT swap metadata",
@@ -540,6 +542,7 @@ def run_probe(lookback_days: int = 120, max_assets: int = MAX_ASSETS) -> dict:
         "lookback_days_requested": lookback_days,
         "candidate_assets_intersection": common,
         "candidate_asset_count": len(common),
+        "contract_identity": contract_identity,
         "routes": routes,
         "source_responses_with_http_status": source_responses,
         "historical_coverage_gate": "NOT_PASSED_BY_COVERAGE_PROBE",

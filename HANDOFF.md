@@ -1,3 +1,55 @@
+## Integrated collect_contract_identity into run_probe() output (2026-10-26)
+
+Completed the "Next measurable task" from the prior HANDOFF entry: `collect_contract_identity` is now called by `run_probe()` and its result is emitted as a top-level `contract_identity` field in probe output. This fulfills v3.3 execution sequence step 5 ("prove contract identity") at the code level — the next probe execution will include contract-identity evidence alongside the coverage matrix.
+
+### Action performed
+
+1. **Modified `run_probe()` in `scripts/probe_historical_overlap.py`** (line 502): Added `contract_identity = collect_contract_identity(hl_meta, okx_meta, tuple(common))` after the `common` set is truncated to `max_assets`, and added `"contract_identity": contract_identity,` as a top-level field in the return dict (line 545). This is the only change to `run_probe()`; the return structure and all other fields are unchanged.
+
+2. **Fixed IndentationError** on line 116 during initial edit (leading whitespace from prior edit), re-validated with `compileall`.
+
+3. **Extended test coverage** in `tests/test_historical_overlap_probe.py`:
+   - Updated `test_network_failure_never_marks_data_or_original_gate_passed` to assert `report["contract_identity"]` is present and contains `per_underlying: {}` on network failure (contract identity gracefully degrades to empty when no metadata is available).
+   - Added `test_collect_contract_identity_okx_uly_derives_quote` — verifies that when `quoteCcy` is absent from OKX metadata, the quote is derived from the `uly` field (e.g., `BTC-USDT` → `USDT`).
+   - Added `RunProbeContractIdentityTests` class (3 tests):
+     - `test_run_probe_includes_contract_identity_with_evidence_levels` — mocks HL/OKX metadata + empty coverage response; asserts `contract_identity` key present, targets include BTC/ETH/SOL/AVAX at `"candidate"` level, `underlying_match=True`, `settlement_match=False`, `hl_settle_known=False` (reflecting the known limitation that HL settlement is inferred, not proven).
+     - `test_run_probe_contract_identity_reflects_common_intersection` — asserts `contract_identity.target_underlyings` matches `candidate_assets_intersection` after truncation.
+     - `test_run_probe_contract_identity_preserves_blocked_gate_flags` — asserts all frozen confirmatory flags remain blocked (`NOT_PASSED_BY_COVERAGE_PROBE`, `BLOCKED_DATA_GATE`, `backtest_completed=False`, `performance_metrics_computed=False`).
+
+### Validation commands run
+- `python3 -m compileall -q src scripts tests` = OK
+- `PYTHONPATH=src python3 -m unittest discover -s tests -v` = **402 tests OK** (399 prior + 3 new)
+- `PYTHONPATH=src python3 scripts/validate_research.py` = RESEARCH_VALIDATION=PASS (grid 108, anchor FVD053, NOT_RUN, no metrics)
+- `PYTHONPATH=src python3 scripts/validate_all.py` = ALL_VALIDATIONS=PASS count=23
+- `python3 scripts/validate_skills.py` = SKILLS_VALIDATION=PASS count=4
+- `PYTHONPATH=src python3 scripts/validate_manifest_schema.py` = MANIFEST_SCHEMA_VALIDATION=PASS
+- `PYTHONPATH=src python3 scripts/validate_manifest_artifacts.py` = MANIFEST_ARTIFACTS_VALIDATION=PASS (10 artifacts)
+- `python3 scripts/validate_track_separation.py` = TRACK_SEPARATION_VALIDATION=PASS
+- `PYTHONPATH=src python3 scripts/validate_no_performance_claims.py` = NO_PERFORMANCE_VALIDATION=PASS
+- `PYTHONPATH=src python3 scripts/validate_blocked_manifest_claims.py` = BLOCKED_MANIFEST_CLAIMS_VALIDATION=PASS
+- `git diff --check` = clean
+
+### Modified files
+- `scripts/probe_historical_overlap.py` — lines 116 (indentation fix), 502 (call to `collect_contract_identity`), 545 (top-level field in return dict); sha256 `606f07bb27b1b9f4e1a723b8ac42acac7f9741dd6000d6968218a37047acfa09`. This supersedes the prior sha `a88aff7b031839679a42e196a0727ce9cab57c584175b15330e6eaa27bddfb0`.
+- `tests/test_historical_overlap_probe.py` — added `test_collect_contract_identity_okx_uly_derives_quote`, `RunProbeContractIdentityTests` class (3 tests), extended network-failure assertions; sha256 `9f0deeb7fae58858402b9a083f9e9f2f90661522312ed0a07f6e3c7f99acffcb`. This supersedes the prior sha `cfcfadff828b5e4b60c9959a276016bdf00e563487aff40e008c6e650a5955ae`.
+
+### Frozen artifacts verified unchanged
+- `configs/cross_venue_funding_dispersion_grid_v1.json` sha `6be218bc84bf118cf67c238ad1c13ef1e445658db3b1346cd64ccaccc7aa5f07`
+- `research_state/run_manifest.json` sha `4f162ce128c741434addf6aa2fa7c7dbf1bf189d4a81b8893ed96899412c7aaf` (BLOCKED_DATA_GATE)
+- `research_state/fvd053_anchor_run_2026-10-25.json` sha `50b328baf5854dec40105a0f5ebe498bf589906f9c033ce659843659927ca4c2`
+- `research_state/exploratory_run_manifest_2026-10-25.json` sha `01191cc4de19ee57c396b9e0efeeee85ecef8765b84d277164131a310907ee70`
+
+No existing research artifacts (probe JSON, coverage matrix, manifest) were modified — the change is code-level only so that the next `run_probe()` execution (on an authorized networked runner when the probe cooldown expires) will include `contract_identity` evidence.
+
+### Status
+- Confirmatory track: `BLOCKED_DATA_GATE` — FVD001–FVD108, FVD053 unchanged. No backtest, no performance metrics.
+- Exploratory track: FVD-EXPLORATORY-002 remains `EXPLORATORY_ONLY`/`INCONCLUSIVE`, 0 signals, no metrics. Contract identity code integration complete; evidence-level output awaits probe re-execution.
+
+### Next measurable task
+When the controller's probe cooldown (per `scripts/should_run_historical_probe.py`) has expired, trigger or await the next `run_probe()` execution from an authorized networked GitHub worker. The new probe artifact will include `contract_identity` evidence (candidate-level for BTC/ETH/SOL/AVAX, reflecting HL settlement-inferred limitation). Then update `research_state/exploratory_run_manifest_2026-10-25.json` with a new `output_artifacts` entry linking the new probe artifact and append the contract-identity evidence summary to the `limitations`/`contract_mapping_basis` section of that manifest. If the GitHub worker cannot reach external APIs (network isolation), this step is blocked and FVD-EXPLORATORY-002 remains at its current state — no paid data, credentials, live trading, or paper trading used.
+
+---
+
 ## Contract identity verification tests + source bug fix (2026-10-26)
 
 Added source-independent unit tests for the existing-but-untested `verify_contract_identity` and `collect_contract_identity` functions in `scripts/probe_historical_overlap.py`, and fixed a KeyError bug in `collect_contract_identity` that would crash when a target base is absent from both venue metadata.

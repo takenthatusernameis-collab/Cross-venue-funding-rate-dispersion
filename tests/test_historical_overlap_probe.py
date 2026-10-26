@@ -116,6 +116,12 @@ class HistoricalOverlapProbeTests(unittest.TestCase):
         self.assertFalse(report["backtest_completed"])
         self.assertFalse(report["performance_metrics_computed"])
         self.assertEqual(report["candidate_asset_count"], 0)
+        self.assertIn("contract_identity", report)
+        ci = report["contract_identity"]
+        self.assertEqual(ci["target_underlyings"], [])
+        self.assertEqual(ci["hl_universe_size"], 0)
+        self.assertEqual(ci["okx_instrument_count"], 0)
+        self.assertEqual(ci["per_underlying"], {})
 
     def test_probe_status_does_not_assume_data_gate_pass(self):
         # The report-level invariant is enforced by the output constructor.
@@ -432,6 +438,120 @@ class ContractIdentityTests(unittest.TestCase):
         ]}
         result = probe.collect_contract_identity(hl_meta, okx_meta, ("APT",))
         self.assertEqual(result["per_underlying"]["APT"]["evidence_level"], "candidate")
+
+
+class RunProbeContractIdentityTests(unittest.TestCase):
+    """Tests that run_probe() integrates collect_contract_identity into its output."""
+
+    HL_META_RESPONSE = {"universe": [
+        {"name": "BTC", "szDecimals": 6, "displaySymbol": "$BTC", "contractType": "Perpetual"},
+        {"name": "ETH", "szDecimals": 6, "displaySymbol": "$ETH", "contractType": "Perpetual"},
+        {"name": "SOL", "szDecimals": 6, "displaySymbol": "$SOL", "contractType": "Perpetual"},
+        {"name": "AVAX", "szDecimals": 6, "displaySymbol": "$AVAX", "contractType": "Perpetual"},
+    ]}
+
+    OKX_META_RESPONSE = {"code": "0", "data": [
+        {"instId": "BTC-USDT-SWAP", "baseCcy": "BTC", "quoteCcy": "USDT",
+         "settleCcy": "USDT", "ctType": "linear", "state": "live", "uly": "BTC-USDT"},
+        {"instId": "ETH-USDT-SWAP", "baseCcy": "ETH", "quoteCcy": "USDT",
+         "settleCcy": "USDT", "ctType": "linear", "state": "live", "uly": "ETH-USDT"},
+        {"instId": "SOL-USDT-SWAP", "baseCcy": "SOL", "quoteCcy": "USDT",
+         "settleCcy": "USDT", "ctType": "linear", "state": "live", "uly": "SOL-USDT"},
+        {"instId": "AVAX-USDT-SWAP", "baseCcy": "AVAX", "quoteCcy": "USDT",
+         "settleCcy": "USDT", "ctType": "linear", "state": "live", "uly": "AVAX-USDT"},
+    ]}
+
+    def _meta(self, url, sha="deadbeef"):
+        return {
+            "url": url, "method": "POST" if "hyperliquid" in url else "GET",
+            "request_sha256": None, "http_status": 200,
+            "response_bytes_read": 100, "response_sha256": sha,
+            "response_prefix_sha256": None, "response_hash_complete": True,
+            "response_shape": "json", "latency_ms": 10.0, "error": None,
+        }
+
+    def test_run_probe_includes_contract_identity_with_evidence_levels(self):
+        """run_probe() includes contract_identity evidence with per-underlying levels."""
+        def fake_request_json(url, payload=None, timeout=probe.TIMEOUT_SECONDS, opener=None):
+            if payload is not None and payload.get("type") == "meta":
+                return self._meta(url, "hl_meta"), self.HL_META_RESPONSE
+            if "instruments" in url:
+                return self._meta(url, "okx_meta"), self.OKX_META_RESPONSE
+            if payload is not None and payload.get("type") == "candleSnapshot":
+                return self._meta(url, "hl_candle"), {"code": "0", "data": []}
+            if payload is not None and payload.get("type") == "fundingHistory":
+                return self._meta(url, "hl_fund"), {"code": "0", "data": []}
+            if "history-candles" in url:
+                return self._meta(url, "okx_candle"), {"code": "0", "data": []}
+            if "funding-rate-history" in url:
+                return self._meta(url, "okx_fund"), {"code": "0", "data": []}
+            return self._meta(url, "binance"), None
+
+        with patch.object(probe, "request_json", side_effect=fake_request_json):
+            report = probe.run_probe(120, 4)
+
+        self.assertIn("contract_identity", report)
+        ci = report["contract_identity"]
+        self.assertEqual(ci["target_underlyings"], ["BTC", "ETH", "SOL", "AVAX"])
+        self.assertEqual(ci["hl_universe_size"], 4)
+        self.assertEqual(ci["okx_instrument_count"], 4)
+        for base in ["BTC", "ETH", "SOL", "AVAX"]:
+            self.assertIn(base, ci["per_underlying"])
+            result = ci["per_underlying"][base]
+            self.assertEqual(result["evidence_level"], "candidate")
+            self.assertTrue(result["underlying_match"])
+            self.assertFalse(result["settlement_match"])
+            self.assertFalse(result["hl_settle_known"])
+
+    def test_run_probe_contract_identity_reflects_common_intersection(self):
+        """contract_identity targets match the probe's candidate intersection."""
+        def fake_request_json(url, payload=None, timeout=probe.TIMEOUT_SECONDS, opener=None):
+            if payload is not None and payload.get("type") == "meta":
+                return self._meta(url), self.HL_META_RESPONSE
+            if "instruments" in url:
+                return self._meta(url), self.OKX_META_RESPONSE
+            if payload is not None and payload.get("type") == "candleSnapshot":
+                return self._meta(url), {"code": "0", "data": []}
+            if payload is not None and payload.get("type") == "fundingHistory":
+                return self._meta(url), {"code": "0", "data": []}
+            if "history-candles" in url:
+                return self._meta(url), {"code": "0", "data": []}
+            if "funding-rate-history" in url:
+                return self._meta(url), {"code": "0", "data": []}
+            return self._meta(url), None
+
+        with patch.object(probe, "request_json", side_effect=fake_request_json):
+            report = probe.run_probe(120, 4)
+
+        self.assertEqual(
+            report["contract_identity"]["target_underlyings"],
+            report["candidate_assets_intersection"],
+        )
+
+    def test_run_probe_contract_identity_preserves_blocked_gate_flags(self):
+        """contract_identity integration must not alter frozen gate flags."""
+        def fake_request_json(url, payload=None, timeout=probe.TIMEOUT_SECONDS, opener=None):
+            if payload is not None and payload.get("type") == "meta":
+                return self._meta(url), self.HL_META_RESPONSE
+            if "instruments" in url:
+                return self._meta(url), self.OKX_META_RESPONSE
+            if payload is not None and payload.get("type") == "candleSnapshot":
+                return self._meta(url), {"code": "0", "data": []}
+            if payload is not None and payload.get("type") == "fundingHistory":
+                return self._meta(url), {"code": "0", "data": []}
+            if "history-candles" in url:
+                return self._meta(url), {"code": "0", "data": []}
+            if "funding-rate-history" in url:
+                return self._meta(url), {"code": "0", "data": []}
+            return self._meta(url), None
+
+        with patch.object(probe, "request_json", side_effect=fake_request_json):
+            report = probe.run_probe(120, 4)
+
+        self.assertEqual(report["historical_coverage_gate"], "NOT_PASSED_BY_COVERAGE_PROBE")
+        self.assertEqual(report["original_confirmatory_gate"], "BLOCKED_DATA_GATE")
+        self.assertFalse(report["backtest_completed"])
+        self.assertFalse(report["performance_metrics_computed"])
 
 
 if __name__ == "__main__":
