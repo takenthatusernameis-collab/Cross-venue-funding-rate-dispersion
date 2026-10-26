@@ -1,75 +1,57 @@
 {
-  "schema_version": "1.0",
-  "experiment_id": "FVD-EXPLORATORY-002",
-  "run_id": "FVD-EXPLORATORY-002-run-2026-10-25",
-  "status": "EXPLORATORY_ONLY",
-  "confirmatory_status_preserved": "BLOCKED_DATA_GATE",
-  "historical_point_in_time_market_cap_gate": "BLOCKED",
-  "backtest_completed": false,
-  "performance_metrics_computed": false,
-  "date_utc": "2026-10-25",
-  "started_at_utc": "2026-10-25T19:07:59Z",
-  "completed_at_utc": "2026-10-26T13:18:39Z",
-  "purpose": "Exploratory threshold-history eligibility assessment and manifest freeze for the verified historical overlap of BTC/ETH/SOL/AVAX/LINK across OKX and Hyperliquid (depth probe + coverage matrix). Separately versioned from FVD-DISPERSION-V1 and FVD-EXPLORATORY-001; does not modify frozen grid, FVD001-FVD108, FVD053, or original run manifest.",
-  "data_cutoff_utc": "2026-10-25T16:00:00Z",
-  "instrument_list": [
-    "BTC",
-    "ETH",
-    "SOL",
-    "AVAX",
-    "LINK"
-  ],
-  "venue_set": [
-    "OKX",
-    "Hyperliquid"
-  ],
-  "contract_mapping": {
-    "OKX": "BTC-USDT-SWAP, ETH-USDT-SWAP, SOL-USDT-SWAP, AVAX-USDT-SWAP, LINK-USDT-SWAP",
-    "Hyperliquid": "BTC, ETH, SOL, AVAX, LINK (coin name)"
-  },
-  "contract_mapping_basis": "underlying symbol match only; instId derived from underlying; not independently verified via metadata/lifecycle; survivorship bias unmeasured",
   "anchor": "FVD053",
+  "anchor_exercised": true,
   "anchor_params": {
     "dispersion_lookback_hours": 24,
     "entry_percentile": 80,
     "holding_hours": 24,
-    "portfolio_tail_fraction": 0.1,
-    "minimum_eligible_venues": 2
+    "minimum_eligible_venues": 2,
+    "portfolio_tail_fraction": 0.1
   },
+  "anchor_result": "Exercise with actual live data (FVD053 frozen params: 24h dispersion lookback, 80th-percentile threshold, 24h hold, top 10% tail, 2 venues). Result: 0 signals generated across 47 candidate dates; 50 hourly candles skipped due to missing data; 0 funding settlements applied (no active pairs). INCONCLUSIVE: no signal episodes to evaluate. backtest_completed=false, performance_metrics_computed=false.",
+  "backtest_completed": false,
+  "caveats": [
+    "Free public sources lack >=3 years of historical point-in-time market-cap ranks; confirmatory gate remains BLOCKED_DATA_GATE.",
+    "OKX funding retention ~97 days; common intersection limited by OKX start (~2026-07-20).",
+    "Contract identity by underlying symbol only; not independently verified; survivorship bias unmeasured.",
+    "Modeled fees/slippage (base 5/5 bps) are sensitivity assumptions, not measured venue costs.",
+    "No performance metric or economic edge claimed; EXPLORATORY_ONLY does not authorize live or paper trading.",
+    "Evaluation window ~7 signal days; uncertainty not estimable.",
+    "Binance Public Data archive feasibility confirmed (6.8 years funding+price history, checksum-verified samples) but contract identity (Binance USD-M futures vs Hyperliquid/OKX perpetual) is symbol-only/unverified and Binance does not provide PIT market-cap ranks; this feasibility finding does not clear the confirmatory gate.",
+    "Binance archive assessment is a bounded feasibility check (4 fundingRate samples + 1 klines sample downloaded); full 81-month retrieval not performed.",
+    "No output_artifacts entry self-references the manifest; manifest sha256 changed due to output_artifacts and next_step update; no cross-reference mismatch because no other committed artifact references this manifest's sha256.",
+    "Independent controller-side coverage probe (historical_overlap_probe_40315875592_attempt_1.json) re-verified 4 assets (BTC, ETH, SOL, AVAX) with Hyperliquid + OKX over a 120-day window (2026-06-28 to 2026-10-26). LINK not available in this probe run; 4-asset cross-section confirmed. Findings consistent with depth probe (97-98 day common funding intersection, OKX funding limited to ~3 months). This is an independent re-verification, not a replacement for the 5-asset depth probe.",
+    "Binance Public Data archive (data.binance.vision) verified as a third venue candidate: 24 checksum-matched downloads (4 assets x 3 overlap months x funding+klines) plus 3 historical depth samples confirm 8h funding interval (matching OKX), consistent CSV schema, and 6.82 years of history (2020-01 to 2026-09). Binance archive ends at 2026-09, limiting the 3-venue common funding overlap to ~72 days (below 90-day threshold). Binance does not provide historical point-in-time market-cap rankings; confirmatory gate remains BLOCKED_DATA_GATE. Contract identity by underlying symbol only; not independently verified.",
+    "Independent controller-side coverage probe (historical_overlap_probe_40370588351_attempt_1.json, observed 2026-10-26T17:39:31Z) is the newest 120-day probe; it supersedes historical_overlap_probe_40315875592_attempt_1.json with one additional OKX funding settlement (295 vs 294 rows), extending OKX funding coverage through 2026-10-26T16:00:00Z. The 4-asset intersection (BTC, ETH, SOL, AVAX) confirms ~98 common funding days across HL+OKX (meets the 90-day threshold). LINK is present in the earlier depth probe (5 assets) but not in the 120-day controller probes (4 assets); the shorter 120-day window still meets threshold-history minimums for the 4-asset intersection.",
+    "The controller-run probe (historical_overlap_probe_40370588351_attempt_1.json) does not include the top-level contract_identity field because the controller executed a pre-collect_contract_identity-integration version of scripts/probe_historical_overlap.py; the committed local version at scripts/probe_historical_overlap.py:502 now calls collect_contract_identity() and emits a top-level contract_identity field in run_probe() output. Contract identity remains symbol-only/unverified (candidate-level for BTC/ETH/SOL/AVAX via underlying-name matching; Hyperledger settlement-inferred, not proven)."
+  ],
+  "completed_at_utc": "2026-10-26T23:10:00Z",
+  "conclusion": "EXPLORATORY_ONLY / INCONCLUSIVE for inference. Threshold-history eligibility met (97 prior daily observations >= 90) over the verified common funding intersection for 5 underlyings x 2 venues. FVD053 anchor was exercised on actual live data but generated 0 signals across 47 candidate dates (dispersion never exceeded the 80th-percentile threshold). No backtest, no performance metric, no economic edge claimed. Confirmatory gate BLOCKED_DATA_GATE preserved.",
+  "config_hashes": {
+    "configs/cross_venue_funding_dispersion_grid_v1.json": "6be218bc84bf118cf67c238ad1c13ef1e445658db3b1346cd64ccaccc7aa5f07"
+  },
+  "confirmatory_status_preserved": "BLOCKED_DATA_GATE",
+  "contract_mapping": {
+    "Hyperliquid": "BTC, ETH, SOL, AVAX, LINK (coin name)",
+    "OKX": "BTC-USDT-SWAP, ETH-USDT-SWAP, SOL-USDT-SWAP, AVAX-USDT-SWAP, LINK-USDT-SWAP"
+  },
+  "contract_mapping_basis": "underlying symbol match only; instId derived from underlying; not independently verified via metadata/lifecycle; survivorship bias unmeasured",
   "cost_assumptions": {
-    "id": "base",
     "fee_bps_per_side": 5,
-    "slippage_bps_per_side": 5,
-    "note": "frozen grid base scenario; sensitivity assumption, not a venue fee claim"
-  },
-  "gross_exposure_cap": "1.0x equity",
-  "sample_construction": "Verified historical intersection of 5 underlyings with funding settlements + 1h price history on >=2 venues; no market-cap rank required for this distinct exploratory estimand; shorter history allowed; not market-cap representative.",
-  "threshold_history_eligibility": {
-    "common_funding_intersection_utc": [
-      "2026-07-20T16:00:00Z",
-      "2026-10-25T16:00:00Z"
-    ],
-    "common_days": 97,
-    "prior_daily_observations_available": 97,
-    "minimum_prior_daily_observations_required": 90,
-    "eligible_for_threshold_computation": true,
-    "estimated_signal_days": 7,
-    "venues_per_underlying": 2,
-    "underlyings": 5,
-    "okx_funding_settlements": 292,
-    "hl_funding_settlements": 2880,
-    "okx_funding_interval": "8h",
-    "hl_funding_interval": "1h",
-    "price_history_verified_both_venues": true,
-    "contract_identity_verified": false
+    "id": "base",
+    "note": "frozen grid base scenario; sensitivity assumption, not a venue fee claim",
+    "slippage_bps_per_side": 5
   },
   "coverage_summary": {
+    "common_days": 98,
+    "common_funding_end_utc": "2026-10-26T16:00:00Z",
     "common_funding_start_utc": "2026-07-20T16:00:00Z",
-    "common_funding_end_utc": "2026-10-25T16:00:00Z",
-    "common_days": 97,
-    "underlyings": 5,
+    "underlyings": 4,
     "venues": 2
   },
+  "data_cutoff_utc": "2026-10-25T16:00:00Z",
+  "data_gate_result": "PARTIAL \u2014 funding + 1h price history verified for both venues over ~97 common days; contract identity symbol-only/unverified; evaluation window ~7 signal days; short history vs 3-year confirmatory requirement",
+  "date_utc": "2026-10-25",
   "exclusion_rules": [
     "no forward fill",
     "no invented fills",
@@ -79,11 +61,18 @@
     "threshold excludes current signal date",
     ">=90 prior daily observations required for threshold"
   ],
-  "data_gate_result": "PARTIAL \u2014 funding + 1h price history verified for both venues over ~97 common days; contract identity symbol-only/unverified; evaluation window ~7 signal days; short history vs 3-year confirmatory requirement",
+  "experiment_id": "FVD-EXPLORATORY-002",
+  "gross_exposure_cap": "1.0x equity",
+  "historical_point_in_time_market_cap_gate": "BLOCKED",
   "implementation_gate_result": "Source-independent primitives covered by known-answer/adversarial tests; FVD053 anchor script exercised real-data signal construction on the verified overlap (tests/test_run_fvd053_anchor.py covers deterministic known-answer fixtures). Anchor produced 0 signals; no performance metrics computed.",
-  "anchor_exercised": true,
-  "anchor_result": "Exercise with actual live data (FVD053 frozen params: 24h dispersion lookback, 80th-percentile threshold, 24h hold, top 10% tail, 2 venues). Result: 0 signals generated across 47 candidate dates; 50 hourly candles skipped due to missing data; 0 funding settlements applied (no active pairs). INCONCLUSIVE: no signal episodes to evaluate. backtest_completed=false, performance_metrics_computed=false.",
-  "conclusion": "EXPLORATORY_ONLY / INCONCLUSIVE for inference. Threshold-history eligibility met (97 prior daily observations >= 90) over the verified common funding intersection for 5 underlyings x 2 venues. FVD053 anchor was exercised on actual live data but generated 0 signals across 47 candidate dates (dispersion never exceeded the 80th-percentile threshold). No backtest, no performance metric, no economic edge claimed. Confirmatory gate BLOCKED_DATA_GATE preserved.",
+  "instrument_list": [
+    "BTC",
+    "ETH",
+    "SOL",
+    "AVAX",
+    "LINK"
+  ],
+  "last_updated_utc": "2026-10-26T23:10:00Z",
   "next_step": "Exploratory track has verified coverage for 3 venues (Hyperliquid, OKX, Binance) across 4 underlyings (BTC, ETH, SOL, AVAX) with the common 2-venue (HL+OKX) funding intersection at ~98 days (meets 90-day threshold). Binance extends historical depth to 6.82 years but ends at 2026-09, limiting 3-venue overlap to ~72 days. FVD053 anchor already exercised (0 signals, INCONCLUSIVE). Next bounded action: download a broader bounded Binance archive sample (additional historical months) to verify whether extended Binance history can serve as a longer-duration second venue pair (Binance+Hyperliquid gives ~91 days, barely meeting threshold). Contract identity verification remains the limiting factor; symbol-only mapping is insufficient for confident cross-venue comparison. Keep EXPLORATORY_ONLY status; do not claim metrics until an anchor run actually computes them.",
   "output_artifacts": [
     {
@@ -108,29 +97,50 @@
     },
     {
       "path": "research_state/coverage_matrix_2026-10-26.json",
-      "sha256": "06c89dd98f5ae0f44d299c3dd60a8c85a75ce44c3d72b885f1e2e1ce9bf9a234"
+      "sha256": "baeef60ae83cad735b80d70c60040df11c149d8f17f17e76437b2cf0b135ab12"
     },
     {
       "path": "research_state/binance_overlap_sample_2026-10-26.json",
       "sha256": "a61fa295c74fd5f17e9b50d516bdd640c0d55c239db8c0e2e3c6664ef2d1712b"
+    },
+    {
+      "path": "research_state/historical_overlap_probe_40370588351_attempt_1.json",
+      "sha256": "018dd267d8f4097c3804c22633abd0cc697edbe86e5beebddf83faba77a312bf"
     }
   ],
+  "performance_metrics_computed": false,
+  "purpose": "Exploratory threshold-history eligibility assessment and manifest freeze for the verified historical overlap of BTC/ETH/SOL/AVAX/LINK across OKX and Hyperliquid (depth probe + coverage matrix). Separately versioned from FVD-DISPERSION-V1 and FVD-EXPLORATORY-001; does not modify frozen grid, FVD001-FVD108, FVD053, or original run manifest.",
+  "run_id": "FVD-EXPLORATORY-002-run-2026-10-25",
+  "sample_construction": "Verified historical intersection of 5 underlyings with funding settlements + 1h price history on >=2 venues; no market-cap rank required for this distinct exploratory estimand; shorter history allowed; not market-cap representative.",
+  "schema_version": "1.0",
   "source_code_hashes": {},
-  "config_hashes": {
-    "configs/cross_venue_funding_dispersion_grid_v1.json": "6be218bc84bf118cf67c238ad1c13ef1e445658db3b1346cd64ccaccc7aa5f07"
+  "started_at_utc": "2026-10-25T19:07:59Z",
+  "status": "EXPLORATORY_ONLY",
+  "threshold_history_eligibility": {
+    "common_days": 98,
+    "common_funding_intersection_utc": [
+      "2026-07-20T16:00:00Z",
+      "2026-10-25T16:00:00Z"
+    ],
+    "common_funding_window_utc": [
+      "2026-07-20T16:00:00Z",
+      "2026-10-26T16:00:00Z"
+    ],
+    "contract_identity_verified": false,
+    "eligible_for_threshold_computation": true,
+    "estimated_signal_days": 7,
+    "hl_funding_interval": "1h",
+    "hl_funding_settlements": 2880,
+    "minimum_prior_daily_observations_required": 90,
+    "okx_funding_interval": "8h",
+    "okx_funding_settlements": 295,
+    "price_history_verified_both_venues": true,
+    "prior_daily_observations_available": 98,
+    "underlyings": 4,
+    "venues_per_underlying": 2
   },
-  "caveats": [
-    "Free public sources lack >=3 years of historical point-in-time market-cap ranks; confirmatory gate remains BLOCKED_DATA_GATE.",
-    "OKX funding retention ~97 days; common intersection limited by OKX start (~2026-07-20).",
-    "Contract identity by underlying symbol only; not independently verified; survivorship bias unmeasured.",
-    "Modeled fees/slippage (base 5/5 bps) are sensitivity assumptions, not measured venue costs.",
-    "No performance metric or economic edge claimed; EXPLORATORY_ONLY does not authorize live or paper trading.",
-    "Evaluation window ~7 signal days; uncertainty not estimable.",
-    "Binance Public Data archive feasibility confirmed (6.8 years funding+price history, checksum-verified samples) but contract identity (Binance USD-M futures vs Hyperliquid/OKX perpetual) is symbol-only/unverified and Binance does not provide PIT market-cap ranks; this feasibility finding does not clear the confirmatory gate.",
-    "Binance archive assessment is a bounded feasibility check (4 fundingRate samples + 1 klines sample downloaded); full 81-month retrieval not performed.",
-    "No output_artifacts entry self-references the manifest; manifest sha256 changed due to output_artifacts and next_step update; no cross-reference mismatch because no other committed artifact references this manifest's sha256.",
-    "Independent controller-side coverage probe (historical_overlap_probe_40315875592_attempt_1.json) re-verified 4 assets (BTC, ETH, SOL, AVAX) with Hyperliquid + OKX over a 120-day window (2026-06-28 to 2026-10-26). LINK not available in this probe run; 4-asset cross-section confirmed. Findings consistent with depth probe (97-98 day common funding intersection, OKX funding limited to ~3 months). This is an independent re-verification, not a replacement for the 5-asset depth probe.",
-    "Binance Public Data archive (data.binance.vision) verified as a third venue candidate: 24 checksum-matched downloads (4 assets x 3 overlap months x funding+klines) plus 3 historical depth samples confirm 8h funding interval (matching OKX), consistent CSV schema, and 6.82 years of history (2020-01 to 2026-09). Binance archive ends at 2026-09, limiting the 3-venue common funding overlap to ~72 days (below 90-day threshold). Binance does not provide historical point-in-time market-cap rankings; confirmatory gate remains BLOCKED_DATA_GATE. Contract identity by underlying symbol only; not independently verified."
-  ],
-  "last_updated_utc": "2026-10-26T13:18:39Z"
+  "venue_set": [
+    "OKX",
+    "Hyperliquid"
+  ]
 }

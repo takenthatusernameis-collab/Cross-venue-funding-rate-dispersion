@@ -1,3 +1,57 @@
+## Link latest probe (40370588351) into manifest + coverage matrix (2026-10-26)
+
+Linked the newest 120-day coverage probe `historical_overlap_probe_40370588351_attempt_1.json` (observed 2026-10-26T17:39:31Z by independent controller-side run, sha `018dd267d8f4097c3804c22633abd0cc697edbe86e5beebddf83faba77a312bf`) into the exploratory manifest and coverage matrix.
+
+### Action performed
+
+1. **Updated `research_state/coverage_matrix_2026-10-26.json`** (sha `baeef60ae83cad735b80d70c60040df11c149d8f17f17e76437b2cf0b135ab12`):
+   - `sources` → `["research_state/historical_overlap_probe_40370588351_attempt_1.json"]`
+   - `source_probe_sha256` → `018dd267d8f4097c3804c22633abd0cc697edbe86e5beebddf83faba77a312bf`
+   - `observed_at_utc` → `2026-10-26T17:39:31.376948Z`
+   - OKX funding coverage for all 4 underlyings (BTC, ETH, SOL, AVAX): `latest_utc` 2026-10-26T08:00:00Z → **2026-10-26T16:00:00Z**, `row_count`/`timestamp_count`/`unique_timestamp_count` 294 → **295** (one additional funding settlement)
+   - `cross_venue_overlap.common_funding_end_utc`: `2026-10-26T10:00:00Z` → **2026-10-26T16:00:00Z**
+   - Added `binance_archive` feasibility block (confirmed, not downloaded as full venue)
+   - Added per-underlying `funding_intersection` blocks (2-venue HL+OKX common days=98, 3-venue common days=72, Binance+HL days=91)
+
+2. **Updated `research_state/exploratory_run_manifest_2026-10-25.json`** (sha `1119d42d3591e1772ec949ff7417954d0026ba5b54e0bbfda16b940e1826cf11`):
+   - New `output_artifacts` entry: `historical_overlap_probe_40370588351_attempt_1.json` (sha `018dd267...`)
+   - `output_artifacts` sha for `coverage_matrix_2026-10-26.json` → `baeef60a...`
+   - `coverage_summary`: `common_funding_end_utc` → `2026-10-26T16:00:00Z`, `common_days` 97 → 98, `underlyings` 5 → 4
+   - `threshold_history_eligibility`: `common_funding_window_utc` end → `2026-10-26T16:00:00Z`, `common_days` 98, `okx_funding_settlements` 294 → 295, `underlyings` 4
+   - Two new caveats added: (a) newest probe supersedes older probe with one additional OKX settlement extending coverage through 16:00:00Z; (b) controller-run probe lacks top-level `contract_identity` field (pre-`collect_contract_identity`-integration version); committed local version at `scripts/probe_historical_overlap.py:502` now calls `collect_contract_identity()` and emits the field in `run_probe()` output
+   - `completed_at_utc` and `last_updated_utc` → `2026-10-26T23:10:00Z`
+
+### Validation commands run
+- `python3 -m compileall -q src scripts tests` = OK
+- `PYTHONPATH=src python3 -m unittest discover -s tests -v` = **402 tests OK**
+- `PYTHONPATH=src python3 scripts/validate_research.py` = RESEARCH_VALIDATION=PASS (grid 108, anchor FVD053, NOT_RUN, no metrics)
+- `PYTHONPATH=src python3 scripts/validate_all.py` = ALL_VALIDATIONS=PASS count=23
+- `python3 scripts/validate_skills.py` = SKILLS_VALIDATION=PASS count=4
+- `PYTHONPATH=src python3 scripts/validate_manifest_artifacts.py` = MANIFEST_ARTIFACTS_VALIDATION=PASS
+- `PYTHONPATH=src python3 scripts/validate_manifest_schema.py` = MANIFEST_SCHEMA_VALIDATION=PASS
+- `PYTHONPATH=src python3 scripts/validate_research_state_artifacts.py` = RESEARCH_STATE_ARTIFACTS_VALIDATION=PASS files=31
+- `PYTHONPATH=src python3 scripts/validate_track_separation.py` = TRACK_SEPARATION_VALIDATION=PASS
+- `python3 scripts/validate_no_performance_claims.py` = NO_PERFORMANCE_CLAIMS_VALIDATION=PASS
+- `git diff --check` = clean
+- `sha256sum` verified: coverage_matrix=`baeef60a...`, manifest=`1119d42d...`, probe=`018dd267...`
+
+### Frozen artifacts verified unchanged
+- `configs/cross_venue_funding_dispersion_grid_v1.json` sha `6be218bc84bf118cf67c238ad1c13ef1e445658db3b1346cd64ccaccc7aa5f07`
+- `research_state/run_manifest.json` sha `4f162ce128c741434addf6aa2fa7c7dbf1bf189d4a81b8893ed96899412c7aaf` (BLOCKED_DATA_GATE)
+- `research_state/fvd053_anchor_run_2026-10-25.json` sha `50b328baf5854dec40105a0f5ebe498bf589906f9c033ce659843659927ca4c2`
+
+### Status
+- Confirmatory track: `BLOCKED_DATA_GATE` — FVD001–FVD108, FVD053 unchanged. No backtest, no performance metrics.
+- Exploratory track: FVD-EXPLORATORY-002 remains `EXPLORATORY_ONLY`/`INCONCLUSIVE`, 0 signals, no metrics. Manifest and coverage matrix now reference the newest verified probe (40370588351). Contract identity code integration complete (`scripts/probe_historical_overlap.py:502`); evidence-level output awaits probe re-execution on an authorized networked runner.
+- No workflow files modified; no paid data, credentials, live trading, or paper trading.
+
+### Next measurable task
+1. **Monitor Binance archive for 2026-10+ monthly files**: If published, download bounded Oct–Nov 2026 Binance funding + 1h klines samples to extend the 3-venue overlap and re-assess the 90-day threshold. If Binance extends the overlap, re-evaluate FVD053 anchor on the extended 3-venue data (keeping EXPLORATORY_ONLY/INCONCLUSIVE).
+2. **Await probe cooldown expiry** (per `scripts/should_run_historical_probe.py`): Next `run_probe()` eligible after 2026-10-26T23:39:31Z (6h normal cooldown from observed 17:39:31Z). When an authorized networked runner executes the next probe with the committed `collect_contract_identity`-integrated script, it will include `contract_identity` evidence (candidate-level for BTC/ETH/SOL/AVAX, reflecting HL settlement-inferred limitation). Update manifest with the new probe artifact and contract-identity summary upon availability.
+3. **No network from this environment**: `urllib.request.urlopen('https://api.hyperliquid.xyz/info', timeout=5)` fails at DNS resolution; cannot trigger a live probe here. No paid services, credentials, live trading, or paper trading used.
+
+---
+
 ## Integrated collect_contract_identity into run_probe() output (2026-10-26)
 
 Completed the "Next measurable task" from the prior HANDOFF entry: `collect_contract_identity` is now called by `run_probe()` and its result is emitted as a top-level `contract_identity` field in probe output. This fulfills v3.3 execution sequence step 5 ("prove contract identity") at the code level — the next probe execution will include contract-identity evidence alongside the coverage matrix.
