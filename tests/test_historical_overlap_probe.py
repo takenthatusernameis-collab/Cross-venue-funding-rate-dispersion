@@ -131,5 +131,152 @@ class HistoricalOverlapProbeTests(unittest.TestCase):
         self.assertFalse(report["performance_metrics_computed"])
 
 
+class OKxFundingPaginationTests(unittest.TestCase):
+    """Offline known-answer tests for OKX funding-rate-history pagination logic.
+
+    These verify the cursor-based backward pagination in probe_okx_funding()
+    using mock responses. They mirror the verified live behavior where OKX
+    returns ~292 rows (page_not_full) on the first page because the endpoint
+    is documented as 'up to three months' — the after cursor cannot extend
+    beyond this because the server has no older records to return.
+    """
+
+    def _make_meta(self, url):
+        return {
+            "url": url, "method": "GET",
+            "request_sha256": None, "http_status": 200,
+            "response_bytes_read": 100, "response_sha256": "fake",
+            "response_prefix_sha256": None, "response_hash_complete": True,
+            "response_shape": "json", "latency_ms": 100.0, "error": None,
+        }
+
+    def _make_row(self, funding_time_ms, rate="0.0001"):
+        return {
+            "fundingTime": str(funding_time_ms),
+            "fundingRate": rate,
+            "realizedRate": rate,
+            "instId": "BTC-USDT-SWAP",
+        }
+
+    def test_page_not_full_when_api_returns_below_limit(self):
+        """page_not_full: API returns <400 rows -> stops after one page.
+
+        Mirrors the verified probe evidence (historical_overlap_probe_40248932339_attempt_1.json):
+        OKX funding-rate-history returned 292 rows on the first page (limit=400),
+        so stop_reason='page_not_full'. The API is documented as 'up to three months';
+        the after cursor cannot extend beyond this because no older records exist
+        on the server side — this is a structural OKX API limitation, not a probe bug.
+        """
+        start_ms = 1_000
+        end_ms = 1_000_000
+        rows = [self._make_row(start_ms + 1 + i * (end_ms - start_ms - 1) // 292) for i in range(292)]
+        payload = {"code": "0", "data": rows}
+        with patch.object(probe, "request_json",
+                          return_value=(self._make_meta("https://fake"), payload)):
+            result = probe.probe_okx_funding("BTC-USDT-SWAP", start_ms, end_ms)
+        self.assertEqual(result["stop_reason"], "page_not_full")
+        self.assertEqual(result["pages_received"], 1)
+        self.assertEqual(result["coverage"]["row_count"], 292)
+        self.assertEqual(result["history_limit_documented"], "up to three months")
+
+    def test_page_not_full_boundary_at_exactly_limit_continues(self):
+        """When API returns exactly 400 rows, pagination continues to the next page."""
+        start_ms = 1_000
+        end_ms = 1_000_000
+        page1_times = list(range(end_ms, end_ms - 400, -1))
+        rows1 = [self._make_row(t) for t in page1_times]
+        oldest1 = min(page1_times)
+        page2_times = list(range(oldest1 - 1, oldest1 - 201, -1))
+        rows2 = [self._make_row(t) for t in page2_times]
+
+        call_idx = [0]
+        payloads = [
+            {"code": "0", "data": rows1},
+            {"code": "0", "data": rows2},
+        ]
+
+        def fake_request(url, payload=None, timeout=probe.TIMEOUT_SECONDS, opener=None):
+            idx = call_idx[0]
+            call_idx[0] += 1
+            if idx == 0:
+                self.assertNotIn("after=", url)
+            else:
+                self.assertIn(f"after={oldest1}", url)
+            return self._make_meta(url), payloads[idx]
+
+        with patch.object(probe, "request_json", side_effect=fake_request):
+            result = probe.probe_okx_funding("BTC-USDT-SWAP", start_ms, end_ms)
+        self.assertEqual(result["stop_reason"], "page_not_full")
+        self.assertEqual(result["pages_received"], 2)
+        self.assertEqual(result["coverage"]["row_count"], 600)
+
+    def test_cursor_stalled_stops_pagination(self):
+        """cursor_stalled: oldest fundingTime does not advance beyond the previous cursor."""
+        start_ms = 1_000
+        end_ms = 1_000_000
+        page_times = list(range(end_ms, end_ms - 400, -1))
+        rows = [self._make_row(t) for t in page_times]
+        payload = {"code": "0", "data": rows}
+
+        with patch.object(probe, "request_json",
+                          return_value=(self._make_meta("https://fake"), payload)):
+            result = probe.probe_okx_funding("BTC-USDT-SWAP", start_ms, end_ms)
+        self.assertEqual(result["stop_reason"], "cursor_stalled")
+        self.assertEqual(result["pages_received"], 2)
+
+    def test_window_start_reached_stops_pagination(self):
+        """window_start_reached: oldest fundingTime falls at or below start_ms.
+
+        The oldest check (min over all returned rows) precedes the page_not_full
+        check, so even a small below-limit page stops with window_start_reached
+        when oldest <= start_ms.
+        """
+        start_ms = 5_000
+        end_ms = 10_000
+        rows = [self._make_row(t) for t in range(end_ms, start_ms - 100, -1)]
+        payload = {"code": "0", "data": rows}
+
+        with patch.object(probe, "request_json",
+                          return_value=(self._make_meta("https://fake"), payload)):
+            result = probe.probe_okx_funding("BTC-USDT-SWAP", start_ms, end_ms)
+        self.assertEqual(result["stop_reason"], "window_start_reached")
+        self.assertEqual(result["pages_received"], 1)
+
+    def test_empty_data_stops_pagination(self):
+        """no_rows_or_request_failed: API returns empty data list."""
+        start_ms = 1_000
+        end_ms = 1_000_000
+        payload = {"code": "0", "data": []}
+
+        with patch.object(probe, "request_json",
+                          return_value=(self._make_meta("https://fake"), payload)):
+            result = probe.probe_okx_funding("BTC-USDT-SWAP", start_ms, end_ms)
+        self.assertEqual(result["stop_reason"], "no_rows_or_request_failed")
+        self.assertEqual(result["pages_received"], 1)
+
+    def test_filtering_excludes_rows_outside_window(self):
+        """Only rows within [start_ms, end_ms] are counted in coverage.
+
+        Rows above end_ms are excluded from rows_all but remain in the raw
+        response for oldest/cursor calculations. The oldest (600) is above
+        start_ms (500), so page_not_full fires on the <400 row count.
+        """
+        start_ms = 500
+        end_ms = 1500
+        rows = [
+            self._make_row(2000),  # above end_ms, excluded from rows_all
+            self._make_row(600),   # in window
+            self._make_row(1000),  # in window
+            self._make_row(1500),  # at end_ms, included
+        ]
+        payload = {"code": "0", "data": rows}
+
+        with patch.object(probe, "request_json",
+                          return_value=(self._make_meta("https://fake"), payload)):
+            result = probe.probe_okx_funding("BTC-USDT-SWAP", start_ms, end_ms)
+        self.assertEqual(result["coverage"]["row_count"], 3)
+        self.assertEqual(result["stop_reason"], "page_not_full")
+
+
 if __name__ == "__main__":
     unittest.main()

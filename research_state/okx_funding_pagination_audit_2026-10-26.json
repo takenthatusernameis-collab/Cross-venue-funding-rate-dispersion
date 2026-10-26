@@ -1,0 +1,41 @@
+{
+  "schema_version": "1.0",
+  "artifact_type": "pagination_audit",
+  "status": "BLOCKED_DATA_GATE",
+  "backtest_completed": false,
+  "performance_metrics_computed": false,
+  "observed_at_utc": "2026-10-26T01:30:00Z",
+  "audit_target": "scripts/probe_historical_overlap.py:probe_okx_funding (lines 283-328)",
+  "probe_reference": "historical_overlap_probe_40248932339_attempt_1.json",
+  "probe_reference_sha256": "592807e2649f3183a6a1102b84ac843e719f6ac1aa0389557c7c105e128f6154",
+  "finding": "The after-cursor backward pagination in probe_okx_funding() is correctly implemented: cursor is set to min(fundingTime) from each page and used as the after parameter on the next request. The page_not_full stop condition (len(rows) < 400) correctly identifies when the API has returned all available data. No pagination bug was found.",
+  "okx_funding_observed": {
+    "rows_on_first_page": 292,
+    "limit_per_page": 400,
+    "stop_reason": "page_not_full",
+    "pages_received": 1,
+    "documented_history_limit": "up to three months",
+    "estimated_coverage_days": 97
+  },
+  "structural_limitation": "The OKX public/funding-rate-history endpoint is structurally limited to ~90 days of funding rate history (documented as 'up to three months'). The after cursor is correctly used to page backward, but the server has no records older than ~90 days, so pagination terminates with page_not_full on the first page. This is a server-side data retention limitation, not a client-side pagination defect. The after cursor cannot extend beyond the ~90-day window because no older records exist on the server.",
+  "impact": "OKX funding-rate-history is the limiting factor for the cross-venue funding dispersion exploratory track. The ~97-day common overlap (2026-07-20 to 2026-10-25) is short of the >=3-year confirmatory requirement. The exploratory FVD053 anchor found 0 signals across 47 candidate dates (INCONCLUSIVE).",
+  "alternative_routes_checked": [
+    {
+      "source": "Binance Public Data archive",
+      "endpoint": "fundingRate monthly files",
+      "checksum_url_verified": true,
+      "archive_bytes_downloaded": false,
+      "status": "candidate only — archive bytes not validated",
+      "note": "Checksum file returned HTTP 200, confirming object existence. Full archive download and validation not yet performed."
+    },
+    {
+      "source": "Hyperliquid public /info",
+      "endpoint": "fundingHistory",
+      "status": "verified — 120 days, 1h interval, 6 pages, 2880 rows per asset",
+      "note": "Provides the longer historical funding history; OKX funding is the binding constraint."
+    }
+  ],
+  "confidence": "HIGH — based on verified probe evidence and source-controlled code audit. The pagination logic is deterministic and unit-tested (6 new tests in test_historical_overlap_probe.py).",
+  "recommendation": "Do not repeat the OKX funding probe with the same endpoint/cursor parameters — the server-side 90-day limit is structural. Proceed with source-independent funding-accounting hardening. If a Binance archive download path is feasible on an authorized runner, it may provide a material route for longer funding history, but contract identity between Hyperliquid perpetual and Binance USD-M futures must be independently verified.",
+  "test_sha256": "4272a7970902f549bc6e286a07b20ac9f69412528192de770b1506195b324727"
+}

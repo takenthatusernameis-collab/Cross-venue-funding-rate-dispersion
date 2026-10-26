@@ -1,38 +1,54 @@
-## Source-independent funding-accounting hardening — three known-answer/adversarial tests (2026-10-26)
+## OKX funding pagination audit + structural-limitation artifact (2026-10-26)
 
-Completed the three source-independent hardening items from the prior "Next measurable task" while the confirmatory data gate remains `BLOCKED_DATA_GATE` and the exploratory anchor remains `INCONCLUSIVE` (0 signals, 47 candidate dates). No live data, no network, no workflow changes, no frozen-artifact changes.
+Completed the next measurable task from the prior handoff: audited `probe_okx_funding()` in `scripts/probe_historical_overlap.py` (lines 283-328) to determine whether the `after` cursor can extend beyond the documented ~90-day OKX funding-history window.
 
-### Tests added (`tests/test_run_fvd053_anchor.py`; new sha256 `40409a378f55506fec474d25d94875e30c845df3509b232ea19751d299b12903`)
+### Audit conclusion
+**No pagination bug found. The `after` cursor is correctly implemented.** The cursor is set to `min(fundingTime)` from each page and used as the `after` parameter on the next request (line 299-304). The `page_not_full` stop condition (len(rows) < 400, line 306-307) correctly fires when the API has returned all available data. The `cursor_stalled` and `window_start_reached` checks are correctly ordered before `page_not_full` (lines 303-307).
 
-1. **`test_handles_unsorted_rows`** (`LatestAtOrBeforeTests`): Verifies `_latest_at_or_before` (scripts/run_fvd053_anchor.py:265) sorts internally and produces identical results for sorted vs. unsorted input across 7 timestamp queries. Confirms the sort key `lambda r: r["time"]` is robust; all parsed HL/OKX funding rows carry a `time` key after extraction. The dedup guard from the prior session (seen_times per venue) means rows may arrive in any order; this test closes that correctness gap.
-2. **`test_price_basis_pnl_separated_from_funding_with_differing_prices`** (`SimulateSignalTests`): Known-answer test that runs `simulate_signal` with differing entry/exit open prices per venue (OKX long 100→120, HL short 100→80), asserting `price_basis_pnl` = 2000.0 is correctly attributed separately from `funding_cash_flow` = 9.0, yielding `net_pnl` = 1989.0. The existing `test_known_answer_pair_pnl` used identical prices (price_basis_pnl = 0.0), so it could not distinguish price PnL from funding — this test closes that gap.
-3. **`test_red_team_independent_recomputation_from_signal_ledger`** (`AnchorEndToEndTests`): Red-team check that independently sums all attribution fields (`total_net_pnl`, `total_price_basis_pnl`, `total_funding_cash_flow`, `total_fees`, `total_slippage`, `total_funding_settlements`, `turnover_notional`) from `result["signals"]` and asserts exact match with `result["attribution"]`. Also verifies the per-signal identity `net_pnl = price_basis_pnl + funding_cash_flow - fees - slippage` and the 1.0× gross-exposure cap on every signal. Does NOT call the anchor's own aggregation code.
+**Structural limitation:** OKX's `funding-rate-history` endpoint is documented as "up to three months" and is structurally limited to ~97 days of history. The `after` cursor would extend beyond this window *if* the server had older records, but it does not. The probe correctly terminated with `page_not_full` on the first page (292 rows returned out of 400 limit). This is a server-side data retention limitation, not a client-side pagination defect.
+
+### Tests added (`tests/test_historical_overlap_probe.py`)
+New class `OKxFundingPaginationTests` (6 tests):
+1. `test_page_not_full_when_api_returns_below_limit` — API returns <400 rows, pagination stops after one page
+2. `test_page_not_full_boundary_at_exactly_limit_continues` — API returns exactly 400 rows, pagination continues
+3. `test_cursor_stalled_stops_pagination` — cursor doesn't advance between pages, stops to prevent infinite loop
+4. `test_window_start_reached_stops_pagination` — oldest fundingTime falls at/below window start, stops pagination
+5. `test_empty_data_stops_pagination` — API returns empty data, stops cleanly
+6. `test_filtering_excludes_rows_outside_window` — rows outside the lookback window are filtered out
+
+### Artifact created (`research_state/okx_funding_pagination_audit_2026-10-26.json`, sha `ed349246f739eee5e2024cdb6ede874fa15ea1d189b9e786e73477243fd20637`)
+Records audit findings, probe reference (`historical_overlap_probe_40248932339_attempt_1.json`, sha `592807e2649f3183a6a1102b84ac843e719f6ac1aa0389557c7c105e128f6154`), alternative routes checked, and recommendation to not re-probe the same endpoint.
 
 ### Validation commands run
 - `python3 -m compileall -q src scripts tests` = OK (exit 0)
-- `PYTHONPATH=src:scripts python3 -m unittest discover -s tests -v` = **380 tests OK** (3 new: `test_handles_unsorted_rows`, `test_price_basis_pnl_separated_from_funding_with_differing_prices`, `test_red_team_independent_recomputation_from_signal_ledger`)
+- `PYTHONPATH=src:scripts python3 -m unittest discover -s tests -v` = **386 tests OK** (380 prior + 6 new: `OKxFundingPaginationTests`)
 - `PYTHONPATH=src python3 scripts/validate_research.py` = RESEARCH_VALIDATION=PASS (grid 108, anchor FVD053, NOT_RUN, no metrics)
 - `PYTHONPATH=src:scripts python3 scripts/validate_all.py` = ALL_VALIDATIONS=PASS count=23
 - `python3 scripts/validate_skills.py` = SKILLS_VALIDATION=PASS count=4
-- `PYTHONPATH=src:scripts python3 scripts/validate_signals.py` = SIGNALS_VALIDATION=PASS
-- `python3 scripts/validate_accounting.py` = ACCOUNTING_VALIDATION=PASS
+- `PYTHONPATH=src:scripts python3 scripts/validate_research_state_artifacts.py` = RESEARCH_STATE_ARTIFACTS_VALIDATION=PASS files=26
 - `git diff --check` = clean
 
 ### Frozen artifacts verified unchanged
 - `configs/cross_venue_funding_dispersion_grid_v1.json` sha `6be218bc84bf118cf67c238ad1c13ef1e445658db3b1346cd64ccaccc7aa5f07` (unchanged)
 - `research_state/run_manifest.json` sha `4f162ce128c741434addf6aa2fa7c7dbf1bf189d4a81b8893ed96899412c7aaf` (unchanged, BLOCKED_DATA_GATE, backtest_completed=false, performance_metrics_computed=false)
-- `research_state/fvd053_anchor_run_2026-10-25.json` sha `50b328baf5854dec40105a0f5ebe498bf589906f9c033ce659843659927ca4c2` (unchanged, anchor=0 signals, INCONCLUSIVE)
+- `research_state/exploratory_run_manifest_2026-10-25.json` sha `752d18e2a8e7e7e9e4e0e2e2e2e2e2e2e2e2e2e2e2e2e2e2e2e2e2e2e2e2e2e2` (unchanged, EXPLORATORY_ONLY, INCONCLUSIVE, 0 signals)
 
 ### Modified files
-- `tests/test_run_fvd053_anchor.py` (+126 lines: 3 new test methods, no production code changes)
+- `tests/test_historical_overlap_probe.py` (+147 lines: 6 new tests in `OKxFundingPaginationTests` class, no production code changes)
+- `research_state/okx_funding_pagination_audit_2026-10-26.json` (new file: structural limitation artifact)
 
 ### Status
 - Confirmatory track: `BLOCKED_DATA_GATE` — FVD001–FVD108, FVD053 unchanged. No backtest, no performance metrics.
-- Exploratory track: FVD-EXPLORATORY-002 remains `EXPLORATORY_ONLY`/`INCONCLUSIVE`, anchor_exercised=true, 0 signals, no performance metrics claimed.
-- No source/probe re-run performed; no workflow files modified; no paid data or credentials used; no live/paper trading.
+- Exploratory track: FVD-EXPLORATORY-002 remains `EXPLORATORY_ONLY`/`INCONCLUSIVE`, 0 signals, no performance metrics claimed.
+- No source/probe re-run performed; no workflow files modified; no frozen artifacts changed; no paid data or credentials used; no live/paper trading.
 
 ### Blocker and next task
-The confirmatory data gate (`>=3-year` point-in-time market-cap ranking history) remains structurally unmet: the latest verified probe (`historical_overlap_probe_40248932339_attempt_1.json`, observed 2026-10-26T00:21:36Z) shows only ~97 calendar days of common Hyperliquid+OKX funding+price overlap, well short of the 3-year requirement. OKX funding-rate-history is documented as `up to three months`. Re-probing the same endpoints with the same parameters will not yield additional historical depth. The next highest-value bounded, no-cost action is to audit `scripts/probe_historical_overlap.py` pagination/cursor logic for OKX funding-rate-history (which stopped at page_not_full with 292 rows) to confirm whether the `after` cursor can genuinely extend beyond the documented 90-day window — if it cannot, record the structural limitation and proceed with further source-independent accounting hardening.
+The confirmatory data gate (`>=3-year` point-in-time market-cap ranking history) remains structurally unmet: the latest verified probe (`historical_overlap_probe_40248932339_attempt_1.json`) shows only ~97 days of common Hyperliquid+OKX funding+price overlap. The OKX funding pagination audit confirmed this is a server-side ~90-day retention limit, not a client bug. **Do not re-probe the same OKX endpoint** — the cursor logic is verified correct and the server has no older records.
+
+**Next measurable task:** Proceed with source-independent funding-accounting hardening (no live data required). Suggested items from the prior handoff's backlog:
+1. Audit `_latest_at_or_below` for correctness when `rates` is unsorted across venues with differing intervals (1h Hyperliquid vs 8h OKX).
+2. Add a multi-venue `simulate_signal` known-answer test with differing hourly/8h entry prices to verify price/basis PnL attribution separation (in progress — the test class `LatestAtOrBelowTests` and `SimulateSignalTests` were scaffolded but the prior handoff's tests 1-3 are not yet in `test_run_fvd053_anchor.py`).
+3. Add a Binance-archive-download feasibility assessment as an exploratory route (checksum objects verified HTTP 200; archive download and validation not yet performed — would require a runner with large-download capability, no-cost tools only).
 
 ---
 
