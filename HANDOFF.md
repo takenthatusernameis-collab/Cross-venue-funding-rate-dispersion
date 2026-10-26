@@ -1,8 +1,52 @@
-## OKX funding pagination audit + structural-limitation artifact (2026-10-26)
+## Binance Public Data archive feasibility assessment (2026-10-26)
 
-Completed the next measurable task from the prior handoff: audited `probe_okx_funding()` in `scripts/probe_historical_overlap.py` (lines 283-328) to determine whether the `after` cursor can extend beyond the documented ~90-day OKX funding-history window.
+Completed the next measurable task from the prior handoff: Binance-archive-download feasibility assessment as an exploratory route. Downloaded 4 fundingRate monthly ZIPs (2020-01, 2021-06, 2023-12, 2025-06) and 1 klines (1h) ZIP (2024-06) over anonymous HTTPS from `data.binance.vision`, no credentials, no paid tier. Each download's SHA-256 digest was compared against the sibling `.CHECKSUM` file; all matched. Verified:
+- **Funding rate schema**: `calc_time,funding_interval_hours,last_funding_rate` — consistent across all samples, interval always 8h (matching OKX).
+- **Klines schema**: `open_time,open,high,low,close,volume,close_time,quote_volume,count,taker_buy_volume,taker_buy_quote_volume,ignore` — 720 rows/month (full hourly coverage).
+- **Historical coverage**: monthly files available 2020-01 through 2026-09 (81 months = ~6.82 years) for BTC, ETH, SOL, AVAX, LINK — exceeds the 3-year confirmatory history depth for funding + price.
+- **All 5 underlyings covered**: BTCUSDT, ETHUSDT, SOLUSDT, AVAXUSDT, LINKUSDT have both fundingRate and klines archives.
 
-### Audit conclusion
+**Limitations (no claims of gate clearance):**
+- Contract identity (Binance USD-M futures vs Hyperliquid perpetual vs OKX USDT-swap) is by underlying symbol only; not independently verified via metadata/lifecycle.
+- Binance does not provide historical point-in-time market-cap rankings; the confirmatory market-cap gate remains BLOCKED_DATA_GATE.
+- Bounded sample only (4 fundingRate + 1 klines month downloaded); full 81-month retrieval not performed.
+- Survivorship bias, listing/delisting, ticker-reuse handling for Binance USD-M futures not assessed.
+- Not a strategy backtest; no performance metrics computed.
+
+### Artifact created
+- `research_state/binance_archive_feasibility_assessment_2026-10-26.json` (sha `5bf31c0a878ffcb2f38c21f0578bfa584f4f6a2df8357afcfb5bdb570c38e0f9`)
+- Updated `research_state/exploratory_run_manifest_2026-10-25.json`: added new artifact to `output_artifacts`, updated `next_step` and `caveats`, updated `completed_at_utc` to `2026-10-26T06:20:50Z`. New manifest sha: `64b2d7597c6437f727f54b55fc93afc310af47c8c8ea1d7a7eb244a3a7f03c22` (no other committed artifact references this manifest's sha256, so no cross-reference correction needed).
+
+### Validation commands run
+- `python3 -m compileall -q src scripts tests` = OK
+- `PYTHONPATH=src:scripts python3 -m unittest discover -s tests -v` = 386 tests OK
+- `PYTHONPATH=src python3 scripts/validate_research.py` = RESEARCH_VALIDATION=PASS (grid 108, anchor FVD053, NOT_RUN, no metrics)
+- `PYTHONPATH=src python3 scripts/validate_research_state_artifacts.py` = RESEARCH_STATE_ARTIFACTS_VALIDATION=PASS files=27
+- `python3 scripts/validate_no_performance_claims.py` = NO_PERFORMANCE_CLAIMS_VALIDATION=PASS
+- `PYTHONPATH=src:scripts python3 scripts/validate_manifest_schema.py` = MANIFEST_SCHEMA_VALIDATION=PASS
+- `PYTHONPATH=src:scripts python3 scripts/validate_track_separation.py` = TRACK_SEPARATION_VALIDATION=PASS
+- `PYTHONPATH=src python3 scripts/validate_research_state.py` = RESEARCH_STATE_VALIDATION=PASS
+- `PYTHONPATH=src python3 scripts/validate_all.py` = ALL_VALIDATIONS=PASS count=23
+- `python3 scripts/validate_skills.py` = SKILLS_VALIDATION=PASS count=4
+- `git diff --check` = clean
+
+### Frozen artifacts verified unchanged
+- `configs/cross_venue_funding_dispersion_grid_v1.json` sha `6be218bc84bf118cf67c238ad1c13ef1e445658db3b1346cd64ccaccc7aa5f07` (unchanged)
+- `research_state/run_manifest.json` sha `4f162ce128c741434addf6aa2fa7c7dbf1bf189d4a81b8893ed96899412c7aaf` (unchanged, BLOCKED_DATA_GATE)
+- `research_state/fvd053_anchor_run_2026-10-25.json` sha `50b328baf5854dec40105a0f5ebe498bf589906f9c033ce659843659927ca4c2` (unchanged)
+
+### Status
+- Confirmatory track: `BLOCKED_DATA_GATE` — FVD001–FVD108, FVD053 unchanged. No backtest, no performance metrics.
+- Exploratory track: FVD-EXPLORATORY-002 remains `EXPLORATORY_ONLY`/`INCONCLUSIVE`, 0 signals on ~97-day OKX+Hyperliquid overlap. Binance archive feasibility confirmed but not yet integrated as a venue; contract identity and PIT market-cap gate remain unverified.
+
+### Next measurable task
+1. If full Binance archive download is feasible on an authorized runner (bounded, no-cost), extend the verified historical intersection to include Binance USD-M funding + 1h prices as a third venue. Register a new exploratory run ID with explicit estimand, verify contract identity at each step, and re-evaluate the frozen FVD053 anchor on the extended overlap. Keep EXPLORATORY_ONLY/INCONCLUSIVE status.
+2. Continue source-independent funding-accounting hardening: audit `_latest_at_or_before` for unsorted rates across 1h/8h venues (test class `LatestAtOrBelowTests` already passes), verify price/basis PnL attribution separation in multi-venue `simulate_signal` (test class `SimulateSignalTests` already passes), and add a red-team-style independent recomputation test from the signal ledger (test `test_red_team_independent_recomputation_from_signal_ledger` already passes).
+3. Monitor for a materially different free public source family that proves >=3-year historical point-in-time market-cap availability with publication/as-of timestamps.
+
+---
+
+
 **No pagination bug found. The `after` cursor is correctly implemented.** The cursor is set to `min(fundingTime)` from each page and used as the `after` parameter on the next request (line 299-304). The `page_not_full` stop condition (len(rows) < 400, line 306-307) correctly fires when the API has returned all available data. The `cursor_stalled` and `window_start_reached` checks are correctly ordered before `page_not_full` (lines 303-307).
 
 **Structural limitation:** OKX's `funding-rate-history` endpoint is documented as "up to three months" and is structurally limited to ~97 days of history. The `after` cursor would extend beyond this window *if* the server had older records, but it does not. The probe correctly terminated with `page_not_full` on the first page (292 rows returned out of 400 limit). This is a server-side data retention limitation, not a client-side pagination defect.

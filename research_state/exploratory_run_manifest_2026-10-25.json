@@ -9,7 +9,7 @@
   "performance_metrics_computed": false,
   "date_utc": "2026-10-25",
   "started_at_utc": "2026-10-25T19:07:59Z",
-  "completed_at_utc": "2026-10-25T21:28:43Z",
+  "completed_at_utc": "2026-10-26T06:20:50Z",
   "purpose": "Exploratory threshold-history eligibility assessment and manifest freeze for the verified historical overlap of BTC/ETH/SOL/AVAX/LINK across OKX and Hyperliquid (depth probe + coverage matrix). Separately versioned from FVD-DISPERSION-V1 and FVD-EXPLORATORY-001; does not modify frozen grid, FVD001-FVD108, FVD053, or original run manifest.",
   "data_cutoff_utc": "2026-10-25T16:00:00Z",
   "instrument_list": [
@@ -84,7 +84,7 @@
   "anchor_exercised": true,
   "anchor_result": "Exercise with actual live data (FVD053 frozen params: 24h dispersion lookback, 80th-percentile threshold, 24h hold, top 10% tail, 2 venues). Result: 0 signals generated across 47 candidate dates; 50 hourly candles skipped due to missing data; 0 funding settlements applied (no active pairs). INCONCLUSIVE: no signal episodes to evaluate. backtest_completed=false, performance_metrics_computed=false.",
   "conclusion": "EXPLORATORY_ONLY / INCONCLUSIVE for inference. Threshold-history eligibility met (97 prior daily observations >= 90) over the verified common funding intersection for 5 underlyings x 2 venues. FVD053 anchor was exercised on actual live data but generated 0 signals across 47 candidate dates (dispersion never exceeded the 80th-percentile threshold). No backtest, no performance metric, no economic edge claimed. Confirmatory gate BLOCKED_DATA_GATE preserved.",
-  "next_step": "Signal count is 0; no performance to report. Source-independent accounting and known-answer tests remain covered by tests/test_run_fvd053_anchor.py. Next bounded action: expand the verified overlap to additional underlyings/venues or extend history, then re-evaluate anchor signal formation; keep EXPLORATORY_ONLY/INCONCLUSIVE status. Do not run full 108-cell grid.",
+  "next_step": "Signal count is 0; no performance to report. Source-independent accounting and known-answer tests remain covered by tests/test_run_fvd053_anchor.py. New finding: Binance Public Data archive feasibility assessment (research_state/binance_archive_feasibility_assessment_2026-10-26.json) verifies ~6.8 years of 8-hourly funding-rate history and 1h price history (2020-01 to 2026-09) with checksum-verified samples and consistent schema for all 5 underlyings. This is a bounded feasibility assessment only, not full data retrieval. Limitations: contract identity (Binance USD-M futures vs Hyperliquid perpetual vs OKX swap) is symbol-only/unverified; Binance does not provide historical point-in-time market-cap ranks; the confirmatory gate remains BLOCKED_DATA_GATE. Next bounded action: if full Binance archive download is feasible on an authorized runner, extend the verified historical intersection to include Binance as a third venue, re-register a new exploratory run with explicit estimand, and re-evaluate the frozen FVD053 anchor on the extended overlap with contract-identity verification at each step. Keep EXPLORATORY_ONLY/INCONCLUSIVE status and do not claim metrics until an anchor run actually computes them.",
   "output_artifacts": [
     {
       "path": "research_state/historical_overlap_depth_probe_2026-10-25.json",
@@ -97,6 +97,10 @@
     {
       "path": "research_state/fvd053_anchor_run_2026-10-25.json",
       "sha256": "50b328baf5854dec40105a0f5ebe498bf589906f9c033ce659843659927ca4c2"
+    },
+    {
+      "path": "research_state/binance_archive_feasibility_assessment_2026-10-26.json",
+      "sha256": "5bf31c0a878ffcb2f38c21f0578bfa584f4f6a2df8357afcfb5bdb570c38e0f9"
     }
   ],
   "source_code_hashes": {},
@@ -109,6 +113,9 @@
     "Contract identity by underlying symbol only; not independently verified; survivorship bias unmeasured.",
     "Modeled fees/slippage (base 5/5 bps) are sensitivity assumptions, not measured venue costs.",
     "No performance metric or economic edge claimed; EXPLORATORY_ONLY does not authorize live or paper trading.",
-    "Evaluation window ~7 signal days; uncertainty not estimable."
+    "Evaluation window ~7 signal days; uncertainty not estimable.",
+    "Binance Public Data archive feasibility confirmed (6.8 years funding+price history, checksum-verified samples) but contract identity (Binance USD-M futures vs Hyperliquid/OKX perpetual) is symbol-only/unverified and Binance does not provide PIT market-cap ranks; this feasibility finding does not clear the confirmatory gate.",
+    "Binance archive assessment is a bounded feasibility check (4 fundingRate samples + 1 klines sample downloaded); full 81-month retrieval not performed.",
+    "No output_artifacts entry self-references the manifest; manifest sha256 changed due to output_artifacts and next_step update; no cross-reference mismatch because no other committed artifact references this manifest's sha256."
   ]
 }

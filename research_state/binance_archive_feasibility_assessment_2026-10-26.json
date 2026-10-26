@@ -1,0 +1,82 @@
+{
+  "schema_version": "1.0",
+  "artifact_type": "binance_archive_feasibility_assessment",
+  "status": "EXPLORATORY_ONLY",
+  "backtest_completed": false,
+  "performance_metrics_computed": false,
+  "original_confirmatory_gate": "BLOCKED_DATA_GATE",
+  "observed_at_utc": "2026-10-26T06:20:50.646649Z",
+  "source": "Binance Public Data archive (data.binance.vision)",
+  "access_mode": "anonymous HTTPS, no credentials, no paid tier",
+  "purpose": "Assess whether the Binance Public Data archive can supply verified historical funding-settlement and executable-price history (1h candles) for the cross-venue funding dispersion exploratory track. This is a bounded feasibility assessment only, not a strategy backtest, not a market-cap rank source, and not a performance claim.",
+  "assessment_type": "download + checksum verification + schema inspection",
+  "data_cutoff_utc": "2026-10-26T06:20:50Z",
+  "covered_underlyings": [
+    {"binance_symbol": "BTCUSDT", "underlying": "BTC"},
+    {"binance_symbol": "ETHUSDT", "underlying": "ETH"},
+    {"binance_symbol": "SOLUSDT", "underlying": "SOL"},
+    {"binance_symbol": "AVAXUSDT", "underlying": "AVAX"},
+    {"binance_symbol": "LINKUSDT", "underlying": "LINK"}
+  ],
+  "archive_object_types_verified": {
+    "funding_rate_monthly": {
+      "url_pattern": "https://data.binance.vision/data/futures/um/monthly/fundingRate/{symbol}/{symbol}-fundingRate-{YYYY-MM}.zip",
+      "checksum_suffix": ".zip.CHECKSUM",
+      "csv_fields": ["calc_time", "funding_interval_hours", "last_funding_rate"],
+      "csv_example": "1704067200000,8,0.00037409",
+      "funding_interval_hours": 8,
+      "samples_downloaded_and_verified": [
+        {"month": "2024-01", "rows": 93, "checksum_match": true, "calc_time_first": "2024-01-01T00:00:00Z", "calc_time_last": "2024-01-31T00:00:00Z"},
+        {"month": "2021-06", "rows": 90, "checksum_match": true, "calc_time_first": "2021-06-01T00:00:01Z", "calc_time_last": "2021-07-01T00:00:05Z"},
+        {"month": "2023-12", "rows": 93, "checksum_match": true, "calc_time_first": "2023-12-01T00:00:00Z", "calc_time_last": "2024-01-01T00:00:00Z"},
+        {"month": "2025-06", "rows": 90, "checksum_match": true, "calc_time_first": "2025-06-01T00:00:01Z", "calc_time_last": "2025-07-01T00:00:02Z"}
+      ]
+    },
+    "klines_monthly_1h": {
+      "url_pattern": "https://data.binance.vision/data/futures/um/monthly/klines/{symbol}/1h/{symbol}-1h-{YYYY-MM}.zip",
+      "checksum_suffix": ".zip.CHECKSUM",
+      "csv_fields": ["open_time", "open", "high", "low", "close", "volume", "close_time", "quote_volume", "count", "taker_buy_volume", "taker_buy_quote_volume", "ignore"],
+      "csv_example": "1717200000000,67577.90,67729.90,67535.40,67690.00,3025.451,1717203599999,204628990.86440,49741,1569.014,106127949.20210,0",
+      "interval": "1h",
+      "samples_downloaded_and_verified": [
+        {"month": "2024-06", "rows": 720, "rows_expected": 720, "coverage_complete": true, "calc_time_first": "2024-06-01T00:00:00Z", "calc_time_last": "2024-06-30T23:00:00Z"}
+      ]
+    }
+  },
+  "historical_coverage_assessment": {
+    "funding_rate_monthly_files_available": "2020-01 through 2026-09 (81 months)",
+    "klines_monthly_files_available": "2020-01 through 2026-09 (81 months)",
+    "years_of_funding_history": 6.82,
+    "meets_3year_requirement": true,
+    "funding_interval_matches_okx": true,
+    "funding_interval_note": "Binance USD-M funding rate interval is documented as 8 hours, matching OKX. The funding_interval_hours field in the CSV is consistently 8 across all sampled months.",
+    "gap_analysis": "Monthly files partition the calendar without overlap. A full download would require fetching all 81 monthly ZIP files per symbol per field. No gaps detected within sampled months.",
+    "contract_mapping_confidence": "symbol-only mapping (e.g. BTCUSDT <-> BTC). Binance USD-M futures are economically distinct contracts from Hyperliquid perpetual and OKX USDT-swap. Cross-venue contract identity is NOT independently verified via metadata, listing/delisting, or lifecycle events. This is a material caveat."
+  },
+  "verification_method": "Each sampled monthly fundingRate and klines archive was downloaded over anonymous HTTPS, the SHA-256 digest was computed from the downloaded bytes, and it was compared against the value published in the sibling .CHECKSUM file. All sampled checksums matched. No archive bytes beyond the feasibility samples were downloaded.",
+  "gate_assessments": {
+    "anonymous_https_reachable": true,
+    "checksum_verification": "PASS (4 fundingRate samples + 1 klines sample, all SHA-256 match)",
+    "schema_consistent": true,
+    "funding_interval_8h": true,
+    "historical_depth_met_3year": true,
+    "all_5_underlyings_covered": true,
+    "market_cap_rank_gate": "STILL BLOCKED — Binance Public Data archive does not provide historical point-in-time market-cap rankings. The confirmatory gate remains BLOCKED_DATA_GATE.",
+    "contract_identity_verified": false,
+    "survivorship_bias_measured": false
+  },
+  "limitations": [
+    "Feasibility assessment only; no strategy backtest or performance metric computed.",
+    "Only a bounded sample (4 fundingRate months + 1 klines month) was downloaded and verified; the full 81-month history was confirmed by checksum-object availability, not by downloading all archives.",
+    "Contract identity between Binance USD-M futures (e.g. BTCUSDT) and Hyperliquid perpetual / OKX USDT-swap is by underlying symbol only; not independently verified via metadata or lifecycle events.",
+    "Survivorship bias, listing/delisting, and ticker-reuse handling for Binance USD-M futures are not assessed.",
+    "The Binance archive does not provide historical point-in-time market-cap rankings; the confirmatory market-cap gate remains BLOCKED_DATA_GATE.",
+    "This finding does not clear, replace, or unlock the confirmatory FVD001-FVD108/FVD053 track; it is exploratory evidence only.",
+    "No live trading, paper trading, or order submission involved."
+  ],
+  "reference_probe": "historical_overlap_probe_40248932339_attempt_1.json",
+  "reference_probe_sha256": "592807e2649f3183a6a1102b84ac843e719f6ac1aa0389557c7c105e128f6154",
+  "okx_pagination_audit_reference": "okx_funding_pagination_audit_2026-10-26.json",
+  "okx_pagination_audit_sha256": "ed349246f739eee5e2024cdb6ede874fa15ea1d189b9e786e73477243fd20637",
+  "next_step": "If the full Binance archive download is feasible on an authorized runner, extend the verified historical intersection to include Binance USD-M funding + 1h prices as a third venue, re-register a new exploratory run with explicit estimand, and re-evaluate the frozen FVD053 anchor on the extended overlap. Document contract identity verification at each step. Keep EXPLORATORY_ONLY status and do not claim metrics until an anchor run actually computes them."
+}
