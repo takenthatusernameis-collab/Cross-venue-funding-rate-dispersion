@@ -1,3 +1,54 @@
+## Contract identity verification tests + source bug fix (2026-10-26)
+
+Added source-independent unit tests for the existing-but-untested `verify_contract_identity` and `collect_contract_identity` functions in `scripts/probe_historical_overlap.py`, and fixed a KeyError bug in `collect_contract_identity` that would crash when a target base is absent from both venue metadata.
+
+### Action performed
+
+1. **Added `ContractIdentityTests` class** (13 tests) to `tests/test_historical_overlap_probe.py`:
+   - `test_verified_when_underlying_and_settlement_match` — matching underlying + settlement yields "verified"
+   - `test_candidate_when_underlying_matches_settlement_unknown` — underlying matches but HL settlement stripped yields "candidate"
+   - `test_candidate_when_underlying_matches_settlement_mismatch` — underlying matches but settle currencies differ yields "candidate"
+   - `test_unverified_when_underlying_mismatch` — underlying mismatch yields "unverified" regardless of settlement
+   - `test_hl_only_base_marked_unverified` — base present only on Hyperliquid yields "unverified" with limitation
+   - `test_okx_only_base_marked_unverified` — base present only on OKX yields "unverified" with limitation
+   - `test_empty_inputs_return_empty_result` — empty inputs yield empty result dict
+   - `test_non_linear_okx_contracts_excluded_from_verification` — inverse/non-USDT contracts excluded by extraction
+   - `test_collect_contract_identity_with_full_metadata` — end-to-end extraction + verification via "parsed" wrapper
+   - `test_collect_contract_identity_without_parsed_wrapper` — extraction works without "parsed" wrapper
+   - `test_collect_contract_identity_missing_base_yields_unverified` — target base absent from both venues yields "unverified"
+   - `test_collect_contract_identity_custom_target_bases` — custom target_bases override default TARGET_FIVE
+   - `test_collect_contract_identity_okx_uly_derives_quote` — uly-derived quote currency used when quoteCcy absent
+
+2. **Fixed source bug in `collect_contract_identity`** (line 259): Changed `[b]` (which raised KeyError when a target base is absent from both venues) to `.get(b, {"evidence_level": "unverified", ...})` so that missing targets yield "unverified" instead of crashing.
+
+### Key finding
+
+Through `collect_contract_identity`, Hyperledger settlement currency is always stripped by `extract_hl_universe_details` (settleCcy not in `HL_UNIVERSE_FIELDS`), and OKX extraction requires `settleCcy == "USDT"`. This means:
+- Contract identity through the extraction pipeline yields at best "candidate" (underlying match, settlement unknown), never "verified"
+- "Verified" only achievable via direct `verify_contract_identity` calls with manually constructed metadata including matching settleCcy
+- This reflects the documented limitation: "Hyperliquid perpetual settlement currency (USDC) is not exposed in the meta endpoint; settlement equivalence is inferred, not proven."
+
+### Validation commands run
+- `python3 -m compileall -q src scripts tests` = OK
+- `PYTHONPATH=src python3 -m unittest discover -s tests -v` = **399 tests OK** (386 prior + 13 new)
+- `PYTHONPATH=src python3 scripts/validate_research.py` = RESEARCH_VALIDATION=PASS (grid 108, anchor FVD053, NOT_RUN, no metrics)
+- `PYTHONPATH=src python3 scripts/validate_all.py` = ALL_VALIDATIONS=PASS count=23
+- `python3 scripts/validate_skills.py` = SKILLS_VALIDATION=PASS count=4
+- `git diff --check` = clean
+
+### Modified files
+- `scripts/probe_historical_overlap.py` (line 259: `.get(b, ...)` guard for missing target bases; sha256 `a88aff7b031839674a021e196a0727ce9cab57c584175b15330e6eaa27bddfb0`)
+- `tests/test_historical_overlap_probe.py` (added `ContractIdentityTests`, 13 new tests; sha256 `cfcfadff828b5e4b60c9959a276016bdf00e563487aff40e008c6e650a5955ae`)
+
+### Status
+- Confirmatory track: `BLOCKED_DATA_GATE` — FVD001–FVD108, FVD053 unchanged. No backtest, no performance metrics.
+- Exploratory track: FVD-EXPLORATORY-002 remains `EXPLORATORY_ONLY`/`INCONCLUSIVE`, 0 signals, no metrics.
+
+### Next measurable task
+Integrate `collect_contract_identity` into `run_probe()` output (step 5 of v3.3 execution sequence: "prove contract identity") so that the next probe run includes contract-identity evidence alongside the coverage matrix. This requires no paid data and only runs when network is available from the execution host.
+
+---
+
 ## Binance overlap sample + 3-venue coverage matrix + manifest linkage (2026-10-26)
 
 Executed the highest-priority measurable action from the v3.3 prompt execution sequence (step 4: build a per-underlying × venue × field × time coverage matrix for the verified data) after verifying the newest probe `historical_overlap_probe_40315875592_attempt_1.json` (observed 2026-10-26T11:33:21Z by an independent controller-side coverage run, sha `b400d2d9baa187a409d57729bf6535f812e3bee76e3f73a402ef802914324bfc`) was not yet linked to the exploratory manifest or coverage matrix.

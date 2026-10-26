@@ -256,7 +256,8 @@ def collect_contract_identity(
         "per_underlying": {b: verify_contract_identity(
             {b: hl_details_all[b]} if b in hl_details_all else {},
             {b: okx_details_all[b]} if b in okx_details_all else {},
-        )[b] for b in target_bases},
+        ).get(b, {"evidence_level": "unverified", "underlying_match": False,
+                  "limitations": ["Target base not found in either venue metadata."]}) for b in target_bases},
     }
 
 

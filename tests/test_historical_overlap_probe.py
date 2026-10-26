@@ -278,5 +278,161 @@ class OKxFundingPaginationTests(unittest.TestCase):
         self.assertEqual(result["stop_reason"], "page_not_full")
 
 
+class ContractIdentityTests(unittest.TestCase):
+    """Tests for verify_contract_identity and collect_contract_identity.
+
+    These functions perform pure metadata comparison with no network access.
+    """
+
+    def test_verified_when_underlying_and_settlement_match(self):
+        """Full metadata match on underlying + settlement -> verified."""
+        hl = {"name": "BTC", "settleCcy": "USDT"}
+        okx = {"instId": "BTC-USDT-SWAP", "baseCcy": "BTC", "settleCcy": "USDT"}
+        result = probe.verify_contract_identity({"BTC": hl}, {"BTC": okx})
+        self.assertEqual(result["BTC"]["evidence_level"], "verified")
+        self.assertTrue(result["BTC"]["underlying_match"])
+        self.assertTrue(result["BTC"]["settlement_match"])
+        self.assertTrue(result["BTC"]["hl_settle_known"])
+
+    def test_candidate_when_underlying_matches_settlement_unknown(self):
+        """Underlying matches but settlement can't be confirmed -> candidate."""
+        hl = {"name": "ETH"}
+        okx = {"instId": "ETH-USDT-SWAP", "baseCcy": "", "settleCcy": "USDT"}
+        result = probe.verify_contract_identity({"ETH": hl}, {"ETH": okx})
+        self.assertEqual(result["ETH"]["evidence_level"], "candidate")
+        self.assertTrue(result["ETH"]["underlying_match"])
+        self.assertFalse(result["ETH"]["settlement_match"])
+        self.assertFalse(result["ETH"]["hl_settle_known"])
+
+    def test_candidate_when_underlying_matches_settlement_mismatch(self):
+        """Underlying matches but settlement currencies differ -> candidate."""
+        hl = {"name": "SOL", "settleCcy": "USDC"}
+        okx = {"instId": "SOL-USDT-SWAP", "baseCcy": "SOL", "settleCcy": "USDT"}
+        result = probe.verify_contract_identity({"SOL": hl}, {"SOL": okx})
+        self.assertEqual(result["SOL"]["evidence_level"], "candidate")
+        self.assertTrue(result["SOL"]["underlying_match"])
+        self.assertFalse(result["SOL"]["settlement_match"])
+
+    def test_unverified_when_underlying_mismatch(self):
+        """No underlying match -> unverified regardless of settlement."""
+        hl = {"name": "BTC", "settleCcy": "USDC"}
+        okx = {"instId": "BTC-USDT-SWAP", "baseCcy": "WRONG", "settleCcy": "USDC"}
+        result = probe.verify_contract_identity({"BTC": hl}, {"BTC": okx})
+        self.assertEqual(result["BTC"]["evidence_level"], "unverified")
+        self.assertFalse(result["BTC"]["underlying_match"])
+
+    def test_hl_only_base_marked_unverified(self):
+        """Base present only on Hyperliquid -> unverified with limitations."""
+        hl = {"DOGE": {"name": "DOGE"}}
+        result = probe.verify_contract_identity({"DOGE": hl}, {})
+        self.assertEqual(result["DOGE"]["evidence_level"], "unverified")
+        self.assertFalse(result["DOGE"]["underlying_match"])
+        self.assertTrue(any("Present on Hyperliquid but not found in OKX" in lim
+                            for lim in result["DOGE"]["limitations"]))
+
+    def test_okx_only_base_marked_unverified(self):
+        """Base present only on OKX -> unverified with limitations."""
+        okx = {"AVAX": {"instId": "AVAX-USDT-SWAP"}}
+        result = probe.verify_contract_identity({}, okx)
+        self.assertEqual(result["AVAX"]["evidence_level"], "unverified")
+        self.assertFalse(result["AVAX"]["underlying_match"])
+        self.assertTrue(any("Present on OKX but not found in Hyperliquid" in lim
+                            for lim in result["AVAX"]["limitations"]))
+
+    def test_empty_inputs_return_empty_result(self):
+        """No instruments on either side -> empty dict."""
+        result = probe.verify_contract_identity({}, {})
+        self.assertEqual(result, {})
+
+    def test_non_linear_okx_contracts_excluded_from_verification(self):
+        """Inverse contracts with non-USDT settle are excluded by extraction,
+        so verify_contract_identity never sees them."""
+        payload = {"code": "0", "data": [
+            {"baseCcy": "BTC", "instId": "BTC-USDT-SWAP", "settleCcy": "USDT",
+             "ctType": "linear", "state": "live"},
+            {"baseCcy": "ETH", "instId": "ETH-USD-SWAP", "settleCcy": "USD",
+             "ctType": "inverse", "state": "live"},
+        ]}
+        details = probe.extract_okx_instrument_details(payload)
+        self.assertIn("BTC", details)
+        self.assertNotIn("ETH", details)
+        result = probe.verify_contract_identity({"BTC": {"name": "BTC"}}, details)
+        self.assertIn("BTC", result)
+        self.assertNotIn("ETH", result)
+
+    def test_collect_contract_identity_with_full_metadata(self):
+        """collect_contract_identity extracts details and runs verification."""
+        hl_meta = {"parsed": {"universe": [
+            {"name": "BTC", "settleCcy": "USDC"},
+            {"name": "ETH", "settleCcy": "USDC"},
+        ]}}
+        okx_meta = {"parsed": {"code": "0", "data": [
+            {"instId": "BTC-USDT-SWAP", "baseCcy": "BTC", "settleCcy": "USDT",
+             "quoteCcy": "USDT", "uly": "BTC-USDT", "ctType": "linear", "state": "live"},
+            {"instId": "ETH-USDT-SWAP", "baseCcy": "ETH", "settleCcy": "USDT",
+             "quoteCcy": "USDT", "uly": "ETH-USDT", "ctType": "linear", "state": "live"},
+        ]}}
+        result = probe.collect_contract_identity(hl_meta, okx_meta, ("BTC", "ETH"))
+        self.assertEqual(result["target_underlyings"], ["BTC", "ETH"])
+        self.assertEqual(result["hl_universe_size"], 2)
+        self.assertEqual(result["okx_instrument_count"], 2)
+        self.assertEqual(result["per_underlying"]["BTC"]["evidence_level"], "candidate")
+        self.assertEqual(result["per_underlying"]["ETH"]["evidence_level"], "candidate")
+
+    def test_collect_contract_identity_without_parsed_wrapper(self):
+        """Works when metadata is passed directly without 'parsed' wrapper."""
+        hl_meta = {"universe": [{"name": "BTC", "settleCcy": "USDC"}]}
+        okx_meta = {"code": "0", "data": [
+            {"instId": "BTC-USDT-SWAP", "baseCcy": "BTC", "settleCcy": "USDT",
+             "ctType": "linear", "state": "live"},
+        ]}
+        result = probe.collect_contract_identity(hl_meta, okx_meta, ("BTC",))
+        self.assertEqual(result["hl_universe_size"], 1)
+        self.assertEqual(result["okx_instrument_count"], 1)
+        self.assertIn("BTC", result["per_underlying"])
+
+    def test_collect_contract_identity_missing_base_yields_unverified(self):
+        """Target base not found in either venue -> unverified."""
+        hl_meta = {"universe": [{"name": "BTC", "settleCcy": "USDC"}]}
+        okx_meta = {"code": "0", "data": [
+            {"instId": "BTC-USDT-SWAP", "baseCcy": "BTC", "settleCcy": "USDT",
+             "ctType": "linear", "state": "live"},
+        ]}
+        result = probe.collect_contract_identity(hl_meta, okx_meta, ("LINK",))
+        self.assertEqual(result["per_underlying"]["LINK"]["evidence_level"], "unverified")
+
+    def test_collect_contract_identity_custom_target_bases(self):
+        """Custom target_bases override the default TARGET_FIVE.
+
+        Through collect_contract_identity, Hyperliquid settlement currency is
+        stripped by extract_hl_universe_details (settleCcy not in
+        HL_UNIVERSE_FIELDS), so underlying-matching bases yield 'candidate',
+        not 'verified'.
+        """
+        hl_meta = {"universe": [{"name": "XRP", "settleCcy": "USDC"}]}
+        okx_meta = {"code": "0", "data": [
+            {"instId": "XRP-USDT-SWAP", "baseCcy": "XRP", "settleCcy": "USDT",
+             "ctType": "linear", "state": "live"},
+        ]}
+        result = probe.collect_contract_identity(hl_meta, okx_meta, ("XRP", "HYPE"))
+        self.assertEqual(result["target_underlyings"], ["XRP", "HYPE"])
+        self.assertEqual(result["per_underlying"]["XRP"]["evidence_level"], "candidate")
+        self.assertEqual(result["per_underlying"]["HYPE"]["evidence_level"], "unverified")
+
+    def test_collect_contract_identity_okx_uly_derives_quote(self):
+        """When quoteCcy is absent, uly's quote part is used for quote comparison.
+
+        Through collect_contract_identity, HL settleCcy is stripped, so
+        underlying-matching bases yield 'candidate', not 'verified'.
+        """
+        hl_meta = {"universe": [{"name": "APT", "settleCcy": "USDC", "quoteCcy": "USD"}]}
+        okx_meta = {"code": "0", "data": [
+            {"instId": "APT-USDT-SWAP", "baseCcy": "APT", "uly": "APT-USDT",
+             "settleCcy": "USDT", "ctType": "linear", "state": "live"},
+        ]}
+        result = probe.collect_contract_identity(hl_meta, okx_meta, ("APT",))
+        self.assertEqual(result["per_underlying"]["APT"]["evidence_level"], "candidate")
+
+
 if __name__ == "__main__":
     unittest.main()
