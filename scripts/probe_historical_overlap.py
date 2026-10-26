@@ -114,11 +114,31 @@ def hl_candle_payload(coin: str, start_ms: int, end_ms: int, interval: str = "1h
     }
 
 
+HL_UNIVERSE_FIELDS = (
+    "name", "szDecimals", "maxLeverage", "marginTableId",
+    "displaySymbol", "contractType", "id",
+)
+
+
 def extract_hl_coins(meta: Any) -> set[str]:
     if not isinstance(meta, dict) or not isinstance(meta.get("universe"), list):
         return set()
     return {str(row["name"]) for row in meta["universe"]
             if isinstance(row, dict) and row.get("name") is not None}
+
+
+def extract_hl_universe_details(meta: Any) -> dict[str, dict]:
+    if not isinstance(meta, dict) or not isinstance(meta.get("universe"), list):
+        return {}
+    out: dict[str, dict] = {}
+    for entry in meta["universe"]:
+        if not isinstance(entry, dict) or entry.get("name") is None:
+            continue
+        name = str(entry["name"])
+        if name in out:
+            continue
+        out[name] = {k: entry.get(k) for k in HL_UNIVERSE_FIELDS if k in entry}
+    return out
 
 
 def extract_okx_linear_usdt_swaps(payload: Any) -> dict[str, dict]:
@@ -134,6 +154,116 @@ def extract_okx_linear_usdt_swaps(payload: Any) -> dict[str, dict]:
             if base and base not in out:
                 out[str(base)] = item
     return out
+
+
+OKX_INSTRUMENT_SPEC_FIELDS = (
+    "instId", "baseCcy", "quoteCcy", "settleCcy", "ctType", "state",
+    "ctVal", "ctValCcy", "ctMult", "uly", "instIdCode", "instCategory",
+    "instFamily", "listTime", "lever", "tickSz", "lotSz", "minSz",
+)
+
+
+def extract_okx_instrument_details(payload: Any) -> dict[str, dict]:
+    raw = extract_okx_linear_usdt_swaps(payload)
+    out: dict[str, dict] = {}
+    for base, item in raw.items():
+        out[base] = {k: item.get(k) for k in OKX_INSTRUMENT_SPEC_FIELDS if k in item}
+    return out
+
+
+def verify_contract_identity(
+    hl_details: dict[str, dict],
+    okx_details: dict[str, dict],
+) -> dict:
+    """Cross-reference Hyperliquid and OKX instrument metadata to assign
+    contract-identity evidence levels.
+
+    Evidence levels per underlying:
+      - verified: full metadata comparison confirms equivalent contracts (same
+        underlying, same settlement semantics, no unresolved spec mismatch).
+      - candidate: symbol-level underlying match exists on both venues but
+        settlement-currency or full-spec equivalence cannot be confirmed from
+        the available metadata.
+      - unverified: no match found.
+
+    This function performs metadata comparison only; it does not establish
+    historical listing/delisting tracking or a guaranteed one-to-one contract
+    identifier across venues.
+    """
+    results: dict[str, dict] = {}
+    common = sorted(set(hl_details.keys()) & set(okx_details.keys()))
+    for base in common:
+        hl = hl_details[base]
+        okx = okx_details[base]
+        hl_settle = hl.get("settleCcy") or hl.get("settlementCurrency")
+        okx_settle = okx.get("settleCcy")
+        hl_quote = hl.get("quoteCcy")
+        okx_quote = okx.get("quoteCcy") or okx.get("uly", "").split("-")[-1] if okx.get("uly") else None
+        hl_name = hl.get("name")
+        okx_base = okx.get("baseCcy") or okx.get("instId", "").split("-")[0]
+        underlying_match = hl_name == okx_base
+        settlement_match = hl_settle is not None and hl_settle == okx_settle
+        quote_match = hl_quote is not None and hl_quote == okx_quote
+        hl_settle_known = hl_settle is not None
+        if underlying_match and settlement_match and hl_settle_known:
+            level = "verified"
+        elif underlying_match:
+            level = "candidate"
+        else:
+            level = "unverified"
+        results[base] = {
+            "evidence_level": level,
+            "underlying_match": underlying_match,
+            "hl_name": hl_name,
+            "okx_base_ccy": okx_base,
+            "hl_settle_ccy": hl_settle,
+            "okx_settle_ccy": okx_settle,
+            "settlement_match": settlement_match,
+            "hl_settle_known": hl_settle_known,
+            "quote_match": quote_match,
+            "hl_spec": {k: hl.get(k) for k in ("name", "szDecimals", "maxLeverage", "marginTableId")},
+            "okx_spec": {k: okx.get(k) for k in ("instId", "uly", "ctVal", "ctValCcy", "ctMult", "ctType", "settleCcy", "listTime")},
+            "limitations": [
+                "Hyperliquid perpetual settlement currency (USDC) is not exposed in the meta endpoint; settlement equivalence is inferred, not proven.",
+                "OKX baseCcy is empty for linear USDT swaps; base is derived from instId, not independently verified.",
+                "No common cross-venue contract identifier or historical listing/delisting timeline is compared.",
+                "Survivorship and ticker-reuse handling not assessed.",
+            ],
+        }
+    for base in sorted(set(hl_details.keys()) - set(okx_details.keys())):
+        results[base] = {"evidence_level": "unverified", "underlying_match": False,
+                         "limitations": ["Present on Hyperliquid but not found in OKX linear USDT swaps."]}
+    for base in sorted(set(okx_details.keys()) - set(hl_details.keys())):
+        results[base] = {"evidence_level": "unverified", "underlying_match": False,
+                         "limitations": ["Present on OKX but not found in Hyperliquid universe."]}
+    return results
+
+
+def collect_contract_identity(
+    hl_meta: dict,
+    okx_meta: dict,
+    target_bases: tuple[str, ...] = TARGET_FIVE,
+) -> dict:
+    """Collect Hyperliquid and OKX instrument metadata and run cross-venue
+    contract-identity verification for the requested target underlyings.
+    """
+    hl_details_all = extract_hl_universe_details(hl_meta.get("parsed") if isinstance(hl_meta, dict) and "parsed" in hl_meta else _meta_payload_to_universe(hl_meta))
+    okx_details_all = extract_okx_instrument_details(okx_meta.get("parsed") if isinstance(okx_meta, dict) and "parsed" in okx_meta else okx_meta)
+    return {
+        "target_underlyings": list(target_bases),
+        "hl_universe_size": len(hl_details_all),
+        "okx_instrument_count": len(okx_details_all),
+        "per_underlying": {b: verify_contract_identity(
+            {b: hl_details_all[b]} if b in hl_details_all else {},
+            {b: okx_details_all[b]} if b in okx_details_all else {},
+        )[b] for b in target_bases},
+    }
+
+
+def _meta_payload_to_universe(payload: Any) -> dict:
+    if isinstance(payload, dict) and "universe" in payload:
+        return payload
+    return {}
 
 
 def summarize_rows(rows: list, timestamp_field: str | None = None,
