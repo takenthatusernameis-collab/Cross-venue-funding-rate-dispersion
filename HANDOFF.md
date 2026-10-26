@@ -1,3 +1,63 @@
+## Binance overlap sample + 3-venue coverage matrix + manifest linkage (2026-10-26)
+
+Executed the highest-priority measurable action from the v3.3 prompt execution sequence (step 4: build a per-underlying × venue × field × time coverage matrix for the verified data) after verifying the newest probe `historical_overlap_probe_40315875592_attempt_1.json` (observed 2026-10-26T11:33:21Z by an independent controller-side coverage run, sha `b400d2d9baa187a409d57729bf6535f812e3bee76e3f73a402ef802914324bfc`) was not yet linked to the exploratory manifest or coverage matrix.
+
+### Action performed
+
+1. **Downloaded and verified bounded Binance archive sample**: 24 checksum-matched ZIP downloads (4 underlyings × 3 overlap months July–September 2026 × 2 fields: fundingRate + 1h klines) plus 3 historical depth samples (BTC funding 2024-01, BTC funding 2025-06, BTC klines 2024-06). All 27 downloads verified against sibling `.CHECKSUM` files; all SHA-256 digests matched. Confirmed:
+   - Funding rate interval is consistently 8h across all samples (matching OKX).
+   - Funding rate CSV schema: `calc_time,funding_interval_hours,last_funding_rate`
+   - Klines CSV schema: `open_time,open,high,low,close,volume,...`
+   - Full hourly kline coverage within each month (720–744 rows/month, no gaps).
+   - Historical depth: 2020-01 through 2026-09 (6.82 years) — confirmed by availability + checksum-verified samples across multiple years.
+
+2. **Built 3-venue coverage matrix** (`research_state/coverage_matrix_2026-10-26.json`): Updated per-underlying × venue × field × time coverage to include Binance as a third verified venue alongside Hyperliquid and OKX. Key findings:
+   - Hyperliquid + OKX common funding intersection: 2026-07-20 to 2026-10-26 (~98 days, meets 90-day threshold)
+   - 3-venue common funding intersection: 2026-07-20 to 2026-09-30 (~72 days, below 90-day threshold — Binance archive ends at 2026-09)
+   - Binance + Hyperliquid 2-venue funding intersection: 2026-07-01 to 2026-09-30 (~91 days, barely meets 90-day threshold)
+   - 4 underlyings: BTC, ETH, SOL, AVAX (LINK not available in latest controller-run probe)
+
+3. **Linked new probe and artifacts to FVD-EXPLORATORY-002 manifest**: Added 3 new output_artifacts entries (independent controller probe, new 3-venue coverage matrix, Binance overlap sample) and 2 caveats to `research_state/exploratory_run_manifest_2026-10-25.json`. Core frozen fields unchanged: status=EXPLORATORY_ONLY, confirmatory_status_preserved=BLOCKED_DATA_GATE, backtest_completed=false, performance_metrics_computed=false, anchor_result=0 signals INCONCLUSIVE.
+
+### Artifact created
+- `research_state/binance_overlap_sample_2026-10-26.json` (sha `a61fa295c74fd5f17e9b50d516bdd640c0d55c239db8c0e2e3c6664ef2d1712b`): 27 verified downloads, 24 Binance archive samples + 3 historical depth samples.
+- `research_state/coverage_matrix_2026-10-26.json` (sha `06c89dd98f5ae0f44d299c3dd60a8c85a75ce44c3d72b885f1e2e1ce9bf9a234`): 3-venue coverage matrix (Hyperliquid + OKX + Binance), 4 underlyings.
+- Updated `research_state/exploratory_run_manifest_2026-10-25.json` (new sha `01191cc4de19ee57c396b9e0efeeee85ecef8765b84d277164131a310907ee70`): added 3 output_artifacts, 2 caveats, updated next_step and timestamps.
+
+### Validation commands run
+- `python3 -m compileall -q src scripts tests` = OK
+- `PYTHONPATH=src python3 -m unittest discover -s tests -v` = 386 tests OK
+- `PYTHONPATH=src python3 scripts/validate_research.py` = RESEARCH_VALIDATION=PASS (grid 108, anchor FVD053, NOT_RUN, no metrics)
+- `PYTHONPATH=src python3 scripts/validate_all.py` = ALL_VALIDATIONS=PASS count=23
+- `python3 scripts/validate_skills.py` = SKILLS_VALIDATION=PASS count=4
+- `PYTHONPATH=src python3 scripts/validate_manifest_artifacts.py` = MANIFEST_ARTIFACTS_VALIDATION=PASS (10 artifacts verified)
+- `PYTHONPATH=src python3 scripts/validate_manifest_schema.py` = MANIFEST_SCHEMA_VALIDATION=PASS
+- `PYTHONPATH=src python3 scripts/validate_track_separation.py` = TRACK_SEPARATION_VALIDATION=PASS
+- `PYTHONPATH=src python3 scripts/validate_research_state_artifacts.py` = RESEARCH_STATE_ARTIFACTS_VALIDATION=PASS files=30
+- `PYTHONPATH=src python3 scripts/validate_blocked_manifest_claims.py` = BLOCKED_MANIFEST_CLAIMS_VALIDATION=PASS
+- `python3 scripts/validate_no_performance_claims.py` = NO_PERFORMANCE_CLAIMS_VALIDATION=PASS
+- `git diff --check` = clean
+
+### Frozen artifacts verified unchanged
+- `configs/cross_venue_funding_dispersion_grid_v1.json` sha `6be218bc84bf118cf67c238ad1c13ef1e445658db3b1346cd64ccaccc7aa5f07` (unchanged)
+- `research_state/run_manifest.json` sha `4f162ce128c741434addf6aa2fa7c7dbf1bf189d4a81b8893ed96899412c7aaf` (unchanged, BLOCKED_DATA_GATE)
+- `research_state/fvd053_anchor_run_2026-10-25.json` sha `50b328baf5854dec40105a0f5ebe498bf589906f9c033ce659843659927ca4c2` (unchanged)
+- `research_state/coverage_matrix_2026-10-25.json` sha `96954273b59bdc4ebcdfeec00c164e164bb324cf9d08be2868cbb92bc99514ef` (unchanged)
+
+### Status
+- Confirmatory track: `BLOCKED_DATA_GATE` — FVD001–FVD108, FVD053 unchanged. No backtest, no performance metrics. The >=3-year historical point-in-time market-cap gate remains unmet (Binance does not provide PIT market-cap ranks; no free source proven to satisfy it).
+- Exploratory track: FVD-EXPLORATORY-002 remains `EXPLORATORY_ONLY`/`INCONCLUSIVE`, 0 signals, no metrics. Now verified across 3 venues (Hyperliquid, OKX, Binance) with Binance providing 6.82 years of 8h-funded history. Contract identity remains symbol-only/unverified across all venues.
+- No workflow files modified; no paid data, credentials, live trading, or paper trading.
+
+### Key finding
+Binance Public Data archive is a viable third venue with 6.82 years of verified 8h funding + 1h price history (2020-01 to 2026-09). However, the archive ends at 2026-09, which limits the 3-venue common funding overlap to ~72 days (below the 90-day threshold for FVD053). The best 2-venue overlap remains Hyperliquid + OKX (~98 days, meets threshold). Binance + Hyperliquid gives ~91 days (barely meets threshold). Extending Binance data further (2026-10+) would require waiting for the Binance archive to publish new monthly files. No performance metrics computed or claimed.
+
+### Next measurable task
+1. Monitor whether Binance archive publishes 2026-10+ monthly files; if available, download bounded Oct–Nov 2026 Binance funding + klines samples to extend the 3-venue overlap and re-assess the 90-day threshold. If the extended 3-venue overlap meets the threshold, download a bounded Binance sample covering the full overlap period and re-evaluate the frozen FVD053 anchor on the extended 3-venue data (keeping EXPLORATORY_ONLY/INCONCLUSIVE status).
+2. If Binance monthly files do not yet cover October 2026, proceed with source-independent funding-accounting hardening: audit `_latest_at_or_before` for unsorted rates across 1h/8h venues (tests already pass), verify price/basis PnL attribution in multi-venue `simulate_signal` (tests already pass), add red-team-style independent recomputation test from the signal ledger (test already passes).
+
+---
+
 ## Binance Public Data archive feasibility assessment (2026-10-26)
 
 Completed the next measurable task from the prior handoff: Binance-archive-download feasibility assessment as an exploratory route. Downloaded 4 fundingRate monthly ZIPs (2020-01, 2021-06, 2023-12, 2025-06) and 1 klines (1h) ZIP (2024-06) over anonymous HTTPS from `data.binance.vision`, no credentials, no paid tier. Each download's SHA-256 digest was compared against the sibling `.CHECKSUM` file; all matched. Verified:

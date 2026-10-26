@@ -1,0 +1,369 @@
+{
+  "artifact_type": "binance_overlap_sample",
+  "schema_version": "1.0",
+  "status": "EXPLORATORY_ONLY",
+  "backtest_completed": false,
+  "performance_metrics_computed": false,
+  "original_confirmatory_gate": "BLOCKED_DATA_GATE",
+  "observed_at_utc": "2026-10-26T13:16:24Z",
+  "source": "Binance Public Data archive (data.binance.vision)",
+  "access_mode": "anonymous HTTPS, no credentials, no paid tier",
+  "purpose": "Bounded verification of Binance USD-M futures funding rate and 1h klines archives for the overlap period (2026-07 through 2026-09) across 4 underlyings (BTC, ETH, SOL, AVAX). Verifies funding_interval_hours=8h (matching OKX), consistent CSV schema, checksum-validated downloads, and historical depth sampling. This is a bounded sample, not a full archive download.",
+  "covered_underlyings": [
+    {
+      "binance_symbol": "BTCUSDT",
+      "underlying": "BTC"
+    },
+    {
+      "binance_symbol": "ETHUSDT",
+      "underlying": "ETH"
+    },
+    {
+      "binance_symbol": "SOLUSDT",
+      "underlying": "SOL"
+    },
+    {
+      "binance_symbol": "AVAXUSDT",
+      "underlying": "AVAX"
+    }
+  ],
+  "overlap_period_months": [
+    "2026-07",
+    "2026-08",
+    "2026-09"
+  ],
+  "samples": {
+    "BTC_funding_2026-07": {
+      "rows": 93,
+      "first_utc": "2026-07-01T00:00:00Z",
+      "last_utc": "2026-07-31T16:00:00Z",
+      "funding_interval_hours_confirmed": [
+        8
+      ],
+      "checksum_match": true,
+      "actual_sha": "e36fcc66f493d7d9ec348c852fc22e9f318c79cf7adae17398a3994ae0adc41e",
+      "expected_sha": "e36fcc66f493d7d9ec348c852fc22e9f318c79cf7adae17398a3994ae0adc41e",
+      "sample_rate_first": "0.00005532",
+      "sample_rate_last": "0.00005664",
+      "url": "https://data.binance.vision/data/futures/um/monthly/fundingRate/BTCUSDT/BTCUSDT-fundingRate-2026-07.zip"
+    },
+    "BTC_klines_2026-07": {
+      "rows": 744,
+      "first_utc": "2026-07-01T00:00:00Z",
+      "last_utc": "2026-07-31T23:00:00Z",
+      "checksum_match": true,
+      "actual_sha": "a09f135066ace6925ce051ddbbdd4345c103423fbe35d32b568942de978dcc7c",
+      "expected_sha": "a09f135066ace6925ce051ddbbdd4345c103423fbe35d32b568942de978dcc7c",
+      "url": "https://data.binance.vision/data/futures/um/monthly/klines/BTCUSDT/1h/BTCUSDT-1h-2026-07.zip"
+    },
+    "BTC_funding_2026-08": {
+      "rows": 93,
+      "first_utc": "2026-08-01T00:00:00Z",
+      "last_utc": "2026-08-31T16:00:00Z",
+      "funding_interval_hours_confirmed": [
+        8
+      ],
+      "checksum_match": true,
+      "actual_sha": "7c108b3a02bd6dc7345ca7323e3a49664edcea0afdcf780ffb3b44762c45a964",
+      "expected_sha": "7c108b3a02bd6dc7345ca7323e3a49664edcea0afdcf780ffb3b44762c45a964",
+      "sample_rate_first": "0.00004123",
+      "sample_rate_last": "0.00010000",
+      "url": "https://data.binance.vision/data/futures/um/monthly/fundingRate/BTCUSDT/BTCUSDT-fundingRate-2026-08.zip"
+    },
+    "BTC_klines_2026-08": {
+      "rows": 744,
+      "first_utc": "2026-08-01T00:00:00Z",
+      "last_utc": "2026-08-31T23:00:00Z",
+      "checksum_match": true,
+      "actual_sha": "b594301740cbb39818ba60f2835e4636aa06ad53308e25b1b312f1443fe0ccfe",
+      "expected_sha": "b594301740cbb39818ba60f2835e4636aa06ad53308e25b1b312f1443fe0ccfe",
+      "url": "https://data.binance.vision/data/futures/um/monthly/klines/BTCUSDT/1h/BTCUSDT-1h-2026-08.zip"
+    },
+    "BTC_funding_2026-09": {
+      "rows": 90,
+      "first_utc": "2026-09-01T00:00:00Z",
+      "last_utc": "2026-09-30T16:00:00Z",
+      "funding_interval_hours_confirmed": [
+        8
+      ],
+      "checksum_match": true,
+      "actual_sha": "913cd31b8f924a06717a2fac17f3df6132c24ccded209eb3e4ae7d83e1b247f2",
+      "expected_sha": "913cd31b8f924a06717a2fac17f3df6132c24ccded209eb3e4ae7d83e1b247f2",
+      "sample_rate_first": "0.00008482",
+      "sample_rate_last": "0.00006606",
+      "url": "https://data.binance.vision/data/futures/um/monthly/fundingRate/BTCUSDT/BTCUSDT-fundingRate-2026-09.zip"
+    },
+    "BTC_klines_2026-09": {
+      "rows": 720,
+      "first_utc": "2026-09-01T00:00:00Z",
+      "last_utc": "2026-09-30T23:00:00Z",
+      "checksum_match": true,
+      "actual_sha": "07ab960882feb6d3120673a851f2a654c4c3f31f3a74d1f3fc4b0351a8ee1483",
+      "expected_sha": "07ab960882feb6d3120673a851f2a654c4c3f31f3a74d1f3fc4b0351a8ee1483",
+      "url": "https://data.binance.vision/data/futures/um/monthly/klines/BTCUSDT/1h/BTCUSDT-1h-2026-09.zip"
+    },
+    "ETH_funding_2026-07": {
+      "rows": 93,
+      "first_utc": "2026-07-01T00:00:00Z",
+      "last_utc": "2026-07-31T16:00:00Z",
+      "funding_interval_hours_confirmed": [
+        8
+      ],
+      "checksum_match": true,
+      "actual_sha": "ece7f6c64d0e45fbd64929dec40bae525fe365381046e367de5ca0827bc623d3",
+      "expected_sha": "ece7f6c64d0e45fbd64929dec40bae525fe365381046e367de5ca0827bc623d3",
+      "sample_rate_first": "0.00006151",
+      "sample_rate_last": "-0.00002045",
+      "url": "https://data.binance.vision/data/futures/um/monthly/fundingRate/ETHUSDT/ETHUSDT-fundingRate-2026-07.zip"
+    },
+    "ETH_klines_2026-07": {
+      "rows": 744,
+      "first_utc": "2026-07-01T00:00:00Z",
+      "last_utc": "2026-07-31T23:00:00Z",
+      "checksum_match": true,
+      "actual_sha": "2036043c65c50a1d9c817db4c93db0c97366851d7cc972efb8c5e951cb3b5cdd",
+      "expected_sha": "2036043c65c50a1d9c817db4c93db0c97366851d7cc972efb8c5e951cb3b5cdd",
+      "url": "https://data.binance.vision/data/futures/um/monthly/klines/ETHUSDT/1h/ETHUSDT-1h-2026-07.zip"
+    },
+    "ETH_funding_2026-08": {
+      "rows": 93,
+      "first_utc": "2026-08-01T00:00:00Z",
+      "last_utc": "2026-08-31T16:00:00Z",
+      "funding_interval_hours_confirmed": [
+        8
+      ],
+      "checksum_match": true,
+      "actual_sha": "8b843307038b3aedf725b1342003cce39f9526451ed92f407ca80bc637487839",
+      "expected_sha": "8b843307038b3aedf725b1342003cce39f9526451ed92f407ca80bc637487839",
+      "sample_rate_first": "0.00006744",
+      "sample_rate_last": "0.00007702",
+      "url": "https://data.binance.vision/data/futures/um/monthly/fundingRate/ETHUSDT/ETHUSDT-fundingRate-2026-08.zip"
+    },
+    "ETH_klines_2026-08": {
+      "rows": 744,
+      "first_utc": "2026-08-01T00:00:00Z",
+      "last_utc": "2026-08-31T23:00:00Z",
+      "checksum_match": true,
+      "actual_sha": "52ede96e424bdc696b4b7a30aa4f2f56cd32e58c6598400f25f7b3a8dc6cf50a",
+      "expected_sha": "52ede96e424bdc696b4b7a30aa4f2f56cd32e58c6598400f25f7b3a8dc6cf50a",
+      "url": "https://data.binance.vision/data/futures/um/monthly/klines/ETHUSDT/1h/ETHUSDT-1h-2026-08.zip"
+    },
+    "ETH_funding_2026-09": {
+      "rows": 90,
+      "first_utc": "2026-09-01T00:00:00Z",
+      "last_utc": "2026-09-30T16:00:00Z",
+      "funding_interval_hours_confirmed": [
+        8
+      ],
+      "checksum_match": true,
+      "actual_sha": "d1916b9181cf3507ad5a6522ac6587cd84a424941f1a2132ab887f768b5dd4de",
+      "expected_sha": "d1916b9181cf3507ad5a6522ac6587cd84a424941f1a2132ab887f768b5dd4de",
+      "sample_rate_first": "0.00005716",
+      "sample_rate_last": "0.00003478",
+      "url": "https://data.binance.vision/data/futures/um/monthly/fundingRate/ETHUSDT/ETHUSDT-fundingRate-2026-09.zip"
+    },
+    "ETH_klines_2026-09": {
+      "rows": 720,
+      "first_utc": "2026-09-01T00:00:00Z",
+      "last_utc": "2026-09-30T23:00:00Z",
+      "checksum_match": true,
+      "actual_sha": "f4331baae4c38dea1c123836808f3353473cc28e6c434ef38669698ae79599fc",
+      "expected_sha": "f4331baae4c38dea1c123836808f3353473cc28e6c434ef38669698ae79599fc",
+      "url": "https://data.binance.vision/data/futures/um/monthly/klines/ETHUSDT/1h/ETHUSDT-1h-2026-09.zip"
+    },
+    "SOL_funding_2026-07": {
+      "rows": 93,
+      "first_utc": "2026-07-01T00:00:00Z",
+      "last_utc": "2026-07-31T16:00:00Z",
+      "funding_interval_hours_confirmed": [
+        8
+      ],
+      "checksum_match": true,
+      "actual_sha": "13f655eaa29865b16acc7bd97be74e212bc4c2139fc2f9ead4d150852c2a9ebb",
+      "expected_sha": "13f655eaa29865b16acc7bd97be74e212bc4c2139fc2f9ead4d150852c2a9ebb",
+      "sample_rate_first": "0.00010000",
+      "sample_rate_last": "0.00003736",
+      "url": "https://data.binance.vision/data/futures/um/monthly/fundingRate/SOLUSDT/SOLUSDT-fundingRate-2026-07.zip"
+    },
+    "SOL_klines_2026-07": {
+      "rows": 744,
+      "first_utc": "2026-07-01T00:00:00Z",
+      "last_utc": "2026-07-31T23:00:00Z",
+      "checksum_match": true,
+      "actual_sha": "4a88a47617d14ba94ae2154732ba724497a8cad66b1d7fd0dc4f88216101e0be",
+      "expected_sha": "4a88a47617d14ba94ae2154732ba724497a8cad66b1d7fd0dc4f88216101e0be",
+      "url": "https://data.binance.vision/data/futures/um/monthly/klines/SOLUSDT/1h/SOLUSDT-1h-2026-07.zip"
+    },
+    "SOL_funding_2026-08": {
+      "rows": 93,
+      "first_utc": "2026-08-01T00:00:00Z",
+      "last_utc": "2026-08-31T16:00:00Z",
+      "funding_interval_hours_confirmed": [
+        8
+      ],
+      "checksum_match": true,
+      "actual_sha": "593e99bb628c0b178a5a2c8f415e1ed489dfd7dea497366f1fee91b8768c704d",
+      "expected_sha": "593e99bb628c0b178a5a2c8f415e1ed489dfd7dea497366f1fee91b8768c704d",
+      "sample_rate_first": "0.00010000",
+      "sample_rate_last": "-0.00001602",
+      "url": "https://data.binance.vision/data/futures/um/monthly/fundingRate/SOLUSDT/SOLUSDT-fundingRate-2026-08.zip"
+    },
+    "SOL_klines_2026-08": {
+      "rows": 744,
+      "first_utc": "2026-08-01T00:00:00Z",
+      "last_utc": "2026-08-31T23:00:00Z",
+      "checksum_match": true,
+      "actual_sha": "a25ab3dfcabcf739bd8bdd0aa9b1302865d5c571a5af1ffbb6e4a2b5c26ab833",
+      "expected_sha": "a25ab3dfcabcf739bd8bdd0aa9b1302865d5c571a5af1ffbb6e4a2b5c26ab833",
+      "url": "https://data.binance.vision/data/futures/um/monthly/klines/SOLUSDT/1h/SOLUSDT-1h-2026-08.zip"
+    },
+    "SOL_funding_2026-09": {
+      "rows": 90,
+      "first_utc": "2026-09-01T00:00:00Z",
+      "last_utc": "2026-09-30T16:00:00Z",
+      "funding_interval_hours_confirmed": [
+        8
+      ],
+      "checksum_match": true,
+      "actual_sha": "8503ce0767496c63929bedc4f43307efcea8216d181a873b32a695f6d85092ef",
+      "expected_sha": "8503ce0767496c63929bedc4f43307efcea8216d181a873b32a695f6d85092ef",
+      "sample_rate_first": "0.00003679",
+      "sample_rate_last": "7.4E-7",
+      "url": "https://data.binance.vision/data/futures/um/monthly/fundingRate/SOLUSDT/SOLUSDT-fundingRate-2026-09.zip"
+    },
+    "SOL_klines_2026-09": {
+      "rows": 720,
+      "first_utc": "2026-09-01T00:00:00Z",
+      "last_utc": "2026-09-30T23:00:00Z",
+      "checksum_match": true,
+      "actual_sha": "e57f44b7df1f4269a06395c161d3618d9bc3d56e623825fc77c615d713a19263",
+      "expected_sha": "e57f44b7df1f4269a06395c161d3618d9bc3d56e623825fc77c615d713a19263",
+      "url": "https://data.binance.vision/data/futures/um/monthly/klines/SOLUSDT/1h/SOLUSDT-1h-2026-09.zip"
+    },
+    "AVAX_funding_2026-07": {
+      "rows": 93,
+      "first_utc": "2026-07-01T00:00:00Z",
+      "last_utc": "2026-07-31T16:00:00Z",
+      "funding_interval_hours_confirmed": [
+        8
+      ],
+      "checksum_match": true,
+      "actual_sha": "5bf8c87477bdefc138b26cc29945f4ec64137b8c58e3e4683407aad367874712",
+      "expected_sha": "5bf8c87477bdefc138b26cc29945f4ec64137b8c58e3e4683407aad367874712",
+      "sample_rate_first": "0.00006871",
+      "sample_rate_last": "0.00003544",
+      "url": "https://data.binance.vision/data/futures/um/monthly/fundingRate/AVAXUSDT/AVAXUSDT-fundingRate-2026-07.zip"
+    },
+    "AVAX_klines_2026-07": {
+      "rows": 744,
+      "first_utc": "2026-07-01T00:00:00Z",
+      "last_utc": "2026-07-31T23:00:00Z",
+      "checksum_match": true,
+      "actual_sha": "4375f0ac4ae192e863fb4722df9afec601409a3fa48e1f7bdcac0419f4159389",
+      "expected_sha": "4375f0ac4ae192e863fb4722df9afec601409a3fa48e1f7bdcac0419f4159389",
+      "url": "https://data.binance.vision/data/futures/um/monthly/klines/AVAXUSDT/1h/AVAXUSDT-1h-2026-07.zip"
+    },
+    "AVAX_funding_2026-08": {
+      "rows": 93,
+      "first_utc": "2026-08-01T00:00:00Z",
+      "last_utc": "2026-08-31T16:00:00Z",
+      "funding_interval_hours_confirmed": [
+        8
+      ],
+      "checksum_match": true,
+      "actual_sha": "9fcb67ba7298b786401daa3605fb9839f1f1af5695100d0e10eaa3e99163c619",
+      "expected_sha": "9fcb67ba7298b786401daa3605fb9839f1f1af5695100d0e10eaa3e99163c619",
+      "sample_rate_first": "0.00007341",
+      "sample_rate_last": "-0.00000131",
+      "url": "https://data.binance.vision/data/futures/um/monthly/fundingRate/AVAXUSDT/AVAXUSDT-fundingRate-2026-08.zip"
+    },
+    "AVAX_klines_2026-08": {
+      "rows": 744,
+      "first_utc": "2026-08-01T00:00:00Z",
+      "last_utc": "2026-08-31T23:00:00Z",
+      "checksum_match": true,
+      "actual_sha": "9b6515797f5fbdbd5aa4d44ab021be3602c4681138d79db794154e8a07f86975",
+      "expected_sha": "9b6515797f5fbdbd5aa4d44ab021be3602c4681138d79db794154e8a07f86975",
+      "url": "https://data.binance.vision/data/futures/um/monthly/klines/AVAXUSDT/1h/AVAXUSDT-1h-2026-08.zip"
+    },
+    "AVAX_funding_2026-09": {
+      "rows": 90,
+      "first_utc": "2026-09-01T00:00:00Z",
+      "last_utc": "2026-09-30T16:00:00Z",
+      "funding_interval_hours_confirmed": [
+        8
+      ],
+      "checksum_match": true,
+      "actual_sha": "d89f166fe7daec69573d13fcd61e4443f245c3ffbc8f71b7582bbe30aee6d993",
+      "expected_sha": "d89f166fe7daec69573d13fcd61e4443f245c3ffbc8f71b7582bbe30aee6d993",
+      "sample_rate_first": "0.00002403",
+      "sample_rate_last": "-0.00002221",
+      "url": "https://data.binance.vision/data/futures/um/monthly/fundingRate/AVAXUSDT/AVAXUSDT-fundingRate-2026-09.zip"
+    },
+    "AVAX_klines_2026-09": {
+      "rows": 720,
+      "first_utc": "2026-09-01T00:00:00Z",
+      "last_utc": "2026-09-30T23:00:00Z",
+      "checksum_match": true,
+      "actual_sha": "0cebff0a67f03f9f460a66305d74b0f51dd3d6115184701a57bed5c0c5a16f69",
+      "expected_sha": "0cebff0a67f03f9f460a66305d74b0f51dd3d6115184701a57bed5c0c5a16f69",
+      "url": "https://data.binance.vision/data/futures/um/monthly/klines/AVAXUSDT/1h/AVAXUSDT-1h-2026-09.zip"
+    }
+  },
+  "historical_depth_samples": {
+    "2024-01_funding": {
+      "rows": 93,
+      "first_utc": "2024-01-01T00:00:00Z",
+      "last_utc": "2024-01-31T16:00:00Z",
+      "checksum_match": true,
+      "actual_sha": "3e0d30870672aa8f0f937881056e3cfd55913ae5c780cd50b33f2763aa0ba58e",
+      "expected_sha": "3e0d30870672aa8f0f937881056e3cfd55913ae5c780cd50b33f2763aa0ba58e",
+      "url": "https://data.binance.vision/data/futures/um/monthly/fundingRate/BTCUSDT/BTCUSDT-fundingRate-2024-01.zip"
+    },
+    "2025-06_funding": {
+      "rows": 90,
+      "first_utc": "2025-06-01T00:00:00Z",
+      "last_utc": "2025-06-30T16:00:00Z",
+      "checksum_match": true,
+      "actual_sha": "a1f4a40953740fa83ee9ad97776ff8325d1958654a67f1325614071a983819d4",
+      "expected_sha": "a1f4a40953740fa83ee9ad97776ff8325d1958654a67f1325614071a983819d4",
+      "url": "https://data.binance.vision/data/futures/um/monthly/fundingRate/BTCUSDT/BTCUSDT-fundingRate-2025-06.zip"
+    },
+    "2024-06_klines": {
+      "rows": 720,
+      "first_utc": "2024-06-01T00:00:00Z",
+      "last_utc": "2024-06-30T23:00:00Z",
+      "checksum_match": true,
+      "actual_sha": "7dba8642e56641fca2c7f3f363050ae88bf0d6c87d28e14b747fbd3267d4d3a8",
+      "expected_sha": "7dba8642e56641fca2c7f3f363050ae88bf0d6c87d28e14b747fbd3267d4d3a8",
+      "url": "https://data.binance.vision/data/futures/um/monthly/klines/BTCUSDT/1h/BTCUSDT-1h-2024-06.zip"
+    }
+  },
+  "errors": [],
+  "all_checksums_match": true,
+  "funding_interval_confirmed": 8,
+  "funding_interval_matches_okx": true,
+  "limitations": [
+    "Bounded sample only (4 assets x 3 overlap months + 3 historical depth samples); full 81-month archive not downloaded.",
+    "Contract identity by underlying symbol only (Binance USD-M futures vs Hyperliquid perpetual vs OKX USDT-swap); not independently verified via metadata/lifecycle.",
+    "Binance archive ends at 2026-09; common 3-venue overlap is 2026-07-20 to 2026-09-30 (~72 days); Binance+Hyperliquid overlap is 2026-07-01 to 2026-09-30 (~91 days).",
+    "Survivorship bias, listing/deling, and ticker-reuse handling for Binance USD-M futures not assessed.",
+    "Binance does not provide historical point-in-time market-cap rankings; confirmatory gate remains BLOCKED_DATA_GATE.",
+    "This is exploratory evidence only; does not clear or unlock confirmatory FVD001-FVD108/FVD053."
+  ],
+  "coverage_analysis": {
+    "binance_funding_range": "2020-01 to 2026-09 (6.82 years, 8h interval)",
+    "binance_klines_range": "2020-01 to 2026-09 (6.82 years, 1h interval)",
+    "binance_overlap_funding_range": "2026-07-01 to 2026-09-30",
+    "binance_overlap_klines_range": "2026-07-01 to 2026-09-30",
+    "hyperliquid_funding_range": "2026-06-28 to 2026-10-26",
+    "okx_funding_range": "2026-07-20 to 2026-10-26 (8h interval, 3-month retention)",
+    "three_venue_common_funding_overlap": "2026-07-20 to 2026-09-30 (~72 days)",
+    "binance_hyperliquid_common_funding_overlap": "2026-07-01 to 2026-09-30 (~91 days, barely meets 90-day threshold)",
+    "hyperliquid_okx_common_funding_overlap": "2026-07-20 to 2026-10-26 (~97 days, meets 90-day threshold)",
+    "threshold_history_minimum_required": 90,
+    "three_venue_meets_threshold": false,
+    "binance_hyperliquid_meets_threshold": true,
+    "hyperliquid_okx_meets_threshold": true
+  }
+}

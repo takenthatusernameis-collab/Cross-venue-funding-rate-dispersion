@@ -1,0 +1,537 @@
+{
+  "artifact_type": "coverage_matrix",
+  "matrix": [
+    {
+      "underlying": "BTC",
+      "venues": {
+        "hyperliquid": {
+          "contract_identity": {
+            "method": "coin_name_only",
+            "verified": false
+          },
+          "candles_1h": {
+            "coverage": {
+              "duplicate_timestamps": 0,
+              "earliest_utc": "2026-06-28T10:00:00Z",
+              "hourly_gap_count": 0,
+              "latest_utc": "2026-10-26T10:00:00Z",
+              "maximum_missing_hours_in_gap": 0,
+              "row_count": 2881,
+              "timestamp_count": 2881,
+              "unique_timestamp_count": 2881
+            },
+            "http_status": 200,
+            "response_sha256": "13d57b0f746c40dd6971ab16fde1e59a173b472e841aea0b8fcac941ca1ca0ab",
+            "pages_received": 6
+          },
+          "funding": {
+            "coverage": {
+              "duplicate_timestamps": 0,
+              "earliest_utc": "2026-06-28T11:00:00.056000Z",
+              "hourly_gap_count": 0,
+              "latest_utc": "2026-10-26T10:00:00.016000Z",
+              "maximum_missing_hours_in_gap": 0,
+              "row_count": 2880,
+              "timestamp_count": 2880,
+              "unique_timestamp_count": 2880
+            },
+            "interval_hours": 1.0,
+            "pages_received": 6,
+            "stop_reason": "window_reached_or_page_not_full"
+          }
+        },
+        "okx": {
+          "contract_identity": {
+            "method": "instId_derived",
+            "verified": false
+          },
+          "candles_1h": {
+            "coverage": {
+              "duplicate_timestamps": 0,
+              "earliest_utc": "2026-06-28T11:00:00Z",
+              "hourly_gap_count": 0,
+              "latest_utc": "2026-10-26T10:00:00Z",
+              "maximum_missing_hours_in_gap": 0,
+              "row_count": 2880,
+              "timestamp_count": 2880,
+              "unique_timestamp_count": 2880
+            },
+            "instId": "BTC-USDT-SWAP",
+            "pages_received": 10,
+            "stop_reason": "window_start_reached"
+          },
+          "funding": {
+            "coverage": {
+              "duplicate_timestamps": 0,
+              "earliest_utc": "2026-07-20T16:00:00Z",
+              "hourly_gap_count": 0,
+              "latest_utc": "2026-10-26T08:00:00Z",
+              "maximum_missing_hours_in_gap": 0,
+              "row_count": 294,
+              "timestamp_count": 294,
+              "unique_timestamp_count": 294
+            },
+            "interval_hours": 8.0,
+            "history_limit_documented": "up to three months",
+            "instId": "BTC-USDT-SWAP",
+            "pages_received": 1,
+            "stop_reason": "page_not_full"
+          }
+        },
+        "binance": {
+          "contract_identity": {
+            "method": "symbol_match_only",
+            "verified": false
+          },
+          "funding": {
+            "overlap_months": [
+              "2026-07",
+              "2026-08",
+              "2026-09"
+            ],
+            "total_rows": 276,
+            "interval_hours": 8,
+            "first_utc": "2026-07-01T00:00:00Z",
+            "last_utc": "2026-09-30T16:00:00Z",
+            "funding_interval_matches_okx": true,
+            "all_checksums_match": true
+          },
+          "klines_1h": {
+            "overlap_months": [
+              "2026-07",
+              "2026-08",
+              "2026-09"
+            ],
+            "total_rows": 2208,
+            "first_utc": "2026-07-01T00:00:00Z",
+            "last_utc": "2026-09-30T23:00:00Z",
+            "all_checksums_match": true
+          }
+        }
+      },
+      "funding_intersection": {
+        "two_venue_hl_okx_common_days": 98,
+        "two_venue_hl_okx_common_start": "2026-07-20T16:00:00Z",
+        "two_venue_hl_okx_common_end": "2026-10-26T08:00:00Z",
+        "three_venue_common_days": 72,
+        "three_venue_common_start": "2026-07-20T16:00:00Z",
+        "three_venue_common_end": "2026-09-30T16:00:00Z",
+        "binance_hyperliquid_common_days": 91,
+        "binance_hyperliquid_common_start": "2026-07-01T00:00:00Z",
+        "binance_hyperliquid_common_end": "2026-09-30T23:59:59Z"
+      }
+    },
+    {
+      "underlying": "ETH",
+      "venues": {
+        "hyperliquid": {
+          "contract_identity": {
+            "method": "coin_name_only",
+            "verified": false
+          },
+          "candles_1h": {
+            "coverage": {
+              "duplicate_timestamps": 0,
+              "earliest_utc": "2026-06-28T10:00:00Z",
+              "hourly_gap_count": 0,
+              "latest_utc": "2026-10-26T10:00:00Z",
+              "maximum_missing_hours_in_gap": 0,
+              "row_count": 2881,
+              "timestamp_count": 2881,
+              "unique_timestamp_count": 2881
+            },
+            "http_status": 200,
+            "response_sha256": "3d22b0d292c29b59c0c7f50fbb670e45b6ec1b2bcfb29e13b4f81fbed760d4e9",
+            "pages_received": 6
+          },
+          "funding": {
+            "coverage": {
+              "duplicate_timestamps": 0,
+              "earliest_utc": "2026-06-28T11:00:00.056000Z",
+              "hourly_gap_count": 0,
+              "latest_utc": "2026-10-26T10:00:00.016000Z",
+              "maximum_missing_hours_in_gap": 0,
+              "row_count": 2880,
+              "timestamp_count": 2880,
+              "unique_timestamp_count": 2880
+            },
+            "interval_hours": 1.0,
+            "pages_received": 6,
+            "stop_reason": "window_reached_or_page_not_full"
+          }
+        },
+        "okx": {
+          "contract_identity": {
+            "method": "instId_derived",
+            "verified": false
+          },
+          "candles_1h": {
+            "coverage": {
+              "duplicate_timestamps": 0,
+              "earliest_utc": "2026-06-28T11:00:00Z",
+              "hourly_gap_count": 0,
+              "latest_utc": "2026-10-26T10:00:00Z",
+              "maximum_missing_hours_in_gap": 0,
+              "row_count": 2880,
+              "timestamp_count": 2880,
+              "unique_timestamp_count": 2880
+            },
+            "instId": "ETH-USDT-SWAP",
+            "pages_received": 10,
+            "stop_reason": "window_start_reached"
+          },
+          "funding": {
+            "coverage": {
+              "duplicate_timestamps": 0,
+              "earliest_utc": "2026-07-20T16:00:00Z",
+              "hourly_gap_count": 0,
+              "latest_utc": "2026-10-26T08:00:00Z",
+              "maximum_missing_hours_in_gap": 0,
+              "row_count": 294,
+              "timestamp_count": 294,
+              "unique_timestamp_count": 294
+            },
+            "interval_hours": 8.0,
+            "history_limit_documented": "up to three months",
+            "instId": "ETH-USDT-SWAP",
+            "pages_received": 1,
+            "stop_reason": "page_not_full"
+          }
+        },
+        "binance": {
+          "contract_identity": {
+            "method": "symbol_match_only",
+            "verified": false
+          },
+          "funding": {
+            "overlap_months": [
+              "2026-07",
+              "2026-08",
+              "2026-09"
+            ],
+            "total_rows": 276,
+            "interval_hours": 8,
+            "first_utc": "2026-07-01T00:00:00Z",
+            "last_utc": "2026-09-30T16:00:00Z",
+            "funding_interval_matches_okx": true,
+            "all_checksums_match": true
+          },
+          "klines_1h": {
+            "overlap_months": [
+              "2026-07",
+              "2026-08",
+              "2026-09"
+            ],
+            "total_rows": 2208,
+            "first_utc": "2026-07-01T00:00:00Z",
+            "last_utc": "2026-09-30T23:00:00Z",
+            "all_checksums_match": true
+          }
+        }
+      },
+      "funding_intersection": {
+        "two_venue_hl_okx_common_days": 98,
+        "two_venue_hl_okx_common_start": "2026-07-20T16:00:00Z",
+        "two_venue_hl_okx_common_end": "2026-10-26T08:00:00Z",
+        "three_venue_common_days": 72,
+        "three_venue_common_start": "2026-07-20T16:00:00Z",
+        "three_venue_common_end": "2026-09-30T16:00:00Z",
+        "binance_hyperliquid_common_days": 91,
+        "binance_hyperliquid_common_start": "2026-07-01T00:00:00Z",
+        "binance_hyperliquid_common_end": "2026-09-30T23:59:59Z"
+      }
+    },
+    {
+      "underlying": "SOL",
+      "venues": {
+        "hyperliquid": {
+          "contract_identity": {
+            "method": "coin_name_only",
+            "verified": false
+          },
+          "candles_1h": {
+            "coverage": {
+              "duplicate_timestamps": 0,
+              "earliest_utc": "2026-06-28T10:00:00Z",
+              "hourly_gap_count": 0,
+              "latest_utc": "2026-10-26T10:00:00Z",
+              "maximum_missing_hours_in_gap": 0,
+              "row_count": 2881,
+              "timestamp_count": 2881,
+              "unique_timestamp_count": 2881
+            },
+            "http_status": 200,
+            "response_sha256": "4a4b0861d5c04f83e039569c042e90637fc8e71413bbbbe70a31bf2143817ec1",
+            "pages_received": 6
+          },
+          "funding": {
+            "coverage": {
+              "duplicate_timestamps": 0,
+              "earliest_utc": "2026-06-28T11:00:00.056000Z",
+              "hourly_gap_count": 0,
+              "latest_utc": "2026-10-26T10:00:00.016000Z",
+              "maximum_missing_hours_in_gap": 0,
+              "row_count": 2880,
+              "timestamp_count": 2880,
+              "unique_timestamp_count": 2880
+            },
+            "interval_hours": 1.0,
+            "pages_received": 6,
+            "stop_reason": "window_reached_or_page_not_full"
+          }
+        },
+        "okx": {
+          "contract_identity": {
+            "method": "instId_derived",
+            "verified": false
+          },
+          "candles_1h": {
+            "coverage": {
+              "duplicate_timestamps": 0,
+              "earliest_utc": "2026-06-28T11:00:00Z",
+              "hourly_gap_count": 0,
+              "latest_utc": "2026-10-26T10:00:00Z",
+              "maximum_missing_hours_in_gap": 0,
+              "row_count": 2880,
+              "timestamp_count": 2880,
+              "unique_timestamp_count": 2880
+            },
+            "instId": "SOL-USDT-SWAP",
+            "pages_received": 10,
+            "stop_reason": "window_start_reached"
+          },
+          "funding": {
+            "coverage": {
+              "duplicate_timestamps": 0,
+              "earliest_utc": "2026-07-20T16:00:00Z",
+              "hourly_gap_count": 0,
+              "latest_utc": "2026-10-26T08:00:00Z",
+              "maximum_missing_hours_in_gap": 0,
+              "row_count": 294,
+              "timestamp_count": 294,
+              "unique_timestamp_count": 294
+            },
+            "interval_hours": 8.0,
+            "history_limit_documented": "up to three months",
+            "instId": "SOL-USDT-SWAP",
+            "pages_received": 1,
+            "stop_reason": "page_not_full"
+          }
+        },
+        "binance": {
+          "contract_identity": {
+            "method": "symbol_match_only",
+            "verified": false
+          },
+          "funding": {
+            "overlap_months": [
+              "2026-07",
+              "2026-08",
+              "2026-09"
+            ],
+            "total_rows": 276,
+            "interval_hours": 8,
+            "first_utc": "2026-07-01T00:00:00Z",
+            "last_utc": "2026-09-30T16:00:00Z",
+            "funding_interval_matches_okx": true,
+            "all_checksums_match": true
+          },
+          "klines_1h": {
+            "overlap_months": [
+              "2026-07",
+              "2026-08",
+              "2026-09"
+            ],
+            "total_rows": 2208,
+            "first_utc": "2026-07-01T00:00:00Z",
+            "last_utc": "2026-09-30T23:00:00Z",
+            "all_checksums_match": true
+          }
+        }
+      },
+      "funding_intersection": {
+        "two_venue_hl_okx_common_days": 98,
+        "two_venue_hl_okx_common_start": "2026-07-20T16:00:00Z",
+        "two_venue_hl_okx_common_end": "2026-10-26T08:00:00Z",
+        "three_venue_common_days": 72,
+        "three_venue_common_start": "2026-07-20T16:00:00Z",
+        "three_venue_common_end": "2026-09-30T16:00:00Z",
+        "binance_hyperliquid_common_days": 91,
+        "binance_hyperliquid_common_start": "2026-07-01T00:00:00Z",
+        "binance_hyperliquid_common_end": "2026-09-30T23:59:59Z"
+      }
+    },
+    {
+      "underlying": "AVAX",
+      "venues": {
+        "hyperliquid": {
+          "contract_identity": {
+            "method": "coin_name_only",
+            "verified": false
+          },
+          "candles_1h": {
+            "coverage": {
+              "duplicate_timestamps": 0,
+              "earliest_utc": "2026-06-28T10:00:00Z",
+              "hourly_gap_count": 0,
+              "latest_utc": "2026-10-26T10:00:00Z",
+              "maximum_missing_hours_in_gap": 0,
+              "row_count": 2881,
+              "timestamp_count": 2881,
+              "unique_timestamp_count": 2881
+            },
+            "http_status": 200,
+            "response_sha256": "dab7ec86c47889bb7b03b3528b030b28f70ae518fda2986377c7681b2e2bb85f",
+            "pages_received": 6
+          },
+          "funding": {
+            "coverage": {
+              "duplicate_timestamps": 0,
+              "earliest_utc": "2026-06-28T11:00:00.056000Z",
+              "hourly_gap_count": 0,
+              "latest_utc": "2026-10-26T10:00:00.016000Z",
+              "maximum_missing_hours_in_gap": 0,
+              "row_count": 2880,
+              "timestamp_count": 2880,
+              "unique_timestamp_count": 2880
+            },
+            "interval_hours": 1.0,
+            "pages_received": 6,
+            "stop_reason": "window_reached_or_page_not_full"
+          }
+        },
+        "okx": {
+          "contract_identity": {
+            "method": "instId_derived",
+            "verified": false
+          },
+          "candles_1h": {
+            "coverage": {
+              "duplicate_timestamps": 0,
+              "earliest_utc": "2026-06-28T11:00:00Z",
+              "hourly_gap_count": 0,
+              "latest_utc": "2026-10-26T10:00:00Z",
+              "maximum_missing_hours_in_gap": 0,
+              "row_count": 2880,
+              "timestamp_count": 2880,
+              "unique_timestamp_count": 2880
+            },
+            "instId": "AVAX-USDT-SWAP",
+            "pages_received": 10,
+            "stop_reason": "window_start_reached"
+          },
+          "funding": {
+            "coverage": {
+              "duplicate_timestamps": 0,
+              "earliest_utc": "2026-07-20T16:00:00Z",
+              "hourly_gap_count": 0,
+              "latest_utc": "2026-10-26T08:00:00Z",
+              "maximum_missing_hours_in_gap": 0,
+              "row_count": 294,
+              "timestamp_count": 294,
+              "unique_timestamp_count": 294
+            },
+            "interval_hours": 8.0,
+            "history_limit_documented": "up to three months",
+            "instId": "AVAX-USDT-SWAP",
+            "pages_received": 1,
+            "stop_reason": "page_not_full"
+          }
+        },
+        "binance": {
+          "contract_identity": {
+            "method": "symbol_match_only",
+            "verified": false
+          },
+          "funding": {
+            "overlap_months": [
+              "2026-07",
+              "2026-08",
+              "2026-09"
+            ],
+            "total_rows": 276,
+            "interval_hours": 8,
+            "first_utc": "2026-07-01T00:00:00Z",
+            "last_utc": "2026-09-30T16:00:00Z",
+            "funding_interval_matches_okx": true,
+            "all_checksums_match": true
+          },
+          "klines_1h": {
+            "overlap_months": [
+              "2026-07",
+              "2026-08",
+              "2026-09"
+            ],
+            "total_rows": 2208,
+            "first_utc": "2026-07-01T00:00:00Z",
+            "last_utc": "2026-09-30T23:00:00Z",
+            "all_checksums_match": true
+          }
+        }
+      },
+      "funding_intersection": {
+        "two_venue_hl_okx_common_days": 98,
+        "two_venue_hl_okx_common_start": "2026-07-20T16:00:00Z",
+        "two_venue_hl_okx_common_end": "2026-10-26T08:00:00Z",
+        "three_venue_common_days": 72,
+        "three_venue_common_start": "2026-07-20T16:00:00Z",
+        "three_venue_common_end": "2026-09-30T16:00:00Z",
+        "binance_hyperliquid_common_days": 91,
+        "binance_hyperliquid_common_start": "2026-07-01T00:00:00Z",
+        "binance_hyperliquid_common_end": "2026-09-30T23:59:59Z"
+      }
+    }
+  ],
+  "observed_at_utc": "2026-10-26T11:33:21.986562Z",
+  "schema_version": "1.0",
+  "sources": [
+    "research_state/historical_overlap_probe_40315875592_attempt_1.json"
+  ],
+  "source_probe_sha256": "b400d2d9baa187a409d57729bf6535f812e3bee76e3f73a402ef802914324bfc",
+  "binance_archive": {
+    "feasibility_assessed": true,
+    "feasibility_assessment_artifacts": [
+      "research_state/binance_archive_feasibility_assessment_2026-10-26.json"
+    ],
+    "coverage_proven": false,
+    "note": "Binance Public Data archive checksums verified HTTP 200 for BTCUSDT fundingRate + kline monthly objects (2024-01). Full archive download not performed; feasibility only. Does not provide historical point-in-time market-cap ranks."
+  },
+  "cross_venue_overlap": {
+    "common_funding_start_utc": "2026-07-20T16:00:00Z",
+    "common_funding_end_utc": "2026-10-26T10:59:59.999000Z",
+    "common_days": 98,
+    "underlyings": [
+      "AVAX",
+      "BTC",
+      "ETH",
+      "SOL"
+    ],
+    "venues": [
+      "Hyperliquid",
+      "OKX",
+      "Binance"
+    ],
+    "contract_identity_verified": false,
+    "contract_identity_method": "underlying symbol / instId mapping only",
+    "survivorship_bias_unmeasured": true,
+    "binance_funding_interval": "8h (matches OKX)",
+    "binance_archive_depth": "2020-01 to 2026-09 (6.82 years)",
+    "binance_archive_end_limitation": "Binance archive ends at 2026-09; 3-venue common funding overlap ~72 days"
+  },
+  "limitations": [
+    "This is a bounded source probe coverage matrix, not a strategy backtest.",
+    "Current instrument metadata does not prove historical listing/delisting or contract identity.",
+    "The short candidate list (4 underlyings) is a probe sample, not the full expanding research universe.",
+    "Response availability does not prove data completeness, event maturity, executable fills, or point-in-time market-cap ranks.",
+    "OKX funding history is structurally limited to ~3 months (documented retention limit) \u2014 common intersection limited by OKX funding start.",
+    "Contract identity by underlying symbol only (Hyperliquid coin vs OKX instId); not independently verified.",
+    "Binance archive feasibility confirmed (checksum-verified samples, consistent schema) but not downloaded/integrated as a full venue; does not provide PIT market-cap ranks.",
+    "Short history (~98 days) vs 3-year confirmatory requirement; this is an exploratory coverage matrix only."
+  ],
+  "gates": {
+    "backtest_completed": false,
+    "historical_coverage_gate": "NOT_PASSED_BY_COVERAGE_PROBE",
+    "original_confirmatory_gate": "BLOCKED_DATA_GATE",
+    "performance_metrics_computed": false
+  }
+}
