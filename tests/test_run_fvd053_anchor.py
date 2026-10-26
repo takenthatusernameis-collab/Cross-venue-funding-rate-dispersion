@@ -202,6 +202,32 @@ class LatestAtOrBeforeTests(unittest.TestCase):
         self.assertEqual(anchor._latest_at_or_before(rows, 3000), 0.2)
         self.assertIsNone(anchor._latest_at_or_before(rows, 500))
 
+    def test_handles_unsorted_rows(self):
+        """_latest_at_or_before calls sorted() internally with key=lambda r: r['time'].
+
+        Unsorted input must produce identical results to sorted input, because the
+        funding-simulation loop iterates over rows that may arrive in any order.
+        The sort key r['time'] requires every row to carry a 'time' key, which all
+        parsed HL/OKX funding rows satisfy after extraction.
+        """
+        sorted_rows = [
+            {"time": 1000, "rate": 0.1},
+            {"time": 2000, "rate": 0.15},
+            {"time": 3000, "rate": 0.2},
+        ]
+        unsorted_rows = [
+            {"time": 3000, "rate": 0.2},
+            {"time": 1000, "rate": 0.1},
+            {"time": 2000, "rate": 0.15},
+        ]
+        for t_ms in [500, 1000, 1500, 2000, 2500, 3000, 3500]:
+            self.assertEqual(
+                anchor._latest_at_or_before(sorted_rows, t_ms),
+                anchor._latest_at_or_before(unsorted_rows, t_ms),
+            )
+        self.assertIsNone(anchor._latest_at_or_before(unsorted_rows, 500))
+        self.assertEqual(anchor._latest_at_or_before(unsorted_rows, 2000), 0.15)
+
 
 class FundingObservationsTests(unittest.TestCase):
     """Verify _funding_observations preserves original rate/units/venue and normalizes correctly."""
@@ -347,6 +373,65 @@ class SimulateSignalTests(unittest.TestCase):
         self.assertAlmostEqual(res["net_pnl"], -11.0)
         self.assertAlmostEqual(res["net_return"], -0.0011)
 
+    def test_price_basis_pnl_separated_from_funding_with_differing_prices(self):
+        """When long and short venues have different entry/exit prices, price/basis PnL
+        must be correctly attributed separately from funding cash flow.
+
+        Known-answer: OKX (long) entry=100->exit=120, HL (short) entry=100->exit=80.
+        long_price_pnl  = 5000 * (120/100 - 1) = 1000.0
+        short_price_pnl = -5000 * (80/100 - 1)  = 1000.0
+        net_price_basis_pnl = 2000.0
+        funding_cash_flow = 9.0  (same constant-rate fixture as test_known_answer_pair_pnl)
+        fees = 10.0, slippage = 10.0
+        net_pnl = 2000.0 + 9.0 - 10.0 - 10.0 = 1989.0
+        """
+        u = "BTC"
+        notional = 5000.0
+        entry = dt.datetime(2026, 8, 2, 23, 0, tzinfo=dt.timezone.utc)
+        exit_ = dt.datetime(2026, 8, 3, 23, 0, tzinfo=dt.timezone.utc)
+        entry_ms = anchor.utc_ms(entry)
+        exit_ms = anchor.utc_ms(exit_)
+
+        # Build candle lists with differing entry/exit open prices per venue.
+        hl_candles = internal_candle_list(START_MS, END_MS, 100.0, 101.0)
+        okx_candles = internal_candle_list(START_MS, END_MS, 100.0, 101.0)
+        for c in hl_candles:
+            if c["time"] == entry_ms:
+                c["open"] = 100.0
+            elif c["time"] == exit_ms:
+                c["open"] = 80.0
+        for c in okx_candles:
+            if c["time"] == entry_ms:
+                c["open"] = 100.0
+            elif c["time"] == exit_ms:
+                c["open"] = 120.0
+
+        data = {
+            "BTC": {
+                "hl_funding": internal_hl_funding_series(START_MS, END_MS, HL_RATE),
+                "okx_funding": internal_okx_funding_series(START_MS, END_MS, OKX_RATE),
+                "hl_candles": hl_candles,
+                "okx_candles": okx_candles,
+            }
+        }
+        res = anchor.simulate_signal(
+            u, "OKX", "Hyperliquid", notional, entry, exit_, data,
+            anchor.ANCHOR_PARAMS["fee_bps_per_side"],
+            anchor.ANCHOR_PARAMS["slippage_bps_per_side"],
+        )
+        self.assertFalse(res["skipped"])
+        self.assertEqual(res["long_venue"], "OKX")
+        self.assertEqual(res["short_venue"], "Hyperliquid")
+        self.assertAlmostEqual(res["entry_price_long"], 100.0)
+        self.assertAlmostEqual(res["entry_price_short"], 100.0)
+        self.assertAlmostEqual(res["exit_price_long"], 120.0)
+        self.assertAlmostEqual(res["exit_price_short"], 80.0)
+        self.assertAlmostEqual(res["price_basis_pnl"], 2000.0)
+        self.assertAlmostEqual(res["funding_cash_flow"], 9.0)
+        self.assertAlmostEqual(res["fees"], 10.0)
+        self.assertAlmostEqual(res["slippage"], 10.0)
+        self.assertAlmostEqual(res["net_pnl"], 1989.0)
+
     def test_missing_candle_skips_signal(self):
         u = "BTC"
         notional = 5000.0
@@ -489,6 +574,47 @@ class AnchorEndToEndTests(unittest.TestCase):
         self.assertEqual(result["underlyings"], ["BTC", "ETH", "SOL", "AVAX", "LINK"])
         self.assertEqual(result["venues"], ["Hyperliquid", "OKX"])
         self.assertIsNotNone(result["fetch_metadata"])
+
+    def test_red_team_independent_recomputation_from_signal_ledger(self):
+        """Red-team check: recompute all attribution fields independently from the
+        immutable signal ledger rows in result['signals'] and assert they match the
+        aggregated attribution fields exactly.
+
+        This test does NOT call the aggregation code path; it independently sums the
+        per-signal fields and verifies the net_pnl identity:
+            net_pnl = price_basis_pnl + funding_cash_flow - fees - slippage.
+        """
+        result = anchor.run_anchor()
+        signals = result["signals"]
+        self.assertGreater(len(signals), 0)
+
+        # Independent summation from individual signal rows (do not reuse the anchor's own code).
+        recomputed_total_net = sum(s["net_pnl"] for s in signals)
+        recomputed_total_price = sum(s["price_basis_pnl"] for s in signals)
+        recomputed_total_funding = sum(s["funding_cash_flow"] for s in signals)
+        recomputed_total_fees = sum(s["fees"] for s in signals)
+        recomputed_total_slippage = sum(s["slippage"] for s in signals)
+        recomputed_total_settlements = sum(s["funding_settlements"] for s in signals)
+        recomputed_turnover = sum(4 * s["notional_per_leg"] for s in signals)
+
+        attr = result["attribution"]
+        self.assertAlmostEqual(recomputed_total_net, attr["total_net_pnl"])
+        self.assertAlmostEqual(recomputed_total_price, attr["total_price_basis_pnl"])
+        self.assertAlmostEqual(recomputed_total_funding, attr["total_funding_cash_flow"])
+        self.assertAlmostEqual(recomputed_total_fees, attr["total_fees"])
+        self.assertAlmostEqual(recomputed_total_slippage, attr["total_slippage"])
+        self.assertEqual(recomputed_total_settlements, result["total_funding_settlements"])
+        self.assertAlmostEqual(recomputed_turnover, result["turnover_notional"])
+
+        # Verify the per-signal accounting identity independently.
+        for s in signals:
+            expected_net = s["price_basis_pnl"] + s["funding_cash_flow"] - s["fees"] - s["slippage"]
+            self.assertAlmostEqual(
+                s["net_pnl"], expected_net,
+                msg=f"net_pnl identity broken for {s['underlying']}",
+            )
+            # gross exposure must respect the 1.0x equity cap.
+            self.assertLessEqual(s["gross_exposure"], anchor.EQUITY + 1e-9)
 
 
 if __name__ == "__main__":

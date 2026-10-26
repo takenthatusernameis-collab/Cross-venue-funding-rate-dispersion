@@ -1,4 +1,42 @@
-## Completed Task — Duplicate-timestamp cash-flow audit and dispersion normalization conformance (2026-10-25)
+## Source-independent funding-accounting hardening — three known-answer/adversarial tests (2026-10-26)
+
+Completed the three source-independent hardening items from the prior "Next measurable task" while the confirmatory data gate remains `BLOCKED_DATA_GATE` and the exploratory anchor remains `INCONCLUSIVE` (0 signals, 47 candidate dates). No live data, no network, no workflow changes, no frozen-artifact changes.
+
+### Tests added (`tests/test_run_fvd053_anchor.py`; new sha256 `40409a378f55506fec474d25d94875e30c845df3509b232ea19751d299b12903`)
+
+1. **`test_handles_unsorted_rows`** (`LatestAtOrBeforeTests`): Verifies `_latest_at_or_before` (scripts/run_fvd053_anchor.py:265) sorts internally and produces identical results for sorted vs. unsorted input across 7 timestamp queries. Confirms the sort key `lambda r: r["time"]` is robust; all parsed HL/OKX funding rows carry a `time` key after extraction. The dedup guard from the prior session (seen_times per venue) means rows may arrive in any order; this test closes that correctness gap.
+2. **`test_price_basis_pnl_separated_from_funding_with_differing_prices`** (`SimulateSignalTests`): Known-answer test that runs `simulate_signal` with differing entry/exit open prices per venue (OKX long 100→120, HL short 100→80), asserting `price_basis_pnl` = 2000.0 is correctly attributed separately from `funding_cash_flow` = 9.0, yielding `net_pnl` = 1989.0. The existing `test_known_answer_pair_pnl` used identical prices (price_basis_pnl = 0.0), so it could not distinguish price PnL from funding — this test closes that gap.
+3. **`test_red_team_independent_recomputation_from_signal_ledger`** (`AnchorEndToEndTests`): Red-team check that independently sums all attribution fields (`total_net_pnl`, `total_price_basis_pnl`, `total_funding_cash_flow`, `total_fees`, `total_slippage`, `total_funding_settlements`, `turnover_notional`) from `result["signals"]` and asserts exact match with `result["attribution"]`. Also verifies the per-signal identity `net_pnl = price_basis_pnl + funding_cash_flow - fees - slippage` and the 1.0× gross-exposure cap on every signal. Does NOT call the anchor's own aggregation code.
+
+### Validation commands run
+- `python3 -m compileall -q src scripts tests` = OK (exit 0)
+- `PYTHONPATH=src:scripts python3 -m unittest discover -s tests -v` = **380 tests OK** (3 new: `test_handles_unsorted_rows`, `test_price_basis_pnl_separated_from_funding_with_differing_prices`, `test_red_team_independent_recomputation_from_signal_ledger`)
+- `PYTHONPATH=src python3 scripts/validate_research.py` = RESEARCH_VALIDATION=PASS (grid 108, anchor FVD053, NOT_RUN, no metrics)
+- `PYTHONPATH=src:scripts python3 scripts/validate_all.py` = ALL_VALIDATIONS=PASS count=23
+- `python3 scripts/validate_skills.py` = SKILLS_VALIDATION=PASS count=4
+- `PYTHONPATH=src:scripts python3 scripts/validate_signals.py` = SIGNALS_VALIDATION=PASS
+- `python3 scripts/validate_accounting.py` = ACCOUNTING_VALIDATION=PASS
+- `git diff --check` = clean
+
+### Frozen artifacts verified unchanged
+- `configs/cross_venue_funding_dispersion_grid_v1.json` sha `6be218bc84bf118cf67c238ad1c13ef1e445658db3b1346cd64ccaccc7aa5f07` (unchanged)
+- `research_state/run_manifest.json` sha `4f162ce128c741434addf6aa2fa7c7dbf1bf189d4a81b8893ed96899412c7aaf` (unchanged, BLOCKED_DATA_GATE, backtest_completed=false, performance_metrics_computed=false)
+- `research_state/fvd053_anchor_run_2026-10-25.json` sha `50b328baf5854dec40105a0f5ebe498bf589906f9c033ce659843659927ca4c2` (unchanged, anchor=0 signals, INCONCLUSIVE)
+
+### Modified files
+- `tests/test_run_fvd053_anchor.py` (+126 lines: 3 new test methods, no production code changes)
+
+### Status
+- Confirmatory track: `BLOCKED_DATA_GATE` — FVD001–FVD108, FVD053 unchanged. No backtest, no performance metrics.
+- Exploratory track: FVD-EXPLORATORY-002 remains `EXPLORATORY_ONLY`/`INCONCLUSIVE`, anchor_exercised=true, 0 signals, no performance metrics claimed.
+- No source/probe re-run performed; no workflow files modified; no paid data or credentials used; no live/paper trading.
+
+### Blocker and next task
+The confirmatory data gate (`>=3-year` point-in-time market-cap ranking history) remains structurally unmet: the latest verified probe (`historical_overlap_probe_40248932339_attempt_1.json`, observed 2026-10-26T00:21:36Z) shows only ~97 calendar days of common Hyperliquid+OKX funding+price overlap, well short of the 3-year requirement. OKX funding-rate-history is documented as `up to three months`. Re-probing the same endpoints with the same parameters will not yield additional historical depth. The next highest-value bounded, no-cost action is to audit `scripts/probe_historical_overlap.py` pagination/cursor logic for OKX funding-rate-history (which stopped at page_not_full with 292 rows) to confirm whether the `after` cursor can genuinely extend beyond the documented 90-day window — if it cannot, record the structural limitation and proceed with further source-independent accounting hardening.
+
+---
+
+
 
 1. **Audit `simulate_signal` cash-flow accumulation for duplicate-timestamp handling** (`scripts/run_fvd053_anchor.py:399-412`): The per-venue settlement loop iterated over all `rates` rows and called `_latest_at_or_before(rates, row["time"])` for each row in `(entry, exit]`. When multiple settlement rows shared the same timestamp, each was counted as a separate settlement, double-counting the cash flow. Fix: added a per-venue `seen_times` set so each settlement timestamp is counted exactly once. `_latest_at_or_before` is still called (preserving the latest-rate-at-or-below semantics for any edge case), but only the first occurrence of each timestamp within the window is processed. The known-answer test `test_duplicate_timestamp_not_double_counted` injects a duplicate Hyperliquid settlement timestamp inside the funding window and confirms the cash flow (9.0) and settlement count (27) match the deduplicated baseline. Verified the test fails against the unfixed code (9.5 / 28) and passes with the fix (9.0 / 27).
 2. **Add multi-venue dispersion known-answer test** (`tests/test_signals.py`): Added `test_multi_venue_dispersion_normalization_known_answer` — a 1h venue rate `r` and an 8h venue rate `8r` both normalize to `8r`, yielding zero dispersion; equal raw rates `r` on both venues normalize to `8r` vs `r`, yielding nonzero dispersion (`3.5r`). Demonstrates that normalization is essential to the cross-venue signal.
