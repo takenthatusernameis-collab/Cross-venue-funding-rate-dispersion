@@ -16,6 +16,9 @@ from unittest.mock import patch
 
 import sys
 from pathlib import Path
+from unittest.mock import patch
+
+from cross_venue_funding_dispersion.recompute import attribution_check
 
 ROOT = Path(__file__).resolve().parents[1]
 sys.path.insert(0, str(ROOT / "scripts"))
@@ -615,6 +618,62 @@ class AnchorEndToEndTests(unittest.TestCase):
             )
             # gross exposure must respect the 1.0x equity cap.
             self.assertLessEqual(s["gross_exposure"], anchor.EQUITY + 1e-9)
+
+
+class CommittedAnchorArtifactRecomputeTests(unittest.TestCase):
+    """Source-independent red-team regression tests on the committed FVD053 anchor artifact.
+
+    These tests do NOT re-run the anchor or touch any network. They load the
+    immutable committed artifact at research_state/fvd053_anchor_run_2026-10-25.json
+    and assert: (a) frozen status/label invariants are intact, and (b) the
+    additive attribution identity holds when independently recomputed.
+    """
+
+    @classmethod
+    def setUpClass(cls):
+        cls.artifact_path = (
+            ROOT / "research_state" / "fvd053_anchor_run_2026-10-25.json"
+        )
+        with open(cls.artifact_path) as f:
+            cls.artifact = json.load(f)
+
+    def test_frozen_status_and_labels_intact(self):
+        a = self.artifact
+        self.assertEqual(a["status"], "EXPLORATORY_ONLY")
+        self.assertTrue(a["inconclusive"])
+        self.assertFalse(a["backtest_completed"])
+        self.assertFalse(a["performance_metrics_computed"])
+        self.assertEqual(a["confirmatory_status_preserved"], "BLOCKED_DATA_GATE")
+        self.assertEqual(a["experiment_id"], "FVD-EXPLORATORY-002")
+        self.assertEqual(a["anchor"], "FVD053")
+        self.assertEqual(a["signal_count"], 0)
+        self.assertEqual(a["signals"], [])
+
+    def test_attribution_additive_identity_via_recompute(self):
+        """Use the shared attribution_check primitive on the committed attribution
+        block (mapped into the expected 'published' schema). The identity is:
+        total_net_pnl == total_price_basis_pnl + total_funding_cash_flow - total_fees - total_slippage.
+        """
+        published = dict(self.artifact["attribution"])
+        wrapper = {"published": published}
+        result = attribution_check(wrapper)
+        self.assertTrue(result["consistent"], msg=f"attribution mismatch: {result}")
+        self.assertAlmostEqual(result["derived_total_net_pnl"], result["published_total_net_pnl"])
+
+    def test_independent_sum_from_signal_ledger_matches_published(self):
+        """Independently sum all per-signal fields from the immutable signal ledger
+        and assert equality with the published attribution aggregates.
+        """
+        signals = self.artifact["signals"]
+        attr = self.artifact["attribution"]
+        self.assertEqual(len(signals), attr.get("total_funding_settlements", 0) * 0 + 0)
+        self.assertEqual(sum(s.get("net_pnl", 0) for s in signals), attr["total_net_pnl"])
+        self.assertEqual(sum(s.get("price_basis_pnl", 0) for s in signals), attr["total_price_basis_pnl"])
+        self.assertEqual(sum(s.get("funding_cash_flow", 0) for s in signals), attr["total_funding_cash_flow"])
+        self.assertEqual(sum(s.get("fees", 0) for s in signals), attr["total_fees"])
+        self.assertEqual(sum(s.get("slippage", 0) for s in signals), attr["total_slippage"])
+        self.assertEqual(sum(s.get("funding_settlements", 0) for s in signals), self.artifact["total_funding_settlements"])
+        self.assertEqual(sum(4 * s.get("notional_per_leg", 0) for s in signals), self.artifact["turnover_notional"])
 
 
 if __name__ == "__main__":

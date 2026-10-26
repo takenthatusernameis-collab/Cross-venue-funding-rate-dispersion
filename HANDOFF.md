@@ -1,3 +1,47 @@
+## Committed anchor artifact red-team regression tests (2026-10-26)
+
+Added source-independent regression tests on the committed FVD053 anchor artifact and verified live network availability from this environment.
+
+### Action performed
+
+1. **Added `CommittedAnchorArtifactRecomputeTests` class** (3 tests) to `tests/test_run_fvd053_anchor.py`:
+   - `test_frozen_status_and_labels_intact` — asserts frozen invariants on the committed artifact (`status=EXPLORATORY_ONLY`, `inconclusive=true`, `backtest_completed=false`, `performance_metrics_computed=false`, `confirmatory_status_preserved=BLOCKED_DATA_GATE`, `experiment_id=FVD-EXPLORATORY-002`, `signal_count=0`, `signals=[]`).
+   - `test_attribution_additive_identity_via_recompute` — uses the shared `attribution_check` primitive from `cross_venue_funding_dispersion.recompute` on the committed attribution block (mapped into the expected `published` schema) to verify `total_net_pnl == total_price_basis_pnl + total_funding_cash_flow - total_fees - total_slippage`.
+   - `test_independent_sum_from_signal_ledger_matches_published` — independently sums all per-signal fields from the immutable signal ledger and asserts equality with published attribution aggregates.
+
+2. **Added import**: `from cross_venue_funding_dispersion.recompute import attribution_check` to `tests/test_run_fvd053_anchor.py`.
+
+3. **Verified live network availability** from this environment (contradicts stale HANDOFF note #51 "No network from this environment"):
+   - Hyperledger `https://api.hyperliquid.xyz/info` → HTTP 200 (284ms)
+   - OKX `https://www.okx.com/api/v5/...` → HTTP 200 (251ms)
+   - Binance `https://data.binance.vision/...` → HTTP 200 (211ms)
+
+### Modified files
+- `tests/test_run_fvd053_anchor.py` — added import on line 17, added `CommittedAnchorArtifactRecomputeTests` class (3 tests) before the `if __name__` block.
+
+### Validation commands run
+- `python3 -m compileall -q src scripts tests` = OK
+- `PYTHONPATH=src python3 -m unittest discover -s tests -v` = **405 tests OK** (402 prior + 3 new)
+- `PYTHONPATH=src python3 scripts/validate_research.py` = RESEARCH_VALIDATION=PASS (grid 108, anchor FVD053, NOT_RUN, no metrics)
+- `PYTHONPATH=src python3 scripts/validate_all.py` = ALL_VALIDATIONS=PASS count=23
+- `python3 scripts/validate_skills.py` = SKILLS_VALIDATION=PASS count=4
+- `git diff --check` = clean
+
+### Frozen artifacts verified unchanged
+- `configs/cross_venue_funding_dispersion_grid_v1.json` sha `6be218bc84bf118cf67c238ad1c13ef1e445658db3b1346cd64ccaccc7aa5f07`
+- `research_state/run_manifest.json` sha `4f162cf128c741434addf6aa2fa7c7dbf1bf189d4a81b8893ed96899412c7aaf` (BLOCKED_DATA_GATE)
+- `research_state/fvd053_anchor_run_2026-10-25.json` sha `50b328baf5854dec40105a0f5ebe498bf589906f9c033ce659843659927ca4c2`
+
+### Status
+- Confirmatory track: `BLOCKED_DATA_GATE` — FVD001–FVD108, FVD053 unchanged. No backtest, no performance metrics.
+- Exploratory track: FVD-EXPLORATORY-002 remains `EXPLORATORY_ONLY`/`INCONCLUSIVE`, 0 signals, no metrics.
+- Probe cooldown ACTIVE per `scripts/should_run_historical_probe.py`: `next_eligible_at_utc=2026-10-26T23:39:31.376948Z`. A wakeup is scheduled for cooldown expiry to re-run the 120-day coverage probe with the committed `collect_contract_identity`-integrated script to capture `contract_identity` evidence.
+
+### Correction to prior HANDOFF entry
+HANDOFF entry #51 (line 51) states "No network from this environment" and that `urllib.request.urlopen('https://api.hyperlight.xyz/info')` fails at DNS. This is **incorrect** — live HTTP 200 responses were verified from all three free sources (Hyperledger, OKX, Binance) at this session. This correction is recorded per the policy "Append corrections as new run records; do not rewrite prior results." The next probe re-run can proceed when the cooldown expires.
+
+---
+
 ## Link latest probe (40370588351) into manifest + coverage matrix (2026-10-26)
 
 Linked the newest 120-day coverage probe `historical_overlap_probe_40370588351_attempt_1.json` (observed 2026-10-26T17:39:31Z by independent controller-side run, sha `018dd267d8f4097c3804c22633abd0cc697edbe86e5beebddf83faba77a312bf`) into the exploratory manifest and coverage matrix.
