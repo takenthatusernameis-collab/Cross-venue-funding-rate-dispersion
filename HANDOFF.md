@@ -1,3 +1,37 @@
+## Complete normalize_funding_rate adversarial audit + Binance 2026-10 archive reassessment (2026-10-27)
+
+Executed the highest-priority measurable action from the active prompt (`prompts/autonomous_free_data_gate_unblocking_v3_3.md` §3.2/§12) and HANDOFF #1's "Next measurable task." The 120-day coverage probe remains in cooldown (`scripts/should_run_historical_probe.py` → `should_run=false`, `next_eligible_at_utc=2026-10-27T18:47:03Z`) and was already committed by controller CI as `historical_overlap_probe_40506445204_attempt_1.json` (sha `ee4db55a596f6f0bc20e3be5b779a6a461205d849b8ac9179f9d59ba6a7d3cf3`, committed `2faf734`), so it was NOT duplicated.
+
+### Action performed
+
+1. **Completed the adversarial-input audit of `normalize_funding_rate` in `NormalizeBinance8hTests`** (`tests/test_binance_archive.py`). The core audit, including the overflow guard `if not math.isfinite(normalized): raise ValueError(...)` in `src/cross_venue_funding_dispersion/signals.py` (sha `c5917a31d52e2bb682bd2d2534ca87133a8e52e3f3c1c43fd2b4a3c17a35fa3c`), was committed in `cf0aada` (2026-10-27T13:21:44Z) with 6 boundary tests (non-finite rate+interval, extreme-magnitude identity+overflow, linear-scaling known-answer, mixed-sign). This session closed the one boundary-value case the Binance class was missing: added `test_negative_finite_interval_rejected_at_binance_8h` — the `interval <= 0` lower boundary was covered for `0.0` and non-finite intervals but not for a negative finite interval in `NormalizeBinance8hTests` (only tested for `-1` in `test_signals.py`). Test file sha now `8dd9ce2c2d085efd22d4ce98c0b29a40e273b7c7349b351f324718a262f8219d`.
+2. **Executed the Binance 2026-09/10/11 monthly-archive end-boundary reassessment** (HANDOFF #1 conditional: "if new Binance monthly archive files for October–November 2026 are published, reassess the 72-day 3-venue overlap against the 90-day threshold"). Bounded, no-cost, checksum-object-only probe (24 small GETs to `data.binance.vision` for BTC/ETH/SOL/AVAX × {fundingRate, 1h klines} × {2026-09, 2026-10, 2026-11}; today = 2026-10-27 so October is in-progress and monthly files publish only after month-end): 2026-09 = HTTP 200 (8/8); 2026-10 = HTTP 404 (8/8); 2026-11 = HTTP 404 (8/8). Conclusion: archive ends 2026-09-30 for these underlyings; the OKX+Binance funding intersection (OKX earliest 2026-07-27T16:00Z per probe `40506445204`; Binance ends 2026-09-30) ≈ 65 days < the 90-day FVD053 prior-observation threshold. Duration gate NOT relieved; remains the secondary blocker behind instrument identity. No anchor run, no backtest, no performance metric.
+3. **Persisted compact evidence artifact** `research_state/binance_monthly_archive_availability_2026-10-27.json` (sha `55be98ea4c0602db30205af0749cded69b0c738d831fd085cd3846f43c0e619c`) with exact source URLs, access time (UTC), HTTP statuses and response hashes. Not referenced by any frozen manifest, so no frozen-run-record rewrite and no sha-check breakage.
+
+### Validation commands run
+- `python3 -m compileall -q src scripts tests` = OK
+- `PYTHONPATH=src python3 -m unittest discover -s tests` = PASS (455 tests OK; +1 from prior 454: `test_negative_finite_interval_rejected_at_binance_8h`)
+- `PYTHONPATH=src python3 scripts/validate_research.py` = RESEARCH_VALIDATION=PASS (grid 108, anchor FVD053, NOT_RUN, performance_metrics_computed=false)
+- `PYTHONPATH=src python3 scripts/validate_all.py` = ALL_VALIDATIONS=PASS count=24
+- `python3 scripts/validate_skills.py` = SKILLS_VALIDATION=PASS count=4
+- `PYTHONPATH=src python3 scripts/validate_research_state_artifacts.py` = RESEARCH_STATE_ARTIFACTS_VALIDATION=PASS (new artifact well-formed; no frozen artifact altered)
+- `git diff --check` = clean
+
+### Frozen artifacts verified unchanged
+- `configs/cross_venue_funding_dispersion_grid_v1.json` sha `6be218bc84bf118cf67c238ad1c13ef1e445658db3b1346cd62ccaccc7aa5f07`
+- `research_state/run_manifest.json` sha `4f162ce128c741434addf6aa2fa7c7dbf1bf189d4a81b8893ed96899412c7aaf` (BLOCKED_DATA_GATE)
+- `research_state/exploratory_run_manifest_2026-10-27.json` sha `9cd50f6ee2bdb2d85e988b2a0b67f182b0bbb5d8ef1fe0a9fe811067bf7e2cdf` (FVD-EXPLORATORY-003, INCONCLUSIVE; not modified)
+
+### Status
+- Confirmatory track: `BLOCKED_DATA_GATE` — FVD001–FVD108, FVD053 frozen. No backtest, no performance metrics.
+- Exploratory track: FVD-EXPLORATORY-003 `EXPLORATORY_ONLY`/`INCONCLUSIVE`. Both gates fail before anchor: instrument identity candidate-level (symbol-mapped only) AND duration (~65 days < 90-day threshold). Frozen FVD053 anchor NOT exercised. No backtest, no performance metric, no economic edge claimed.
+- Source-independent verification is complete: `normalize_funding_rate` adversarial audit (incl. overflow guard), `_latest_at_or_before` (sorted/unsorted + dedup), `compute_pair_pnl` ledger identity + funding signs + 1.0x gross cap + per-leg/fill costs, multi-venue dispersion known-answer, and red-team independent recomputation (`test_red_team_independent_recomputation_from_signal_ledger`, `CommittedAnchorArtifactRecomputeTests`).
+
+### Next measurable task
+Data route blocked and source-independent hardening complete; remaining work is data-gated. (1) After 2026-10-31 (Binance monthly files publish post-month-end) and probe-cooldown expiry (~18:47Z this session then the next scheduled slot), run `scripts/should_run_historical_probe.py`; if cleared and Binance 2026-10 files are live, re-assess the OKX+Binance funding intersection against the 90-day threshold and re-examine contract-identity evidence. (2) If Binance 2026-10 is still absent and instrument identity stays candidate-level, keep FVD-EXPLORATORY-003 INCONCLUSIVE and continue monitoring for a free source route that proves OKX|Binance instrument/lifecycle identity (the binding constraint). No paid data, no credentials, no live/paper trading. Do not duplicate the controller 120-day probe; do not alter frozen confirmatory artifacts.
+
+---
+
 ## Link newest controller probe (40506445204) into FVD-EXPLORATORY-003 + extend Binance archive known-answer tests + fix parser rejects (2026-10-27)
 
 Executed the highest-priority measurable action from the active prompt and HANDOFF #1's "Next measurable task": linked the newest controller coverage probe into the FVD-EXPLORATORY-003 manifest, extended Binance archive normalization tests to cover all 24 checksum-verified sample rates from `binance_overlap_sample_2026-10-26.json`, and fixed 4 pre-existing parser/test defects that were blocking the validation suite.

@@ -1,0 +1,269 @@
+{
+  "absent_count": 16,
+  "accessed_at_utc": "2026-10-27T18:41:02Z",
+  "archive_end_utc": "2026-09-30T00:00:00Z",
+  "available_count": 8,
+  "checks": [
+    {
+      "error": null,
+      "field": "fundingRate",
+      "http_status": 200,
+      "month": "2026-09",
+      "response_len": 98,
+      "response_sha256": "e2087ea6fbbff16a0458aeaf64c1edd5169abb9f2ef82560d2a0cdb5e35fdb4f",
+      "symbol": "BTCUSDT",
+      "url": "https://data.binance.vision/data/futures/um/monthly/fundingRate/BTCUSDT/BTCUSDT-fundingRate-2026-09.zip.CHECKSUM"
+    },
+    {
+      "error": null,
+      "field": "klines_1h",
+      "http_status": 200,
+      "month": "2026-09",
+      "response_len": 89,
+      "response_sha256": "bc1fc3f46795e080751c1a910c8367f5d1bba8c773c6d6e5194e217594bcc2f4",
+      "symbol": "BTCUSDT",
+      "url": "https://data.binance.vision/data/futures/um/monthly/klines/BTCUSDT/1h/BTCUSDT-1h-2026-09.zip.CHECKSUM"
+    },
+    {
+      "error": null,
+      "field": "fundingRate",
+      "http_status": 404,
+      "month": "2026-10",
+      "response_len": 0,
+      "response_sha256": null,
+      "symbol": "BTCUSDT",
+      "url": "https://data.binance.vision/data/futures/um/monthly/fundingRate/BTCUSDT/BTCUSDT-fundingRate-2026-10.zip.CHECKSUM"
+    },
+    {
+      "error": null,
+      "field": "klines_1h",
+      "http_status": 404,
+      "month": "2026-10",
+      "response_len": 0,
+      "response_sha256": null,
+      "symbol": "BTCUSDT",
+      "url": "https://data.binance.vision/data/futures/um/monthly/klines/BTCUSDT/1h/BTCUSDT-1h-2026-10.zip.CHECKSUM"
+    },
+    {
+      "error": null,
+      "field": "fundingRate",
+      "http_status": 404,
+      "month": "2026-11",
+      "response_len": 0,
+      "response_sha256": null,
+      "symbol": "BTCUSDT",
+      "url": "https://data.binance.vision/data/futures/um/monthly/fundingRate/BTCUSDT/BTCUSDT-fundingRate-2026-11.zip.CHECKSUM"
+    },
+    {
+      "error": null,
+      "field": "klines_1h",
+      "http_status": 404,
+      "month": "2026-11",
+      "response_len": 0,
+      "response_sha256": null,
+      "symbol": "BTCUSDT",
+      "url": "https://data.binance.vision/data/futures/um/monthly/klines/BTCUSDT/1h/BTCUSDT-1h-2026-11.zip.CHECKSUM"
+    },
+    {
+      "error": null,
+      "field": "fundingRate",
+      "http_status": 200,
+      "month": "2026-09",
+      "response_len": 98,
+      "response_sha256": "6555fc6857e612ebf0c5073e784981c0d44aa0143b32ea96ce6b5742a9c6fa74",
+      "symbol": "ETHUSDT",
+      "url": "https://data.binance.vision/data/futures/um/monthly/fundingRate/ETHUSDT/ETHUSDT-fundingRate-2026-09.zip.CHECKSUM"
+    },
+    {
+      "error": null,
+      "field": "klines_1h",
+      "http_status": 200,
+      "month": "2026-09",
+      "response_len": 89,
+      "response_sha256": "2ec46166b5272eb68fa852e8ea2e447d92defaf88a17d5d5a87a5b6f4b2a3f74",
+      "symbol": "ETHUSDT",
+      "url": "https://data.binance.vision/data/futures/um/monthly/klines/ETHUSDT/1h/ETHUSDT-1h-2026-09.zip.CHECKSUM"
+    },
+    {
+      "error": null,
+      "field": "fundingRate",
+      "http_status": 404,
+      "month": "2026-10",
+      "response_len": 0,
+      "response_sha256": null,
+      "symbol": "ETHUSDT",
+      "url": "https://data.binance.vision/data/futures/um/monthly/fundingRate/ETHUSDT/ETHUSDT-fundingRate-2026-10.zip.CHECKSUM"
+    },
+    {
+      "error": null,
+      "field": "klines_1h",
+      "http_status": 404,
+      "month": "2026-10",
+      "response_len": 0,
+      "response_sha256": null,
+      "symbol": "ETHUSDT",
+      "url": "https://data.binance.vision/data/futures/um/monthly/klines/ETHUSDT/1h/ETHUSDT-1h-2026-10.zip.CHECKSUM"
+    },
+    {
+      "error": null,
+      "field": "fundingRate",
+      "http_status": 404,
+      "month": "2026-11",
+      "response_len": 0,
+      "response_sha256": null,
+      "symbol": "ETHUSDT",
+      "url": "https://data.binance.vision/data/futures/um/monthly/fundingRate/ETHUSDT/ETHUSDT-fundingRate-2026-11.zip.CHECKSUM"
+    },
+    {
+      "error": null,
+      "field": "klines_1h",
+      "http_status": 404,
+      "month": "2026-11",
+      "response_len": 0,
+      "response_sha256": null,
+      "symbol": "ETHUSDT",
+      "url": "https://data.binance.vision/data/futures/um/monthly/klines/ETHUSDT/1h/ETHUSDT-1h-2026-11.zip.CHECKSUM"
+    },
+    {
+      "error": null,
+      "field": "fundingRate",
+      "http_status": 200,
+      "month": "2026-09",
+      "response_len": 98,
+      "response_sha256": "67497c89856ae1b31c50642d8bfee41c5fecbf0c9af368c87f90d93ca32d87e0",
+      "symbol": "SOLUSDT",
+      "url": "https://data.binance.vision/data/futures/um/monthly/fundingRate/SOLUSDT/SOLUSDT-fundingRate-2026-09.zip.CHECKSUM"
+    },
+    {
+      "error": null,
+      "field": "klines_1h",
+      "http_status": 200,
+      "month": "2026-09",
+      "response_len": 89,
+      "response_sha256": "a16397660c2ef8e52b53adb63ce17a7c52d221f6ea91b3916a577b92ec093f67",
+      "symbol": "SOLUSDT",
+      "url": "https://data.binance.vision/data/futures/um/monthly/klines/SOLUSDT/1h/SOLUSDT-1h-2026-09.zip.CHECKSUM"
+    },
+    {
+      "error": null,
+      "field": "fundingRate",
+      "http_status": 404,
+      "month": "2026-10",
+      "response_len": 0,
+      "response_sha256": null,
+      "symbol": "SOLUSDT",
+      "url": "https://data.binance.vision/data/futures/um/monthly/fundingRate/SOLUSDT/SOLUSDT-fundingRate-2026-10.zip.CHECKSUM"
+    },
+    {
+      "error": null,
+      "field": "klines_1h",
+      "http_status": 404,
+      "month": "2026-10",
+      "response_len": 0,
+      "response_sha256": null,
+      "symbol": "SOLUSDT",
+      "url": "https://data.binance.vision/data/futures/um/monthly/klines/SOLUSDT/1h/SOLUSDT-1h-2026-10.zip.CHECKSUM"
+    },
+    {
+      "error": null,
+      "field": "fundingRate",
+      "http_status": 404,
+      "month": "2026-11",
+      "response_len": 0,
+      "response_sha256": null,
+      "symbol": "SOLUSDT",
+      "url": "https://data.binance.vision/data/futures/um/monthly/fundingRate/SOLUSDT/SOLUSDT-fundingRate-2026-11.zip.CHECKSUM"
+    },
+    {
+      "error": null,
+      "field": "klines_1h",
+      "http_status": 404,
+      "month": "2026-11",
+      "response_len": 0,
+      "response_sha256": null,
+      "symbol": "SOLUSDT",
+      "url": "https://data.binance.vision/data/futures/um/monthly/klines/SOLUSDT/1h/SOLUSDT-1h-2026-11.zip.CHECKSUM"
+    },
+    {
+      "error": null,
+      "field": "fundingRate",
+      "http_status": 200,
+      "month": "2026-09",
+      "response_len": 99,
+      "response_sha256": "56a3879c730a368408f1bff25a0a32a926065ca3be03b334ccc92abdf09de50c",
+      "symbol": "AVAXUSDT",
+      "url": "https://data.binance.vision/data/futures/um/monthly/fundingRate/AVAXUSDT/AVAXUSDT-fundingRate-2026-09.zip.CHECKSUM"
+    },
+    {
+      "error": null,
+      "field": "klines_1h",
+      "http_status": 200,
+      "month": "2026-09",
+      "response_len": 90,
+      "response_sha256": "3625a9a942aec1c5be3af56fc30f25ac6f90d80785b42ace49e3bf0643fd7955",
+      "symbol": "AVAXUSDT",
+      "url": "https://data.binance.vision/data/futures/um/monthly/klines/AVAXUSDT/1h/AVAXUSDT-1h-2026-09.zip.CHECKSUM"
+    },
+    {
+      "error": null,
+      "field": "fundingRate",
+      "http_status": 404,
+      "month": "2026-10",
+      "response_len": 0,
+      "response_sha256": null,
+      "symbol": "AVAXUSDT",
+      "url": "https://data.binance.vision/data/futures/um/monthly/fundingRate/AVAXUSDT/AVAXUSDT-fundingRate-2026-10.zip.CHECKSUM"
+    },
+    {
+      "error": null,
+      "field": "klines_1h",
+      "http_status": 404,
+      "month": "2026-10",
+      "response_len": 0,
+      "response_sha256": null,
+      "symbol": "AVAXUSDT",
+      "url": "https://data.binance.vision/data/futures/um/monthly/klines/AVAXUSDT/1h/AVAXUSDT-1h-2026-10.zip.CHECKSUM"
+    },
+    {
+      "error": null,
+      "field": "fundingRate",
+      "http_status": 404,
+      "month": "2026-11",
+      "response_len": 0,
+      "response_sha256": null,
+      "symbol": "AVAXUSDT",
+      "url": "https://data.binance.vision/data/futures/um/monthly/fundingRate/AVAXUSDT/AVAXUSDT-fundingRate-2026-11.zip.CHECKSUM"
+    },
+    {
+      "error": null,
+      "field": "klines_1h",
+      "http_status": 404,
+      "month": "2026-11",
+      "response_len": 0,
+      "response_sha256": null,
+      "symbol": "AVAXUSDT",
+      "url": "https://data.binance.vision/data/futures/um/monthly/klines/AVAXUSDT/1h/AVAXUSDT-1h-2026-11.zip.CHECKSUM"
+    }
+  ],
+  "conclusion": {
+    "archive_end_month": "2026-09",
+    "archive_reassessment": "REASSESSED - duration constraint NOT relieved; FVD-EXPLORATORY-003 remains INCONCLUSIVE; frozen FVD001-FVD108/FVD053 and BLOCKED_DATA_GATE preserved.",
+    "below_90_day_fvd053_threshold": true,
+    "binding_constraint_remains": "instrument_identity_not_verified (symbol-mapped only, candidate-level); duration also unmet but not relievable until Binance publishes 2026-10 files (after 2026-10-31).",
+    "common_funding_intersection_utc": [
+      "2026-07-27T16:00:00Z",
+      "2026-09-30T00:00:00Z"
+    ],
+    "duration_gate_passed": false,
+    "november_2026_published": false,
+    "october_2026_published": false,
+    "okx_binance_funding_intersection_estimate_days": 65,
+    "okx_funding_earliest_utc_from_probe": "2026-07-27T16:00:00Z"
+  },
+  "estimand": "FVD-EXPLORATORY-003",
+  "note": "No credentials, no full downloads. Checks only tiny *.zip.CHECKSUM objects (HTTP status, byte length, sha256). 2026-10 is the in-progress month (today=2026-10-27); monthly files are published after month-end.",
+  "purpose": "Bounded reassessment of Binance USD-M monthly-archive end boundary for the FVD-EXPLORATORY-003 (OKX+Binance) estimand; answers the HANDOFF conditional 'if new Binance monthly archive files for October-November 2026 are published, reassess the 72-day 3-venue overlap against the 90-day threshold.'",
+  "reference_probe": "historical_overlap_probe_40506445204_attempt_1.json",
+  "schema_version": "1.0",
+  "source": "Binance public data archive (data.binance.vision) USD-M futures monthly fundingRate + 1h klines checksum objects"
+}

@@ -289,6 +289,15 @@ class NormalizeBinance8hTests(unittest.TestCase):
         with self.assertRaises(ValueError):
             normalize_funding_rate(0.0001, 0.0)
 
+    def test_negative_finite_interval_rejected_at_binance_8h(self):
+        """The interval gate is `interval <= 0`; a negative finite interval is a
+        boundary value that must be rejected at the Binance 8h normalization
+        interval, not silently sign-flipped into cash flow."""
+        for interval in (-1.0, -8.0, -0.5, -1e-9):
+            with self.subTest(interval=interval):
+                with self.assertRaises(ValueError):
+                    normalize_funding_rate(0.0001, interval)
+
     def test_extreme_magnitude_binance_8h_is_identity(self):
         for rate in [1e-10, -1e-10, 1e-6, -1e-6, 1.0, -1.0, 1e6, -1e6]:
             with self.subTest(rate=rate):
