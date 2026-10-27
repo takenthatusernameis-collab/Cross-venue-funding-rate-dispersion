@@ -1,0 +1,416 @@
+{
+  "artifact_type": "coverage_matrix",
+  "observed_at_utc": "2026-10-27T01:28:54.537916Z",
+  "schema_version": "1.0",
+  "source_probe": {
+    "path": "research_state/historical_overlap_probe_40432758814_attempt_1.json",
+    "sha256": "8f3a4e869737a2e778130bbef1f01a9097675da389952ca0c194f48f91896932"
+  },
+  "window_start_utc": "2026-06-29T00:59:59.999Z",
+  "window_end_utc": "2026-10-27T00:59:59.999Z",
+  "candidate_assets": [
+    "BTC",
+    "ETH",
+    "SOL",
+    "AVAX"
+  ],
+  "venues": [
+    "Hyperliquid",
+    "OKX"
+  ],
+  "contract_identity_evidence": {
+    "evidence_level": "candidate",
+    "hl_settle_ccy_exposed": false,
+    "hl_settle_known": false,
+    "limitation": "Hyperliquid perpetual settlement currency (USDC) is not exposed in the meta endpoint; settlement equivalence vs OKX USDT settlements is inferred, not proven. Per exploratory_protocol_v1.md section 3 requirement 1, 'compatible contract identities' are not established; only underlying-name matching is available.",
+    "per_underlying": {
+      "AVAX": {
+        "evidence_level": "candidate",
+        "hl_settle_ccy": null,
+        "hl_settle_known": false,
+        "okx_base_ccy": "AVAX",
+        "okx_settle_ccy": "USDT",
+        "settlement_match": false,
+        "underlying_match": true
+      },
+      "BTC": {
+        "evidence_level": "candidate",
+        "hl_settle_ccy": null,
+        "hl_settle_known": false,
+        "okx_base_ccy": "BTC",
+        "okx_settle_ccy": "USDT",
+        "settlement_match": false,
+        "underlying_match": true
+      },
+      "ETH": {
+        "evidence_level": "candidate",
+        "hl_settle_ccy": null,
+        "hl_settle_known": false,
+        "okx_base_ccy": "ETH",
+        "okx_settle_ccy": "USDT",
+        "settlement_match": false,
+        "underlying_match": true
+      },
+      "SOL": {
+        "evidence_level": "candidate",
+        "hl_settle_ccy": null,
+        "hl_settle_known": false,
+        "okx_base_ccy": "SOL",
+        "okx_settle_ccy": "USDT",
+        "settlement_match": false,
+        "underlying_match": true
+      }
+    }
+  },
+  "cross_venue_overlap": {
+    "binance_archive_depth": "2020-01 to 2026-09 (6.82 years)",
+    "binance_archive_note": "feasibility-only checksum objects verified HTTP 200; not downloaded/integrated as a full venue",
+    "common_days": 98,
+    "common_funding_end_utc": "2026-10-27T00:00:00Z",
+    "common_funding_start_utc": "2026-07-20T16:00:00Z",
+    "contract_identity_verified": false,
+    "limiting_condition": "OKX public/funding-rate-history is documented as 'up to three months' retention; this probe returned 296 rows (279 below the 400 limit) with stop_reason page_not_full, confirming the server holds no older records. The common funding intersection is therefore bounded to ~98 days. Contract identity remains candidate-level only (HL settlement currency not exposed). Both conditions fall short of a verified two-venue cross-venue pair with proven contract equivalence.",
+    "okx_funding_history_limit_documented": "up to three months",
+    "okx_funding_pages_received": 1,
+    "okx_funding_rows_per_underlying": 296,
+    "okx_funding_stop_reason": "page_not_full",
+    "survivorship_bias_unmeasured": true
+  },
+  "gates": {
+    "backtest_completed": false,
+    "historical_coverage_gate": "NOT_PASSED_BY_COVERAGE_PROBE",
+    "original_confirmatory_gate": "BLOCKED_DATA_GATE",
+    "performance_metrics_computed": false
+  },
+  "limitations": [
+    "This is a bounded source probe coverage matrix, not a strategy backtest.",
+    "Current instrument metadata does not prove historical listing/delisting or contract identity.",
+    "The 4-asset candidate list is a probe sample, not the full expanding research universe.",
+    "Response availability does not prove data completeness, event maturity, executable fills, or point-in-time market-cap ranks.",
+    "Hyperliquid settlement currency (USDC) is not exposed in the meta endpoint; settlement equivalence vs OKX USDT is inferred, not proven. Contract identity is candidate-level only.",
+    "OKX funding history is structurally limited to ~3 months; the common funding intersection is ~98 days, short of the 3-year confirmatory requirement.",
+    "Binance Public Data archive does not provide historical point-in-time market-cap ranks; confirmatory gate remains BLOCKED_DATA_GATE."
+  ],
+  "matrix": [
+    {
+      "underlying": "BTC",
+      "venues": {
+        "binance": {
+          "checksum_only_verified": true,
+          "contract_identity": {
+            "method": "symbol_match_only",
+            "verified": false
+          },
+          "coverage_proven": false,
+          "note": "archive checksum objects verified HTTP 200 only; archive bytes not downloaded/validated for this probe"
+        },
+        "hyperliquid": {
+          "contract_identity": {
+            "evidence_level": "candidate",
+            "verified": false
+          },
+          "candles_1h": {
+            "coverage": {
+              "duplicate_timestamps": 0,
+              "earliest_utc": "2026-06-29T00:00:00Z",
+              "hourly_gap_count": 0,
+              "latest_utc": "2026-10-27T00:00:00Z",
+              "row_count": 2881,
+              "unique_timestamp_count": 2881
+            },
+            "pages_received": 6
+          },
+          "funding": {
+            "coverage": {
+              "duplicate_timestamps": 0,
+              "earliest_utc": "2026-06-29T01:00:00.041000Z",
+              "hourly_gap_count": 0,
+              "latest_utc": "2026-10-27T00:00:00.056000Z",
+              "row_count": 2880,
+              "unique_timestamp_count": 2880
+            },
+            "interval_hours": 1.0,
+            "pages_received": 6,
+            "stop_reason": "window_reached_or_page_not_full"
+          }
+        },
+        "okx": {
+          "contract_identity": {
+            "evidence_level": "candidate",
+            "okx_settle_ccy": "USDT",
+            "verified": false
+          },
+          "candles_1h": {
+            "coverage": {
+              "duplicate_timestamps": 0,
+              "earliest_utc": "2026-06-29T01:00:00Z",
+              "hourly_gap_count": 0,
+              "latest_utc": "2026-10-27T00:00:00Z",
+              "row_count": 2880,
+              "unique_timestamp_count": 2880
+            },
+            "instId": "BTC-USDT-SWAP",
+            "pages_received": 10,
+            "stop_reason": "window_start_reached"
+          },
+          "funding": {
+            "coverage": {
+              "duplicate_timestamps": 0,
+              "earliest_utc": "2026-07-20T16:00:00Z",
+              "hourly_gap_count": 0,
+              "latest_utc": "2026-10-27T00:00:00Z",
+              "row_count": 296,
+              "unique_timestamp_count": 296
+            },
+            "history_limit_documented": "up to three months",
+            "instId": "BTC-USDT-SWAP",
+            "interval_hours": 8.0,
+            "pages_received": 1,
+            "stop_reason": "page_not_full"
+          }
+        }
+      }
+    },
+    {
+      "underlying": "ETH",
+      "venues": {
+        "binance": {
+          "checksum_only_verified": true,
+          "contract_identity": {
+            "method": "symbol_match_only",
+            "verified": false
+          },
+          "coverage_proven": false,
+          "note": "archive checksum objects verified HTTP 200 only; archive bytes not downloaded/validated for this probe"
+        },
+        "hyperliquid": {
+          "contract_identity": {
+            "evidence_level": "candidate",
+            "verified": false
+          },
+          "candles_1h": {
+            "coverage": {
+              "duplicate_timestamps": 0,
+              "earliest_utc": "2026-06-29T00:00:00Z",
+              "hourly_gap_count": 0,
+              "latest_utc": "2026-10-27T00:00:00Z",
+              "row_count": 2881,
+              "unique_timestamp_count": 2881
+            },
+            "pages_received": 6
+          },
+          "funding": {
+            "coverage": {
+              "duplicate_timestamps": 0,
+              "earliest_utc": "2026-06-29T01:00:00.041000Z",
+              "hourly_gap_count": 0,
+              "latest_utc": "2026-10-27T00:00:00.056000Z",
+              "row_count": 2880,
+              "unique_timestamp_count": 2880
+            },
+            "interval_hours": 1.0,
+            "pages_received": 6,
+            "stop_reason": "window_reached_or_page_not_full"
+          }
+        },
+        "okx": {
+          "contract_identity": {
+            "evidence_level": "candidate",
+            "okx_settle_ccy": "USDT",
+            "verified": false
+          },
+          "candles_1h": {
+            "coverage": {
+              "duplicate_timestamps": 0,
+              "earliest_utc": "2026-06-29T01:00:00Z",
+              "hourly_gap_count": 0,
+              "latest_utc": "2026-10-27T00:00:00Z",
+              "row_count": 2880,
+              "unique_timestamp_count": 2880
+            },
+            "instId": "ETH-USDT-SWAP",
+            "pages_received": 10,
+            "stop_reason": "window_start_reached"
+          },
+          "funding": {
+            "coverage": {
+              "duplicate_timestamps": 0,
+              "earliest_utc": "2026-07-20T16:00:00Z",
+              "hourly_gap_count": 0,
+              "latest_utc": "2026-10-27T00:00:00Z",
+              "row_count": 296,
+              "unique_timestamp_count": 296
+            },
+            "history_limit_documented": "up to three months",
+            "instId": "ETH-USDT-SWAP",
+            "interval_hours": 8.0,
+            "pages_received": 1,
+            "stop_reason": "page_not_full"
+          }
+        }
+      }
+    },
+    {
+      "underlying": "SOL",
+      "venues": {
+        "binance": {
+          "checksum_only_verified": true,
+          "contract_identity": {
+            "method": "symbol_match_only",
+            "verified": false
+          },
+          "coverage_proven": false,
+          "note": "archive checksum objects verified HTTP 200 only; archive bytes not downloaded/validated for this probe"
+        },
+        "hyperliquid": {
+          "contract_identity": {
+            "evidence_level": "candidate",
+            "verified": false
+          },
+          "candles_1h": {
+            "coverage": {
+              "duplicate_timestamps": 0,
+              "earliest_utc": "2026-06-29T00:00:00Z",
+              "hourly_gap_count": 0,
+              "latest_utc": "2026-10-27T00:00:00Z",
+              "row_count": 2881,
+              "unique_timestamp_count": 2881
+            },
+            "pages_received": 6
+          },
+          "funding": {
+            "coverage": {
+              "duplicate_timestamps": 0,
+              "earliest_utc": "2026-06-29T01:00:00.041000Z",
+              "hourly_gap_count": 0,
+              "latest_utc": "2026-10-27T00:00:00.056000Z",
+              "row_count": 2880,
+              "unique_timestamp_count": 2880
+            },
+            "interval_hours": 1.0,
+            "pages_received": 6,
+            "stop_reason": "window_reached_or_page_not_full"
+          }
+        },
+        "okx": {
+          "contract_identity": {
+            "evidence_level": "candidate",
+            "okx_settle_ccy": "USDT",
+            "verified": false
+          },
+          "candles_1h": {
+            "coverage": {
+              "duplicate_timestamps": 0,
+              "earliest_utc": "2026-06-29T01:00:00Z",
+              "hourly_gap_count": 0,
+              "latest_utc": "2026-10-27T00:00:00Z",
+              "row_count": 2880,
+              "unique_timestamp_count": 2880
+            },
+            "instId": "SOL-USDT-SWAP",
+            "pages_received": 10,
+            "stop_reason": "window_start_reached"
+          },
+          "funding": {
+            "coverage": {
+              "duplicate_timestamps": 0,
+              "earliest_utc": "2026-07-20T16:00:00Z",
+              "hourly_gap_count": 0,
+              "latest_utc": "2026-10-27T00:00:00Z",
+              "row_count": 296,
+              "unique_timestamp_count": 296
+            },
+            "history_limit_documented": "up to three months",
+            "instId": "SOL-USDT-SWAP",
+            "interval_hours": 8.0,
+            "pages_received": 1,
+            "stop_reason": "page_not_full"
+          }
+        }
+      }
+    },
+    {
+      "underlying": "AVAX",
+      "venues": {
+        "binance": {
+          "checksum_only_verified": true,
+          "contract_identity": {
+            "method": "symbol_match_only",
+            "verified": false
+          },
+          "coverage_proven": false,
+          "note": "archive checksum objects verified HTTP 200 only; archive bytes not downloaded/validated for this probe"
+        },
+        "hyperliquid": {
+          "contract_identity": {
+            "evidence_level": "candidate",
+            "verified": false
+          },
+          "candles_1h": {
+            "coverage": {
+              "duplicate_timestamps": 0,
+              "earliest_utc": "2026-06-29T00:00:00Z",
+              "hourly_gap_count": 0,
+              "latest_utc": "2026-10-27T00:00:00Z",
+              "row_count": 2881,
+              "unique_timestamp_count": 2881
+            },
+            "pages_received": 6
+          },
+          "funding": {
+            "coverage": {
+              "duplicate_timestamps": 0,
+              "earliest_utc": "2026-06-29T01:00:00.041000Z",
+              "hourly_gap_count": 0,
+              "latest_utc": "2026-10-27T00:00:00.056000Z",
+              "row_count": 2880,
+              "unique_timestamp_count": 2880
+            },
+            "interval_hours": 1.0,
+            "pages_received": 6,
+            "stop_reason": "window_reached_or_page_not_full"
+          }
+        },
+        "okx": {
+          "contract_identity": {
+            "evidence_level": "candidate",
+            "okx_settle_ccy": "USDT",
+            "verified": false
+          },
+          "candles_1h": {
+            "coverage": {
+              "duplicate_timestamps": 0,
+              "earliest_utc": "2026-06-29T01:00:00Z",
+              "hourly_gap_count": 0,
+              "latest_utc": "2026-10-27T00:00:00Z",
+              "row_count": 2880,
+              "unique_timestamp_count": 2880
+            },
+            "instId": "AVAX-USDT-SWAP",
+            "pages_received": 10,
+            "stop_reason": "window_start_reached"
+          },
+          "funding": {
+            "coverage": {
+              "duplicate_timestamps": 0,
+              "earliest_utc": "2026-07-20T16:00:00Z",
+              "hourly_gap_count": 0,
+              "latest_utc": "2026-10-27T00:00:00Z",
+              "row_count": 296,
+              "unique_timestamp_count": 296
+            },
+            "history_limit_documented": "up to three months",
+            "instId": "AVAX-USDT-SWAP",
+            "interval_hours": 8.0,
+            "pages_received": 1,
+            "stop_reason": "page_not_full"
+          }
+        }
+      }
+    }
+  ],
+  "source_code_hashes": {
+    "scripts/probe_historical_overlap.py": "606f07bb27b1b9f4e1a723b8ac42acac7f9741dd6000d6968218a37047acfa09"
+  },
+  "source_responses_with_http_status": 8
+}

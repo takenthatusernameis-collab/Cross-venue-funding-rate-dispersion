@@ -1,3 +1,43 @@
+## Settlement-metadata measurement study + FVD-EXPLORATORY-002 finalization (2026-10-27)
+
+Completed the next bounded, no-cost exploratory task defined by the adaptive research-gate policy: the settlement-currency sub-component of contract identity was the binding blocker for the HL+OKX pair.
+
+### Action performed
+
+1. **Finalized `research_state/exploratory_run_manifest_2026-10-25.json`** (FVD-EXPLORATORY-002):
+   - Added caveat #15 documenting the newest 120-day controller probe `historical_overlap_probe_40432758814_attempt_1.json` (observed_at_utc 2026-10-27T01:28:54.537916Z, file sha256 `8f3a4e869737a2e778130bbef1f01a9097675da389952ca0c194f48f91896932`) — top-level `contract_identity` evidence (candidate-level for BTC/ETH/SOL/AVAX; underlying_match=true, settlement_match=false, hl_settle_known=false); exact unmet exploratory requirement (HL meta exposes no settlement-currency field; `historical_coverage_gate=NOT_PASSED_BY_COVERAGE_PROBE`; 296 OKX rows/underlying, 279 below the 400-row server limit, stop_reason page_not_full).
+   - Added the probe to `output_artifacts` (now 11 entries, including `coverage_matrix_2026-10-27.json` sha `485bf28538e3d9955dfc027b33010cf910c5afa9af3afd70362ccb9d88d4245d`).
+   - Populated `source_code_hashes` with `scripts/probe_historical_overlap.py` sha `606f07bb27b1b9f4e1a723b8ac42acac7f9741dd6000d6968218a37047acfa09`.
+   - Rewrote `next_step` to reflect the settlement-metadata measurement outcome and the FVD-EXPLORATORY-003 forward path.
+   - Manifest sha256 `08bbecf10f80f46b3d56e62e5c82ce44915840b25612307c0d7026f7a9905f1f`. Status unchanged: EXPLORATORY_ONLY; confirmatory_status_preserved = BLOCKED_DATA_GATE. (No frozen artifact, grid, FVD001-FVD108, FVD053, or original run manifest was modified.)
+
+2. **Created `scripts/measure_settlement_metadata.py`** + evidence artifact `research_state/settlement_metadata_measurement_2026-10-27.json` (sha `5184d5e25cbb7badde958d2da768d00e371d2dd8d1272181d94cbf91ec9014b4`; script sha `4ffc92dde8a0d9e9189baf57e75e6f2c580da49afbe099a94b044bbb61cc1a63`):
+   - Reuses `request_json`/`extract_okx_instrument_details` from the probe; one OKX `/public/instruments?instType=SWAP` call (HTTP 200) and one Binance `/fapi/v1/exchangeInfo` call (HTTP **451 geo-block from this host, faithfully recorded**; Binance USD-M settle=USDT verified_documented via Binance USDT-M definition + checksum-verified archive provenance in `binance_archive_feasibility_assessment_2026-10-26.json`).
+   - Hyperledger finding reused from the depth probe (no settlement-currency field → not provable); the same metadata probe was NOT re-run.
+   - **Finding:** the settlement-currency sub-component of contract identity is resolvable for the OKX+Binance USD-M pair over BTC/ETH/SOL/AVAX (both provably USDT; `settlement_currency_match_provable=true`). OKX|Hyperliquid and Binance|Hyperliquid remain NOT provable.
+   - **Residual unmeasured/unresolved:** (a) instrument/contract identity between Binance BTCUSDT and OKX BTC-USDT-SWAP is symbol-mapped only; (b) 3-venue HL+OKX+Binance overlap ~72 days (<90); (c) historical PIT market-cap still unavailable from free sources. No performance metric, edge, or backtest claimed.
+
+### Validation commands run
+- `python3 -m compileall -q src scripts tests` = OK (exit 0)
+- `PYTHONPATH=src python3 -m unittest discover -s tests -v` = PASS (exit 0; `RESEARCH_STATE_ARTIFACTS_VALIDATION=PASS files=34`)
+- `PYTHONPATH=src python3 scripts/validate_research.py` = RESEARCH_VALIDATION=PASS (grid 108, anchor FVD053, NOT_RUN, no metrics)
+- `python3 scripts/validate_skills.py` = SKILLS_VALIDATION=PASS count=4
+- `git diff --check` = clean (no whitespace errors)
+
+### Frozen artifacts verified unchanged
+- `configs/cross_venue_funding_dispersion_grid_v1.json` sha `6be218bc84bf118cf67c238ad1c13ef1e445658db3b1346cd64ccaccc7aa5f07`
+- `research_state/run_manifest.json` sha `4f162ce128c741434addf6aa2fa7c7dbf1bf189d4a81b8893ed96899412c7aaf` (BLOCKED_DATA_GATE)
+- `research_state/fvd053_anchor_run_2026-10-25.json` sha `50b328baf5854dec40105a0f5ebe498bf589906f9c033ce659843659927ca4c2`
+
+### Status
+- Confirmatory track: BLOCKED_DATA_GATE — FVD001–FVD108, FVD053 unchanged. No backtest, no performance metrics.
+- Exploratory track: FVD-EXPLORATORY-002 EXPLORATORY_ONLY/INCONCLUSIVE, 0 signals, no metrics; manifest finalized and linked to newest probe + 2026-10-27 coverage matrix + settlement measurement.
+
+### Next measurable task
+Register FVD-EXPLORATORY-003 (a NEW versioned exploratory manifest with an explicit Estimand) for OKX+Binance (USDT) funding dispersion over the verified ~72-day Binance+OKX funding intersection (Binance archive 2021-06..2026-09 meets the 3-year history requirement; 8h funding matches OKX), IF AND ONLY IF a separate instrument-identity argument is accepted for that distinct estimand. If instrument identity is rejected as insufficient, record the structural limitation (instrument identity — not settlement — is now the binding constraint) and move to another independent task. Do NOT re-run the settlement metadata probe or the overlap probes; no anchor/backtest re-run; no metric claim.
+
+---
+
 ## Committed anchor artifact red-team regression tests (2026-10-26)
 
 Added source-independent regression tests on the committed FVD053 anchor artifact and verified live network availability from this environment.

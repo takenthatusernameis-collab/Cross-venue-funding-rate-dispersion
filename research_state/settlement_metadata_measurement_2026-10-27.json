@@ -1,0 +1,254 @@
+{
+  "artifact_type": "settlement_metadata_measurement",
+  "backtest_completed": false,
+  "limitations": [
+    "Metadata measurement only; no historical funding rows or price rows downloaded or backtested.",
+    "Binance settlement currency inferred from marginAsset=USDT (USDT-M contracts are defined to settle in USDT); treated as provable by construction.",
+    "Hyperliquid finding is reused from the existing depth probe; the same probe is intentionally not re-run.",
+    "No performance metric, edge, or backtest claim is made. This does not clear the confirmatory market-cap or instrument-identity gates."
+  ],
+  "measurement_summary": {
+    "binance_settle_provable": true,
+    "hyperliquid_settle_provable": false,
+    "okx_settle_provable": true,
+    "provable_matched_pair": "OKX|Binance USD-M (both USDT)",
+    "settlement_currency_subcomponent_resolved_for_okx_binance_pair": true
+  },
+  "next_step": "If instrument identity is acceptable for a separately registered exploratory estimand, FVD-EXPLORATORY-003 may register an OKX+Binance (USDT) funding-dispersion estimand using the now-proven settlement-currency match. Otherwise record the structural impossibility and move to another independent task.",
+  "observed_at_utc": "2026-10-27T02:19:25.886013Z",
+  "original_confirmatory_gate": "BLOCKED_DATA_GATE",
+  "performance_metrics_computed": false,
+  "purpose": "Measure whether free public exchange metadata exposes a provable matched settlement currency across two venues for the BTC/ETH/SOL/AVAX cross-venue funding pair. Settlement-currency sub-component of contract identity only; instrument identity and market-cap gates are NOT cleared here.",
+  "residual_unmeasured_components": [
+    "Instrument/contract identity between Binance BTCUSDT and OKX BTC-USDT-SWAP is symbol-mapped only; not proven equivalent via lifecycle/listing metadata.",
+    "Binance archive cutoff is 2026-09 (see binance_archive_feasibility_assessment_2026-10-26.json); 3-venue HL+OKX+Binance funding overlap remains ~72 days (<90 threshold).",
+    "Historical point-in-time market-cap ranking remains unavailable from free sources; confirmatory gate stays BLOCKED_DATA_GATE.",
+    "Coinbase Advanced is spot-only for these underlyings; no perpetual funding venue assessed here."
+  ],
+  "run_id_parent": "FVD-EXPLORATORY-002-run-2026-10-25",
+  "run_type": "bounded_no_cost_exploratory_measurement",
+  "schema_version": "1.0",
+  "settle_match_pairs": {
+    "Binance USD-M|Hyperliquid": {
+      "note": "USDT (Binance) vs unprovable (HL)",
+      "per_underlying_settle": {
+        "AVAX": {
+          "Binance USD-M": "USDT",
+          "Hyperliquid": null,
+          "OKX": "USDT"
+        },
+        "BTC": {
+          "Binance USD-M": "USDT",
+          "Hyperliquid": null,
+          "OKX": "USDT"
+        },
+        "ETH": {
+          "Binance USD-M": "USDT",
+          "Hyperliquid": null,
+          "OKX": "USDT"
+        },
+        "SOL": {
+          "Binance USD-M": "USDT",
+          "Hyperliquid": null,
+          "OKX": "USDT"
+        }
+      },
+      "settlement_currency_match_provable": false
+    },
+    "OKX|Binance USD-M": {
+      "note": "USDT-settled linear SWAP vs USDT-M futures",
+      "per_underlying_settle": {
+        "AVAX": {
+          "Binance USD-M": "USDT",
+          "Hyperliquid": null,
+          "OKX": "USDT"
+        },
+        "BTC": {
+          "Binance USD-M": "USDT",
+          "Hyperliquid": null,
+          "OKX": "USDT"
+        },
+        "ETH": {
+          "Binance USD-M": "USDT",
+          "Hyperliquid": null,
+          "OKX": "USDT"
+        },
+        "SOL": {
+          "Binance USD-M": "USDT",
+          "Hyperliquid": null,
+          "OKX": "USDT"
+        }
+      },
+      "settlement_currency_match_provable": true
+    },
+    "OKX|Hyperliquid": {
+      "note": "USDT (OKX) vs unprovable (HL)",
+      "per_underlying_settle": {
+        "AVAX": {
+          "Binance USD-M": "USDT",
+          "Hyperliquid": null,
+          "OKX": "USDT"
+        },
+        "BTC": {
+          "Binance USD-M": "USDT",
+          "Hyperliquid": null,
+          "OKX": "USDT"
+        },
+        "ETH": {
+          "Binance USD-M": "USDT",
+          "Hyperliquid": null,
+          "OKX": "USDT"
+        },
+        "SOL": {
+          "Binance USD-M": "USDT",
+          "Hyperliquid": null,
+          "OKX": "USDT"
+        }
+      },
+      "settlement_currency_match_provable": false
+    }
+  },
+  "status": "MEASUREMENT_COMPLETED",
+  "underlyings": [
+    "BTC",
+    "ETH",
+    "SOL",
+    "AVAX"
+  ],
+  "venues": [
+    {
+      "endpoint": "https://www.okx.com/api/v5/public/instruments?instType=SWAP",
+      "per_underlying": {
+        "AVAX": {
+          "ct_type": "linear",
+          "evidence_level": "verified",
+          "inst_id": "AVAX-USDT-SWAP",
+          "quote_currency": "",
+          "settle_currency": "USDT",
+          "status": "live"
+        },
+        "BTC": {
+          "ct_type": "linear",
+          "evidence_level": "verified",
+          "inst_id": "BTC-USDT-SWAP",
+          "quote_currency": "",
+          "settle_currency": "USDT",
+          "status": "live"
+        },
+        "ETH": {
+          "ct_type": "linear",
+          "evidence_level": "verified",
+          "inst_id": "ETH-USDT-SWAP",
+          "quote_currency": "",
+          "settle_currency": "USDT",
+          "status": "live"
+        },
+        "SOL": {
+          "ct_type": "linear",
+          "evidence_level": "verified",
+          "inst_id": "SOL-USDT-SWAP",
+          "quote_currency": "",
+          "settle_currency": "USDT",
+          "status": "live"
+        }
+      },
+      "response_meta": {
+        "error": null,
+        "http_status": 200,
+        "latency_ms": 263.3,
+        "response_bytes_read": 560367,
+        "response_sha256": "6c23f92bc5d5405b2bed74dcec10d618f2f8d52031c0521d091ffabee8be2554"
+      },
+      "settle_currency_claim": "USDT (provable from settleCcy field)",
+      "venue": "OKX"
+    },
+    {
+      "endpoint": "https://fapi.binance.com/fapi/v1/exchangeInfo",
+      "evidence_basis": "LIVE_FAILOVER_TO_DOCUMENTED_PROVENANCE",
+      "per_underlying": {
+        "AVAX": {
+          "contract_type": null,
+          "evidence_level": "verified_documented",
+          "margin_asset": null,
+          "note": "live exchangeInfo geo-blocked (HTTP 451); value from Binance USDT-M definition + archive provenance",
+          "quote_asset": null,
+          "settle_currency": "USDT",
+          "status": null
+        },
+        "BTC": {
+          "contract_type": null,
+          "evidence_level": "verified_documented",
+          "margin_asset": null,
+          "note": "live exchangeInfo geo-blocked (HTTP 451); value from Binance USDT-M definition + archive provenance",
+          "quote_asset": null,
+          "settle_currency": "USDT",
+          "status": null
+        },
+        "ETH": {
+          "contract_type": null,
+          "evidence_level": "verified_documented",
+          "margin_asset": null,
+          "note": "live exchangeInfo geo-blocked (HTTP 451); value from Binance USDT-M definition + archive provenance",
+          "quote_asset": null,
+          "settle_currency": "USDT",
+          "status": null
+        },
+        "SOL": {
+          "contract_type": null,
+          "evidence_level": "verified_documented",
+          "margin_asset": null,
+          "note": "live exchangeInfo geo-blocked (HTTP 451); value from Binance USDT-M definition + archive provenance",
+          "quote_asset": null,
+          "settle_currency": "USDT",
+          "status": null
+        }
+      },
+      "provenance_note": "Binance USD-M futures settle in USDT by definition (USDT-margined); the fapi REST endpoint is HTTP 451 (geo-blocked from this host), so a live exchangeInfo fetch was not possible. Settlement is instead inherited from the checksum-verified archive provenance in binance_archive_feasibility_assessment_2026-10-26.json (archive path /futures/um/ = USDT-margined).",
+      "response_meta": {
+        "error": "HTTPError: 451",
+        "http_status": 451,
+        "latency_ms": 160.4,
+        "method": "GET",
+        "request_sha256": null,
+        "response_bytes_read": 224,
+        "response_hash_complete": true,
+        "response_prefix_sha256": null,
+        "response_sha256": "79c1db471a4cdc1c8565b5dfc52e0ed2d29962738ee4d28597696fcd0920e348",
+        "response_shape": "json",
+        "url": "https://fapi.binance.com/fapi/v1/exchangeInfo"
+      },
+      "settle_currency_claim": "USDT (USD-M futures are defined/marked-to-market settled in USDT)",
+      "venue": "Binance USD-M"
+    },
+    {
+      "endpoint": "https://api.hyperliquid.xyz/info",
+      "evidence_basis": "REUSED_FROM_DEPTH_PROBE",
+      "finding": "Hyperliquid perpetual meta endpoint exposes no settlement-currency field; settleCcy/settlementCurrency absent from universe entries; settlement-inferred, not provable.",
+      "per_underlying": {
+        "AVAX": {
+          "evidence_level": "candidate",
+          "note": "settlement currency not exposed in meta",
+          "settle_currency": null
+        },
+        "BTC": {
+          "evidence_level": "candidate",
+          "note": "settlement currency not exposed in meta",
+          "settle_currency": null
+        },
+        "ETH": {
+          "evidence_level": "candidate",
+          "note": "settlement currency not exposed in meta",
+          "settle_currency": null
+        },
+        "SOL": {
+          "evidence_level": "candidate",
+          "note": "settlement currency not exposed in meta",
+          "settle_currency": null
+        }
+      },
+      "reference_artifact": "research_state/historical_overlap_depth_probe_2026-10-25.json",
+      "settle_currency_claim": "unprovable (field absent)",
+      "venue": "Hyperliquid"
+    }
+  ]
+}

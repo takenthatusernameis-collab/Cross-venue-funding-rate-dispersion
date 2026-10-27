@@ -23,9 +23,11 @@
     "Independent controller-side coverage probe (historical_overlap_probe_40315875592_attempt_1.json) re-verified 4 assets (BTC, ETH, SOL, AVAX) with Hyperliquid + OKX over a 120-day window (2026-06-28 to 2026-10-26). LINK not available in this probe run; 4-asset cross-section confirmed. Findings consistent with depth probe (97-98 day common funding intersection, OKX funding limited to ~3 months). This is an independent re-verification, not a replacement for the 5-asset depth probe.",
     "Binance Public Data archive (data.binance.vision) verified as a third venue candidate: 24 checksum-matched downloads (4 assets x 3 overlap months x funding+klines) plus 3 historical depth samples confirm 8h funding interval (matching OKX), consistent CSV schema, and 6.82 years of history (2020-01 to 2026-09). Binance archive ends at 2026-09, limiting the 3-venue common funding overlap to ~72 days (below 90-day threshold). Binance does not provide historical point-in-time market-cap rankings; confirmatory gate remains BLOCKED_DATA_GATE. Contract identity by underlying symbol only; not independently verified.",
     "Independent controller-side coverage probe (historical_overlap_probe_40370588351_attempt_1.json, observed 2026-10-26T17:39:31Z) is the newest 120-day probe; it supersedes historical_overlap_probe_40315875592_attempt_1.json with one additional OKX funding settlement (295 vs 294 rows), extending OKX funding coverage through 2026-10-26T16:00:00Z. The 4-asset intersection (BTC, ETH, SOL, AVAX) confirms ~98 common funding days across HL+OKX (meets the 90-day threshold). LINK is present in the earlier depth probe (5 assets) but not in the 120-day controller probes (4 assets); the shorter 120-day window still meets threshold-history minimums for the 4-asset intersection.",
-    "The controller-run probe (historical_overlap_probe_40370588351_attempt_1.json) does not include the top-level contract_identity field because the controller executed a pre-collect_contract_identity-integration version of scripts/probe_historical_overlap.py; the committed local version at scripts/probe_historical_overlap.py:502 now calls collect_contract_identity() and emits a top-level contract_identity field in run_probe() output. Contract identity remains symbol-only/unverified (candidate-level for BTC/ETH/SOL/AVAX via underlying-name matching; Hyperledger settlement-inferred, not proven)."
+    "The controller-run probe (historical_overlap_probe_40370588351_attempt_1.json) does not include the top-level contract_identity field because the controller executed a pre-collect_contract_identity-integration version of scripts/probe_historical_overlap.py; the committed local version at scripts/probe_historical_overlap.py:502 now calls collect_contract_identity() and emits a top-level contract_identity field in run_probe() output. Contract identity remains symbol-only/unverified (candidate-level for BTC/ETH/SOL/AVAX via underlying-name matching; Hyperledger settlement-inferred, not proven).",
+    "Newest verified probe historical_overlap_probe_40432758814_attempt_1.json (observed_at_utc 2026-10-27T01:28:54.537916Z; file sha256 8f3a4e869737a2e778130bbef1f01a9097675da389952ca0c194f48f91896932) now includes top-level contract_identity evidence with per-underlying results for BTC/ETH/SOL/AVAX (underlying_match=true, settlement_match=false, hl_settle_known=false, evidence_level='candidate'). This is the exact unmet exploratory requirement: exploratory_protocol_v1.md section 3 requires 'compatible contract identities' across at least two venues; settlement equivalence between Hyperliquid (perpetuals settle in USDC) and OKX (linear USDT swaps, settleCcy=USDT) cannot be proven because the Hyperliquid perp meta endpoint does not expose a settlement currency field. No free source route change makes this provable locally; do not repeat the same metadata probe. The common funding intersection spans 2026-07-20T16:00:00Z to 2026-10-27T00:00:00Z (~98 days) and includes 296 OKX funding-rate-history rows per underlying (279 below the 400-row server limit) with stop_reason page_not_full, confirming the server holds no older records; OKX retention is documented as 'up to three months'. Per-coverage matrix coverage_matrix_2026-10-27.json (file sha256 485bf28538e3d9955dfc027b33010cf910c5afa9af3afd70362ccb9d88d4245d). historical_coverage_gate = NOT_PASSED_BY_COVERAGE_PROBE. No gate passage, no backtest, no performance metric claimed; confirmatory gate remains BLOCKED_DATA_GATE.",
+    "Bounded no-cost settlement-metadata measurement study (scripts/measure_settlement_metadata.py, output research_state/settlement_metadata_measurement_2026-10-27.json sha256 5184d5e25cbb7badde958d2da768d00e371d2dd8d1272181d94cbf91ec9014b4) found that the settlement-currency sub-component of contract identity is resolvable ONLY for an OKX+Binance USD-M pair over BTC/ETH/SOL/AVAX: OKX settleCcy=USDT is live-verified via OKX /public/instruments (HTTP 200); Binance USD-M settle=USDT is verified_documented (Binance USDT-M contracts settle in USDT by definition; the fapi exchangeInfo endpoint returns HTTP 451 geo-block from this host, which is faithfully recorded rather than silently skipped). Binance USD-M provenance is cross-checked against the checksum-verified archive in binance_archive_feasibility_assessment_2026-10-26.json. OKX|Hyperliquid and Binance|Hyperliquid remain NOT provable because the Hyperliquid perp meta endpoint exposes no settlement-currency field (reused finding; the same probe was not repeated). Residual instrument-identity (Binance BTCUSDT vs OKX BTC-USDT-SWAP, symbol-mapped only) and the ~72-day 3-venue overlap (<90) and market-cap gate (no free historical ranks) are NOT cleared here. No performance metric claimed; confirmatory gate stays BLOCKED_DATA_GATE."
   ],
-  "completed_at_utc": "2026-10-26T23:10:00Z",
+  "completed_at_utc": "2026-10-27T02:01:21Z",
   "conclusion": "EXPLORATORY_ONLY / INCONCLUSIVE for inference. Threshold-history eligibility met (97 prior daily observations >= 90) over the verified common funding intersection for 5 underlyings x 2 venues. FVD053 anchor was exercised on actual live data but generated 0 signals across 47 candidate dates (dispersion never exceeded the 80th-percentile threshold). No backtest, no performance metric, no economic edge claimed. Confirmatory gate BLOCKED_DATA_GATE preserved.",
   "config_hashes": {
     "configs/cross_venue_funding_dispersion_grid_v1.json": "6be218bc84bf118cf67c238ad1c13ef1e445658db3b1346cd64ccaccc7aa5f07"
@@ -44,12 +46,14 @@
   },
   "coverage_summary": {
     "common_days": 98,
-    "common_funding_end_utc": "2026-10-26T16:00:00Z",
+    "common_funding_end_utc": "2026-10-27T00:00:00Z",
     "common_funding_start_utc": "2026-07-20T16:00:00Z",
+    "contract_identity_evidence_level": "candidate",
+    "okx_funding_settlements": 296,
     "underlyings": 4,
     "venues": 2
   },
-  "data_cutoff_utc": "2026-10-25T16:00:00Z",
+  "data_cutoff_utc": "2026-10-27T00:00:00Z",
   "data_gate_result": "PARTIAL \u2014 funding + 1h price history verified for both venues over ~97 common days; contract identity symbol-only/unverified; evaluation window ~7 signal days; short history vs 3-year confirmatory requirement",
   "date_utc": "2026-10-25",
   "exclusion_rules": [
@@ -72,8 +76,8 @@
     "AVAX",
     "LINK"
   ],
-  "last_updated_utc": "2026-10-26T23:10:00Z",
-  "next_step": "Exploratory track has verified coverage for 3 venues (Hyperliquid, OKX, Binance) across 4 underlyings (BTC, ETH, SOL, AVAX) with the common 2-venue (HL+OKX) funding intersection at ~98 days (meets 90-day threshold). Binance extends historical depth to 6.82 years but ends at 2026-09, limiting 3-venue overlap to ~72 days. FVD053 anchor already exercised (0 signals, INCONCLUSIVE). Next bounded action: download a broader bounded Binance archive sample (additional historical months) to verify whether extended Binance history can serve as a longer-duration second venue pair (Binance+Hyperliquid gives ~91 days, barely meeting threshold). Contract identity verification remains the limiting factor; symbol-only mapping is insufficient for confident cross-venue comparison. Keep EXPLORATORY_ONLY status; do not claim metrics until an anchor run actually computes them.",
+  "last_updated_utc": "2026-10-27T02:01:21Z",
+  "next_step": "Bounded no-cost settlement-metadata measurement study (settlement_metadata_measurement_2026-10-27.json, file sha256 5184d5e25cbb7badde958d2da768d00e371d2dd8d1272181d94cbf91ec9014b4) CONFIRMS that the settlement-currency sub-component of contract identity is resolvable for an OKX+Binance USD-M pair over BTC/ETH/SOL/AVAX: OKX settleCcy=USDT is live-verified (HTTP 200); Binance USD-M settle=USDT is verified_documented via Binance USDT-M definition + checksum-verified archive provenance (the fapi exchangeInfo REST endpoint returns HTTP 451 geo-block from this host, faithfully recorded). The OKX|Binance settlement-currency pair is provable (settlement_currency_match_provable=true); OKX|Hyperliquid and Binance|Hyperliquid remain NOT provable (Hyperliquid meta exposes no settlement-currency field). Remaining non-clearable conditions: (a) instrument/contract identity between Binance BTCUSDT and OKX BTC-USDT-SWAP is symbol-mapped only, not proven via lifecycle/listing metadata; (b) Binance archive cutoff 2026-09 limits 3-venue HL+OKX+Binance overlap to ~72 days (<90); (c) historical point-in-time market-cap remains unavailable from free sources. Per adaptive policy, do NOT re-run the settlement metadata probe or the overlap probes. Bounded next action: register FVD-EXPLORATORY-003 as a NEW versioned exploratory manifest with an explicit Estimand targeting the OKX+Binance (USDT) funding-dispersion mechanism over the verified ~72-day Binance+OKX funding intersection (Binance archive 2021-06 .. 2026-09 meets the 3-year history requirement, funding interval 8h matches OKX), IF AND ONLY IF a separate instrument-identity argument is accepted for that distinct estimand; otherwise record the structural limitation (instrument identity, not settlement, is now the binding constraint) and move to another independent task. No anchor/backtest re-run, no metric claim, confirmatory gate stays BLOCKED_DATA_GATE.",
   "output_artifacts": [
     {
       "path": "research_state/historical_overlap_depth_probe_2026-10-25.json",
@@ -106,6 +110,18 @@
     {
       "path": "research_state/historical_overlap_probe_40370588351_attempt_1.json",
       "sha256": "018dd267d8f4097c3804c22633abd0cc697edbe86e5beebddf83faba77a312bf"
+    },
+    {
+      "path": "research_state/historical_overlap_probe_40432758814_attempt_1.json",
+      "sha256": "8f3a4e869737a2e778130bbef1f01a9097675da389952ca0c194f48f91896932"
+    },
+    {
+      "path": "research_state/coverage_matrix_2026-10-27.json",
+      "sha256": "485bf28538e3d9955dfc027b33010cf910c5afa9af3afd70362ccb9d88d4245d"
+    },
+    {
+      "path": "research_state/settlement_metadata_measurement_2026-10-27.json",
+      "sha256": "5184d5e25cbb7badde958d2da768d00e371d2dd8d1272181d94cbf91ec9014b4"
     }
   ],
   "performance_metrics_computed": false,
@@ -113,7 +129,9 @@
   "run_id": "FVD-EXPLORATORY-002-run-2026-10-25",
   "sample_construction": "Verified historical intersection of 5 underlyings with funding settlements + 1h price history on >=2 venues; no market-cap rank required for this distinct exploratory estimand; shorter history allowed; not market-cap representative.",
   "schema_version": "1.0",
-  "source_code_hashes": {},
+  "source_code_hashes": {
+    "scripts/probe_historical_overlap.py": "606f07bb27b1b9f4e1a723b8ac42acac7f9741dd6000d6968218a37047acfa09"
+  },
   "started_at_utc": "2026-10-25T19:07:59Z",
   "status": "EXPLORATORY_ONLY",
   "threshold_history_eligibility": {
@@ -124,16 +142,17 @@
     ],
     "common_funding_window_utc": [
       "2026-07-20T16:00:00Z",
-      "2026-10-26T16:00:00Z"
+      "2026-10-27T00:00:00Z"
     ],
     "contract_identity_verified": false,
+    "contract_identity_evidence_level": "candidate",
     "eligible_for_threshold_computation": true,
     "estimated_signal_days": 7,
     "hl_funding_interval": "1h",
     "hl_funding_settlements": 2880,
     "minimum_prior_daily_observations_required": 90,
     "okx_funding_interval": "8h",
-    "okx_funding_settlements": 295,
+    "okx_funding_settlements": 296,
     "price_history_verified_both_venues": true,
     "prior_daily_observations_available": 98,
     "underlyings": 4,
