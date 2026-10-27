@@ -131,7 +131,7 @@ def validate_binance_archive() -> list[str]:
     except Exception as exc:
         errors.append("short funding row raised wrong type: %s" % exc)
 
-    for bad_args in [(0.001, 0), (float("nan"), 8), (0.001, -1)]:
+    for bad_args in [(0.001, 0), (float("nan"), 8), (float("inf"), 8), (0.001, -1), (1e308, 1.0)]:
         try:
             normalize_funding_rate(*bad_args)
             errors.append("invalid normalize_funding_rate input accepted")

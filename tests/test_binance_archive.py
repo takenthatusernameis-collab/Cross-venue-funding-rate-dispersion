@@ -275,6 +275,50 @@ class NormalizeBinance8hTests(unittest.TestCase):
         self.assertAlmostEqual(means["Binance"], binance_rate)
         self.assertAlmostEqual(means["Hyperliquid"], hl_rate * 8.0)
 
+    def test_non_finite_rate_rejected_at_binance_8h_interval(self):
+        for bad in (float("nan"), float("inf"), float("-inf")):
+            with self.subTest(bad=bad):
+                with self.assertRaises(ValueError):
+                    normalize_funding_rate(bad, 8.0)
+
+    def test_non_finite_interval_rejected(self):
+        for bad in (float("nan"), float("inf"), float("-inf")):
+            with self.subTest(bad=bad):
+                with self.assertRaises(ValueError):
+                    normalize_funding_rate(0.0001, bad)
+        with self.assertRaises(ValueError):
+            normalize_funding_rate(0.0001, 0.0)
+
+    def test_extreme_magnitude_binance_8h_is_identity(self):
+        for rate in [1e-10, -1e-10, 1e-6, -1e-6, 1.0, -1.0, 1e6, -1e6]:
+            with self.subTest(rate=rate):
+                self.assertEqual(
+                    normalize_funding_rate(rate, 8.0),
+                    rate,
+                    "8h normalization must be identity for Binance rates",
+                )
+
+    def test_extreme_magnitude_short_interval_overflow_rejected(self):
+        with self.assertRaises(ValueError):
+            normalize_funding_rate(1e308, 1.0)
+        with self.assertRaises(ValueError):
+            normalize_funding_rate(-1e308, 1.0)
+
+    def test_extreme_magnitude_linear_scaling_known_answer(self):
+        self.assertAlmostEqual(normalize_funding_rate(0.01, 1.0), 0.08)
+        self.assertAlmostEqual(normalize_funding_rate(-0.01, 1.0), -0.08)
+        self.assertAlmostEqual(normalize_funding_rate(1.0, 4.0), 2.0)
+        self.assertAlmostEqual(normalize_funding_rate(-1.0, 2.0), -4.0)
+
+    def test_mixed_sign_rates_normalize_as_identity_at_8h(self):
+        rates = [-0.00002045, 0.00005664, -0.00001602, 0.0001, 0.0, -0.01, 0.05]
+        normalized = [normalize_funding_rate(r, 8.0) for r in rates]
+        for original, norm in zip(rates, normalized):
+            self.assertEqual(norm, original)
+        for binance_rate in [-0.0001, 0.0002, -0.01]:
+            hl_rate = binance_rate / 8.0
+            self.assertAlmostEqual(normalize_funding_rate(hl_rate, 1.0), binance_rate)
+
 
 class FundingCsvToObservationsTests(unittest.TestCase):
     def test_observations_preserve_original_and_normalized(self):

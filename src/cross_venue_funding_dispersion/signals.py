@@ -26,7 +26,10 @@ def normalize_funding_rate(rate: float, interval_hours: float) -> float:
     interval = _finite(interval_hours, "interval_hours")
     if interval <= 0:
         raise ValueError("interval_hours must be positive")
-    return value * 8.0 / interval
+    normalized = value * 8.0 / interval
+    if not math.isfinite(normalized):
+        raise ValueError("normalized funding rate must be finite")
+    return normalized
 
 
 def time_weighted_mean(
