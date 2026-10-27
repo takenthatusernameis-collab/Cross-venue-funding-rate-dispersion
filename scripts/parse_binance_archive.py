@@ -24,7 +24,10 @@ BINANCE_FUNDING_INTERVAL_HOURS = 8.0
 
 def ms_to_iso(ms) -> str:
     """Convert a millisecond Unix timestamp to a UTC ISO-8601 string."""
-    dt = datetime.fromtimestamp(int(ms) / 1000.0, tz=timezone.utc)
+    ms_int = int(ms)
+    if ms_int < 0:
+        raise ValueError("negative timestamp: %r" % (ms,))
+    dt = datetime.fromtimestamp(ms_int / 1000.0, tz=timezone.utc)
     if dt.microsecond:
         return dt.strftime("%Y-%m-%dT%H:%M:%S.%fZ")
     return dt.strftime("%Y-%m-%dT%H:%M:%SZ")
@@ -82,6 +85,8 @@ def parse_funding_csv(text, symbol=None, expected_interval=BINANCE_FUNDING_INTER
                 % (record["funding_interval_hours"], expected_interval, row)
             )
         records.append(record)
+    if not records:
+        raise ValueError("no data rows after header")
     return records
 
 
@@ -107,6 +112,8 @@ def parse_klines_row(row, symbol=None) -> dict:
     ]:
         if not math.isfinite(value):
             raise ValueError("non-finite %s: %r" % (name, row))
+        if value < 0:
+            raise ValueError("negative %s: %r" % (name, row))
     if close_time_ms < open_time_ms:
         raise ValueError("close_time before open_time: %r" % (row,))
     result = {
@@ -151,6 +158,8 @@ def parse_klines_csv(text, symbol=None) -> list[dict]:
             raise ValueError("klines rows not sorted by open_time")
         if len(set(open_times)) != len(open_times):
             raise ValueError("duplicate kline open_time timestamps")
+    if not records:
+        raise ValueError("no data rows after header")
     return records
 
 

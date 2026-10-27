@@ -1,4 +1,54 @@
-## Register FVD-EXPLORATORY-003: OKX+Binance (USDT) estimand with instrument-identity binding constraint (2026-10-27)
+## Link newest controller probe (40506445204) into FVD-EXPLORATORY-003 + extend Binance archive known-answer tests + fix parser rejects (2026-10-27)
+
+Executed the highest-priority measurable action from the active prompt and HANDOFF #1's "Next measurable task": linked the newest controller coverage probe into the FVD-EXPLORATORY-003 manifest, extended Binance archive normalization tests to cover all 24 checksum-verified sample rates from `binance_overlap_sample_2026-10-26.json`, and fixed 4 pre-existing parser/test defects that were blocking the validation suite.
+
+### Action performed
+
+1. **Linked probe `historical_overlap_probe_40506445204_attempt_1.json` (sha256 `ee4db55a596f6f0bc20e3be5b779a6a461205d849b8ac9179f9d59ba6a7d3cf3`, observed_at_utc `2026-10-27T12:47:03.494415Z`, committed by controller CI in `2faf734`) into `research_state/exploratory_run_manifest_2026-10-27.json` (new sha256 `9cd50f6ee2bdb2d85e988b2a0b67f182b0bbb5d8ef1fe0a9fe811067bf7e2cdf`):**
+   - Added the new probe as the 8th `output_artifacts` entry (the prior `historical_overlap_probe_40432758814_attempt_1.json` entry is preserved for traceability).
+   - Updated `reference_probe` (was `historical_overlap_probe_40432758814_attempt_1.json`) and `reference_probe_sha256` (was `8f3a4e86...`) to the newest probe.
+   - Added caveat #16 documenting both probes confirm `historical_coverage_gate=NOT_PASSED_BY_COVERAGE_PROBE` and `contract_identity` evidence_level=candidate; the newer probe additionally includes the top-level `contract_identity` field emitted by the committed `collect_contract_identity`-integrated `run_probe()`; `coverage_matrix_2026-10-27.json` (sha `485bf285...`) generated from probe `40432758814` remains valid and unchanged.
+   - Updated `last_updated_utc` to `2026-10-27T12:55:00Z`.
+   - All frozen fields unchanged: `status=EXPLORATORY_ONLY`, `confirmatory_status_preserved=BLOCKED_DATA_GATE`, `backtest_completed=false`, `performance_metrics_computed=false`, `anchor=FVD053`, `anchor_exercised=false`.
+
+2. **Extended `NormalizeBinance8hTests` in `tests/test_binance_archive.py` (new sha256 `b5604f21e74db73e0719c3bf120bc83cd2e745a4464e4eac839b93f7bd5d07f4`):**
+   - Added `test_all_checksum_verified_sample_rates_normalize_identity` — loads all 24 `sample_rate_first`/`sample_rate_last` values from the checksum-verified `binance_overlap_sample_2026-10-26.json` (4 underlyings × 3 months × 2 rates) and asserts `normalize_funding_rate(rate, 8.0) == rate` for each via `subTest`.
+   - Added `import json` and `import os` for artifact loading.
+
+3. **Fixed 4 pre-existing parser/test defects in `scripts/parse_binance_archive.py` (new sha256 `8b8d3c5c1e84217c8d92b3b8ca97988d4c934088213d7e91b2bc03914c70bcd3`):**
+   - **`ms_to_iso` rejected negative timestamps**: added `if ms_int < 0: raise ValueError(...)` guard (fixes `test_ms_to_iso_negative_raises`).
+   - **`parse_klines_row` rejected negative prices**: added `if value < 0: raise ValueError(...)` for open/high/low/close/volume (fixes `test_negative_price_raises`).
+   - **`parse_funding_csv` rejected header-only CSVs**: added `if not records: raise ValueError("no data rows after header")` (fixes `validate_binance_archive.py` "bad funding csv accepted" failure and cascading `test_committed_repo_passes`/`test_validate_binance_archive_returns_empty` failures).
+   - **`parse_klines_csv` rejected header-only CSVs**: added the same guard.
+   - **`test_unsorted_timestamps_raises` test data fix**: swapped row order in the CSV text so the data is genuinely unsorted (row1 with later timestamp `1717286400000` precedes row2 with earlier timestamp `1717200000000`).
+
+### Validation commands run
+- `python3 -m compileall -q src scripts tests` = OK (exit 0)
+- `PYTHONPATH=src python3 -m unittest discover -s tests -v` = PASS (448 tests OK; was 443, +1 new test `test_all_checksum_verified_sample_rates_normalize_identity`; 4 pre-existing failures + 1 error fixed)
+- `PYTHONPATH=src python3 scripts/validate_research.py` = RESEARCH_VALIDATION=PASS (grid 108, anchor FVD053, NOT_RUN, no metrics)
+- `python3 scripts/validate_skills.py` = SKILLS_VALIDATION=PASS count=4
+- `PYTHONPATH=src python3 scripts/validate_all.py` = ALL_VALIDATIONS=PASS count=24 (was 23)
+- `PYTHONPATH=src:scripts python3 scripts/validate_manifest_artifacts.py` = MANIFEST_ARTIFACTS_VALIDATION=PASS (including `historical_overlap_probe_40506445204_attempt_1.json`)
+- `PYTHONPATH=src:scripts python3 scripts/validate_research_state_artifacts.py` = RESEARCH_STATE_ARTIFACTS_VALIDATION=PASS files=36 (was 35)
+- `PYTHONPATH=src:scripts python3 scripts/validate_track_separation.py` = TRACK_SEPARATION_VALIDATION=PASS
+- `PYTHONPATH=src scripts/validate_binance_archive.py` = BINANCE_ARCHIVE_VALIDATION=PASS (previously FAIL: header-only CSV accepted)
+- `git diff --check` = clean (no whitespace errors)
+
+### Frozen artifacts verified unchanged
+- `configs/cross_venue_funding_dispersion_grid_v1.json` sha `6be218bc84bf118cf67c238ad1c13ef1e445658db3b1346cd64ccaccc7aa5f07` (frozen, 108 configs, anchor FVD053)
+- `research_state/run_manifest.json` sha `4f162ce128c741434addf6aa2fa7c7dbf1bf189d4a81b8893ed96899412c7aaf` (BLOCKED_DATA_GATE)
+- `research_state/fvd053_anchor_run_2026-10-25.json` sha `50b328baf5854dec40105a0f5ebe498bf589906f9c033ce659843659927ca4c2` (immutable)
+- `research_state/exploratory_run_manifest_2026-10-25.json` sha `08bbecf10f80f46b3d56e62e5c82ce44915840b25612307c0d7026f7a9905f1f` (FVD-EXPLORATORY-002, unchanged)
+
+### Status
+- Confirmatory track: `BLOCKED_DATA_GATE` — FVD001–FVD108, FVD053 unchanged. No backtest, no performance metrics.
+- Exploratory track: FVD-EXPLORATORY-003 `EXPLORATORY_ONLY`/`INCONCLUSIVE` — OKX+Binance (USDT) estimand registered; gates fail before anchor (instrument identity candidate-level, ~72-day funding intersection < 90-day threshold). Newest controller probe `40506445204` now linked as `reference_probe`.
+
+### Next measurable task
+The FVD-EXPLORATORY-003 estimand remains INCONCLUSIVE — instrument identity is not provable (symbol-mapped only) and the OKX+Binance funding intersection (~72 days) is below the 90-day FVD053 threshold. The Binance USD-M archive ends at 2026-09, structurally limiting the 3-venue overlap. Within the adaptive research-gate policy's "smallest feasible change" guidance, the next bounded action is: **audit the `normalize_funding_rate` function for adversarial inputs** — specifically test non-finite (inf/nan), extreme-magnitude, and mixed-sign rate scenarios against the documented Binance 8h interval known-answer, extending `NormalizeBinance8hTests` with boundary-value cases. This is source-independent (no network), low-risk, and directly relevant to the OKX+Binance estimand's funding-normalization claim. If new Binance monthly archive files for October–November 2026 are published, reassess the 72-day 3-venue overlap against the 90-day threshold; otherwise continue source-independent red-team hardening of the funding-accounting primitives. No anchor run, no backtest, no performance metric claimed.
+
+---
+</arg_range>
 
 Executed the next measurable action from the adaptive research-gate policy and HANDOFF #1: registered a distinct exploratory estimand for the OKX+Binance (USDT) funding-dispersion mechanism. The settlement-currency sub-component of contract identity IS provable for this pair (both venues settle in USDT), but instrument/contract identity remains NOT provable (symbol-mapped only). This is the binding constraint for this estimand, distinct from the settlement limitation that blocked the HL+OKX pair in FVD-EXPLORATORY-002.
 

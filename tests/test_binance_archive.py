@@ -1,6 +1,8 @@
 import unittest
 import sys
 import math
+import json
+import os
 from pathlib import Path
 
 ROOT = Path(__file__).resolve().parents[1]
@@ -196,12 +198,35 @@ class ParseKlinesCsvTests(unittest.TestCase):
     def test_unsorted_timestamps_raises(self):
         row2 = "1717200000000,1,2,3,4,5,1717203599999,6,7,8,9,10,11"
         row1 = "1717286400000,1,2,3,4,5,1717290399999,6,7,8,9,10,11"
-        text = KLINES_CSV_HEADER + row2 + "\n" + row1 + "\n"
+        text = KLINES_CSV_HEADER + row1 + "\n" + row2 + "\n"
         with self.assertRaises(ValueError):
             p.parse_klines_csv(text)
 
 
 class NormalizeBinance8hTests(unittest.TestCase):
+    SAMPLE_ARTIFACT = "binance_overlap_sample_2026-10-26.json"
+
+    def _sample_path(self):
+        return os.path.join(str(ROOT / "research_state"), self.SAMPLE_ARTIFACT)
+
+    def _iter_sample_rates(self):
+        path = self._sample_path()
+        if not os.path.exists(path):
+            self.skipTest("sample artifact not present: %s" % path)
+        with open(path, encoding="utf-8") as fh:
+            data = json.load(fh)
+        samples = data.get("samples", {})
+        count = 0
+        for key, sample in samples.items():
+            for field in ("sample_rate_first", "sample_rate_last"):
+                raw = sample.get(field)
+                if raw is None:
+                    continue
+                yield key, field, float(raw)
+                count += 1
+        if count == 0:
+            self.skipTest("no sample_rate entries found in artifact")
+
     def test_binance_8h_normalization_is_identity(self):
         rate = 0.00037409
         self.assertEqual(normalize_funding_rate(rate, 8.0), rate)
@@ -209,6 +234,15 @@ class NormalizeBinance8hTests(unittest.TestCase):
     def test_binance_sample_rates_normalize_identity(self):
         for rate in [0.00005532, 0.00005664, -0.00002045, 0.0001, -0.00001602]:
             self.assertEqual(normalize_funding_rate(rate, 8.0), rate)
+
+    def test_all_checksum_verified_sample_rates_normalize_identity(self):
+        for key, field, rate in self._iter_sample_rates():
+            with self.subTest(key=key, field=field, rate=rate):
+                self.assertEqual(
+                    normalize_funding_rate(rate, 8.0),
+                    rate,
+                    "8h normalization must be identity for verified Binance sample rate",
+                )
 
     def test_binance_8h_rate_equivalent_to_hl_1h_rate_divided_by_8(self):
         binance_rate = 0.00037409
