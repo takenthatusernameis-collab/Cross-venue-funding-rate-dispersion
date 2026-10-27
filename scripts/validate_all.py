@@ -14,6 +14,7 @@ SCRIPTS = [
     "scripts/validate_evaluation.py",
     "scripts/validate_accounting.py",
     "scripts/validate_signals.py",
+    "scripts/validate_binance_archive.py",
     "scripts/validate_backtest.py",
     "scripts/validate_universe.py",
     "scripts/validate_portfolio.py",
