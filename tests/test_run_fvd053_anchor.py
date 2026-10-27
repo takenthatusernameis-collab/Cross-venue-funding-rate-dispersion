@@ -435,6 +435,87 @@ class SimulateSignalTests(unittest.TestCase):
         self.assertAlmostEqual(res["slippage"], 10.0)
         self.assertAlmostEqual(res["net_pnl"], 1989.0)
 
+    def test_multi_venue_1h_8h_interval_split_known_answer(self):
+        """Known-answer test for the 1h/8h settlement-interval split in simulate_signal.
+
+        HL (Hyperliquid) settles funding hourly (1h interval); OKX settles
+        every 8h. The funding cash flow MUST use the raw per-event rate, not
+        the 8h-normalized rate. This test uses rates chosen so that the
+        8h-normalized values would give a different cash flow than the raw rates,
+        proving the interval split is handled correctly.
+
+        Fixture:
+          HL rate (1h)  = 0.0004  -> normalized 8h = 0.0032
+          OKX rate (8h) = 0.0016  -> normalized 8h = 0.0016  (raw == normalized)
+
+        Over a 24h holding period:
+          HL: 24 hourly settlements, raw rate 0.0004
+          OKX: 3  eight-hourly settlements, raw rate 0.0016
+
+        Independent computation (using accounting primitives directly):
+          HL short (side=-1): 24 * funding_cash_flow(-1, 5000, 0.0004)
+                              = 24 * (-(-1) * 5000 * 0.0004) = 24 * 2.0 = +48.0
+          OKX long (side=+1): 3 * funding_cash_flow(1, 5000, 0.0016)
+                              = 3 * (-(1) * 5000 * 0.0016) = 3 * (-8.0) = -24.0
+          Net funding = 48.0 - 24.0 = 24.0
+
+        If the code incorrectly used normalized rates for HL:
+          HL: 24 * funding_cash_flow(-1, 5000, 0.0032) = 24 * 16.0 = +384.0
+          Net funding = 384.0 - 24.0 = 360.0  (WRONG — would fail the assertion)
+
+        Prices are flat (entry == exit) so price_basis_pnl = 0.0.
+        fees = 4 fills * execution_cost(5000, 5.0, 0.0) = 4 * 2.5 = 10.0
+        slippage = 4 fills * execution_cost(5000, 0.0, 5.0) = 4 * 2.5 = 10.0
+        net_pnl = 0.0 + 24.0 - 10.0 - 10.0 = 4.0
+        net_return = 4.0 / 10000.0 = 0.0004
+        """
+        from cross_venue_funding_dispersion.accounting import (
+            execution_cost, funding_cash_flow,
+        )
+        u = "BTC"
+        notional = 5000.0
+        hl_rate = 0.0004
+        okx_rate = 0.0016
+        entry = dt.datetime(2026, 8, 2, 23, 0, tzinfo=dt.timezone.utc)
+        exit_ = dt.datetime(2026, 8, 3, 23, 0, tzinfo=dt.timezone.utc)
+        data = {
+            "BTC": {
+                "hl_funding": internal_hl_funding_series(START_MS, END_MS, hl_rate),
+                "okx_funding": internal_okx_funding_series(START_MS, END_MS, okx_rate),
+                "hl_candles": internal_candle_list(START_MS, END_MS, PRICE_OPEN, PRICE_OPEN),
+                "okx_candles": internal_candle_list(START_MS, END_MS, PRICE_OPEN, PRICE_OPEN),
+            },
+        }
+        res = anchor.simulate_signal(
+            u, "OKX", "Hyperliquid", notional, entry, exit_, data,
+            anchor.ANCHOR_PARAMS["fee_bps_per_side"],
+            anchor.ANCHOR_PARAMS["slippage_bps_per_side"],
+        )
+        self.assertFalse(res["skipped"])
+        self.assertEqual(res["long_venue"], "OKX")
+        self.assertEqual(res["short_venue"], "Hyperliquid")
+        self.assertEqual(res["gross_exposure"], 2.0 * notional)
+
+        # Independent known-answer: raw rates, not normalized.
+        hl_short_cf = funding_cash_flow(-1, notional, hl_rate)  # per settlement
+        okx_long_cf = funding_cash_flow(1, notional, okx_rate)  # per settlement
+        hl_settlements = 24  # hourly over 24h
+        okx_settlements = 3  # 8h over 24h
+        expected_funding = hl_short_cf * hl_settlements + okx_long_cf * okx_settlements
+        expected_fees = execution_cost(notional, 5.0, 0.0) * 4  # 2 legs * 2 fills
+        expected_slippage = execution_cost(notional, 0.0, 5.0) * 4
+        expected_net = 0.0 + expected_funding - expected_fees - expected_slippage
+
+        self.assertAlmostEqual(res["funding_cash_flow"], expected_funding)
+        self.assertAlmostEqual(res["funding_cash_flow"], 24.0)
+        self.assertEqual(res["funding_settlements"], 27)
+        self.assertAlmostEqual(res["price_basis_pnl"], 0.0)
+        self.assertAlmostEqual(res["fees"], expected_fees)
+        self.assertAlmostEqual(res["slippage"], expected_slippage)
+        self.assertAlmostEqual(res["net_pnl"], expected_net)
+        self.assertAlmostEqual(res["net_pnl"], 4.0)
+        self.assertAlmostEqual(res["net_return"], 4.0 / anchor.EQUITY)
+
     def test_missing_candle_skips_signal(self):
         u = "BTC"
         notional = 5000.0

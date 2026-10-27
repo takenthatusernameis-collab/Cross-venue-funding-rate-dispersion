@@ -1,52 +1,59 @@
-## Link newest controller probe (40594574088) into FVD-EXPLORATORY-003 + reassess gates (2026-10-27)
+## Link Binance archive-availability provenance artifact into FVD-EXPLORATORY-003 + source-independent accounting red-team tests (2026-10-27)
 
-Executed the highest-priority measurable action from the active prompt (`prompts/autonomous_free_data_gate_unblocking_v3_3.md` §3.2) and HANDOFF #1's "Next measurable task": the probe-cooldown expiry was re-checked via `scripts/should_run_historical_probe.py` (`should_run=false`; `next_eligible_at_utc=2026-10-28T04:24:53Z`) — the controller had already committed a newer probe (`historical_overlap_probe_40594574088_attempt_1.json`, sha `6edb31ea...`, observed `2026-10-27T22:24:53.785943Z`, status `SOURCE_PROBE_COMPLETED`) that was not yet linked into any manifest. That probe was linked into the FVD-EXPLORATORY-003 manifest and the gates were reassessed. No new network probe was dispatched (cooldown active); no frozen artifact was rewritten.
+Executed the highest-priority measurable actions from the active prompt (`prompts/autonomous_free_data_gate_unblocking_v3_3.md` §3.2) and HANDOFF #1's "Next measurable task": (1) linked the already-persisted `binance_monthly_archive_availability_2026-10-27.json` artifact into the FVD-EXPLORATORY-003 manifest's `output_artifacts` for provenance completeness; (2) added an independent recomputation test of `compute_pair_pnl` from immutable ledger rows; (3) added a multi-venue `simulate_signal` known-answer test covering the 1h/8h settlement-interval split. No new network probe was dispatched (cooldown active, `should_run=false`, `next_eligible_at_utc=2026-10-28T04:24:53Z`). No frozen artifact was rewritten.
 
 ### Action performed
 
-1. **Linked probe `historical_overlap_probe_40594574088_attempt_1.json` (sha256 `6edb31ea5d7cfb508532faef9b728175f4c4a46fd6a7d1511922f91957877d8c`) into `research_state/exploratory_run_manifest_2026-10-27.json` (new sha256 `dee7c3ddd05d0f5cd93ee039a1f44039c1dc8e2de3046e36e820abc95c7fa709`):**
-   - Added it as the 8th `output_artifacts` entry (preceding `exploratory_run_manifest_2026-10-25.json`); the prior `reference_probe` entry `historical_overlap_probe_40506445204_attempt_1.json` is preserved for traceability.
-   - Updated `reference_probe` from `historical_overlap_probe_40506445204_attempt_1.json` → `historical_overlap_probe_40594574088_attempt_1.json`, and `reference_probe_sha256` from `ee4db55a...` → `6edb31ea...`.
-   - Appended caveat #17 documenting the new probe's verified findings and gate reassessment.
-   - Updated `last_updated_utc` from `2026-10-27T12:55:00Z` → `2026-10-27T22:30:00Z`.
+1. **Linked `binance_monthly_archive_availability_2026-10-27.json` (sha256 `55be98ea4c0602db30205af0749cded69b0c738d831fd085cd3846f43c0e619c`)** into `research_state/exploratory_run_manifest_2026-10-27.json` (new sha256 `0f601b5ae3fb27e85473e5afc75a4a39626eb23f660a7b0102f1f7782bceb9a0`):
+   - Added it as a new `output_artifacts` entry (after the probe `40594574088` entry, before the parent manifest entry `exploratory_run_manifest_2026-10-25.json`).
+   - Appended caveat #18 documenting the provenance linkage: records HTTP 200 for Binance 2026-09 monthly archive checksum objects and HTTP 404 for 2026-10/2026-11 (month-end files publish after month close; today is Oct 27).
+   - Updated `last_updated_utc` from `2026-10-27T22:30:00Z` → `2026-10-27T22:36:00Z`.
    - All frozen fields unchanged: `status=EXPLORATORY_ONLY`, `confirmatory_status_preserved=BLOCKED_DATA_GATE`, `backtest_completed=false`, `performance_metrics_computed=false`, `anchor=FVD053`, `anchor_exercised=false`.
 
-2. **Gate reassessment from the newest probe (no new network calls):**
-   - **Hyperliquid candles** (BTC/ETH/SOL/AVAX): 2026-06-29 → 2026-10-27, 2881 rows, 1h, 0 gaps (HTTP 200, 6 pages).
-   - **Hyperliquid funding** (BTC/ETH/SOL/AVAX): 2026-06-29 → 2026-10-27, 2880 rows, hourly, 6 pages, `stop_reason=window_reached_or_page_not_full` — full 120-day lookback retrieved (HTTP 200).
-   - **OKX candles** (BTC/ETH/SOL/AVAX): 2026-06-29 → 2026-10-27, 2880 rows, 1h, 10 pages, 0 gaps (HTTP 200).
-   - **OKX funding-rate-history** (BTC/ETH/SOL/AVAX): 2026-07-27 → 2026-10-27, 277 rows, 8h, `stop_reason=page_not_full` (HTTP 200, 1 page) — confirms OKX holds no older records beyond ~3 months.
-   - **contract_identity**: candidate-level for all 4 underlyings; `settlement_match=false` (Hyperliquid meta exposes no settlement-currency field; settlement equivalence inferred, not proven).
-   - **HL+OKX funding intersection**: ~92 days (2026-07-27 → 2026-10-27) — now MEETS the FVD053 90-day prior-observation minimum. However, contract_identity remains candidate-level, so the gate still fails before anchor (contract identity, not duration, is the binding constraint for HL+OKX).
-   - **OKX+Binance funding intersection** (FVD-EXPLORATORY-003 estimand): ~65–72 days (2026-07-27 → 2026-09-30, bounded by Binance archive ending 2026-09-30 + OKX ~3-month retention) — below the 90-day threshold. Instrument identity remains symbol-mapped only (not provable). Two binding constraints.
-   - **Binance 2026-10 monthly archive files**: not yet published (archive ends 2026-09). Checked via `research_state/binance_monthly_archive_availability_2026-10-27.json` (sha `55be98ea...`): 2026-09 = HTTP 200, 2026-10 = HTTP 404, 2026-11 = HTTP 404 (month-end files publish after month close; today is Oct 27).
+2. **Added `ImmutableLedgerRecomputeTests` class** (4 tests) to `tests/test_pair_pnl.py` (new sha256 `a120e92d8ded718c47dda967e39b7e0b9d5ee654746327e20b818a83d4456bd4`):
+   - `test_immutable_ledger_rows_recomputed_independently` — defines an immutable ledger of 4 recorded pair scenarios (varying rates, signs, intervals, fills, gross multiples), independently computes every expected field via the `accounting.py` primitives (`price_pnl`, `funding_cash_flow`, `execution_cost`) directly (NOT via `compute_pair_pnl`), and asserts `compute_pair_pnl` matches within 1e-10 tolerance.
+   - `test_additive_identity_holds_for_all_ledger_rows` — verifies `total_net_pnl == net_price_basis_pnl + funding - fees - slippage` for every ledger row.
+   - `test_funding_signs_independent_recompute` — independently recomputes funding signs (long pays when positive, long receives when negative) via `funding_cash_flow` and verifies positive, negative, and asymmetric-rate scenarios.
+   - `test_gross_exposure_cap_independent_recompute` — independently verifies gross-exposure cap enforcement at sub-cap boundaries (1.0x, 0.5x, 0.25x) and fail-closed behavior above cap.
+
+3. **Added `test_multi_venue_1h_8h_interval_split_known_answer`** to `SimulateSignalTests` in `tests/test_run_fvd053_anchor.py` (new sha256 `37360b2f58e2790f6ec5d27165ab668e39e058723f209e082632e00df8d096bc`):
+   - Known-answer test proving `simulate_signal` uses raw per-event funding rates (not 8h-normalized rates) when computing cash flow across venues with different settlement intervals.
+   - Fixture: HL (1h interval, rate=0.0004 → normalized=0.0032) + OKX (8h interval, rate=0.0016 → normalized=0.0016). Over a 24h holding period: HL has 24 hourly settlements, OKX has 3 eight-hourly settlements. Using raw rates: HL short 24×2.0=+48.0, OKX long 3×(−8.0)=−24.0, net funding=+24.0. If normalized rates were incorrectly used for HL: net would be 360.0 (a 15× error). The test independently computes expected values via `accounting` primitives and asserts `simulate_signal` matches.
 
 ### Validation commands run
 - `python3 -m compileall -q src scripts tests` = OK (exit 0)
-- `PYTHONPATH=src python3 -m unittest discover -s tests` = PASS (455 tests OK)
+- `PYTHONPATH=src:scripts python3 -m unittest discover -s tests -v` = PASS (460 tests OK; was 455, +5 new tests)
 - `PYTHONPATH=src python3 scripts/validate_research.py` = RESEARCH_VALIDATION=PASS (grid 108, anchor FVD053, NOT_RUN, performance_metrics_computed=false)
 - `python3 scripts/validate_skills.py` = SKILLS_VALIDATION=PASS count=4
-- `PYTHONPATH=src python3 scripts/validate_all.py` = ALL_VALIDATIONS=PASS count=24
-- `PYTHONPATH=src:scripts python3 scripts/validate_manifest_artifacts.py` = PASS (new probe `40594574088` verified OK on disk; sha256 matches)
+- `PYTHONPATH=src:scripts python3 scripts/validate_all.py` = ALL_VALIDATIONS=PASS count=24
+- `PYTHONPATH=src:scripts python3 scripts/validate_manifest_artifacts.py` = MANIFEST_ARTIFACTS_VALIDATION=PASS (new artifact `binance_monthly_archive_availability_2026-10-27.json` verified OK on disk; sha256 matches)
 - `PYTHONPATH=src:scripts python3 scripts/validate_manifest_schema.py` = MANIFEST_SCHEMA_VALIDATION=PASS (confirmatory=strict, exploratory=contract)
 - `PYTHONPATH=src:scripts python3 scripts/validate_track_separation.py` = TRACK_SEPARATION_VALIDATION=PASS
 - `PYTHONPATH=src:scripts python3 scripts/validate_blocked_manifest_claims.py` = PASS
-- `PYTHONPATH=src:scripts python3 scripts/validate_research_state_artifacts.py` = PASS files=38
+- `PYTHONPATH=src:scripts python3 scripts/validate_research_state_artifacts.py` = RESEARCH_STATE_ARTIFACTS_VALIDATION=PASS files=38
 - `git diff --check` = clean (no whitespace errors)
 
 ### Frozen artifacts verified unchanged
-- `configs/cross_venue_funding_dispersion_grid_v1.json` sha `6be218bc84bf118cf67c238ad1c13ef1e445658db3b1346cd62ccaccc7aa5f07` (frozen, 108 configs, anchor FVD053)
+- `configs/cross_venue_funding_dispersion_grid_v1.json` sha `6be218bc84bf118cf67c238ad1c13ef1e445658db3b1346cd64ccaccc7aa5f07` (frozen, 108 configs, anchor FVD053)
 - `research_state/run_manifest.json` sha `4f162ce128c741434addf6aa2fa7c7dbf1bf189d4a81b8893ed96899412c7aaf` (BLOCKED_DATA_GATE)
 - `research_state/fvd053_anchor_run_2026-10-25.json` sha `50b328baf5854dec40105a0f5ebe498bf589906f9c033ce659843659927ca4c2` (immutable)
-- `research_state/exploratory_run_manifest_2026-10-25.json` (FVD-EXPLORATORY-002) sha `08bbecf10f80f46b3d56e62e5c82ce44915840b25612307c0d7026f7a9905f1f` (unchanged)
+- `research_state/exploratory_run_manifest_2026-10-25.json` sha `08bbecf10f80f46b3d56e62e5c82ce44915840b25612307c0d7026f7a9905f1f` (FVD-EXPLORATORY-002, unchanged)
+
+### Modified files
+- `research_state/exploratory_run_manifest_2026-10-27.json` — new sha256 `0f601b5ae3fb27e85473e5afc75a4a39626eb23f660a7b0102f1f7782bceb9a0` (added `binance_monthly_archive_availability_2026-10-27.json` to `output_artifacts`, caveat #18, updated `last_updated_utc`)
+- `tests/test_pair_pnl.py` — new sha256 `a120e92d8ded718c47dda967e39b7e0b9d5ee654746327e20b818a83d4456bd4` (added import of accounting primitives, added `ImmutableLedgerRecomputeTests` class with 4 tests)
+- `tests/test_run_fvd053_anchor.py` — new sha256 `37360b2f58e2790f6ec5d27165ab668e39e058723f209e082632e00df8d096bc` (added `test_multi_venue_1h_8h_interval_split_known_answer` to `SimulateSignalTests`)
 
 ### Status
-- Confiratory track: `BLOCKED_DATA_GATE` — FVD001–FVD108, FVD053 unchanged. No backtest, no performance metrics. The >=3-year historical point-in-time market-cap gate remains unmet.
-- FVD-EXPLORATORY-002 (HL+OKX): `EXPLORATORY_ONLY`/`INCONCLUSIVE`. Duration gate now passes (~92 days funding intersection > 90-day threshold), but contract_identity remains candidate-level (settlement_match=false — HL meta exposes no settlement-currency field). Contract identity, not duration, is the binding constraint. Anchor NOT exercised. No backtest, no metrics.
-- FVD-EXPLORATORY-003 (OKX+Binance): `EXPLORATORY_ONLY`/`INCONCLUSIVE`. Newest probe `40594574088` now linked as `reference_probe`. OKX+Binance funding intersection ~65–72 days (< 90-day threshold); instrument identity symbol-mapped only (not provable); settlement currency IS provable (both USDT). Gates fail before anchor. No backtest, no performance metric, no economic edge claimed.
+- Confirmatory track: `BLOCKED_DATA_GATE` — FVD001–FVD108, FVD053 unchanged. No backtest, no performance metrics. The >=3-year historical point-in-time market-cap gate remains unmet.
+- FVD-EXPLORATORY-002 (HL+OKX): `EXPLORATORY_ONLY`/`INCONCLUSIVE`. Duration gate passes (~92 days > 90-day threshold), but contract_identity remains candidate-level (settlement_match=false). Anchor NOT exercised. No backtest, no metrics.
+- FVD-EXPLORATORY-003 (OKX+Binance USDT): `EXPLORATORY_ONLY`/`INCONCLUSIVE`. Both gates fail before anchor: instrument identity not provable (symbol-mapped only, candidate-level) AND duration (~72 days < 90-day threshold). Anchor NOT exercised. No backtest, no performance metrics.
+- Source-independent verification now includes: `normalize_funding_rate` adversarial audit (incl. overflow guard), `_latest_at_or_before` (sorted/unsorted + dedup), `compute_pair_pnl` known-answer + independent recomputation from immutable ledger rows (ledger identity, funding signs, 1.0x gross cap, per-leg/fill costs, additive decomposition), multi-venue `simulate_signal` known-answer covering 1h/8h interval split (raw rates vs normalized rates), and red-team independent recomputation (`test_red_team_independent_recomputation_from_signal_ledger`, `CommittedAnchorArtifactRecomputeTests`).
 
 ### Next measurable task
-The contract-identity gate has been attempted via multiple distinct source families (Hyperliquid `/info` meta — no settlement field; OKX `/public/instruments` — settleCcy=USDT present; Binance `fapi.binance.com` exchangeInfo HTTP 451 geo-block; Binance archive checksum objects HTTP 200 but no instrument metadata). Per the adaptive research-gate policy §2, this satisfies the trigger for an exploratory track — which is already active (FVD-EXPLORATORY-003). The next bounded, no-cost, source-independent action is: (1) link the already-persisted `binance_monthly_archive_availability_2026-10-27.json` artifact (sha `55be98ea...`) into the FVD-EXPLORATORY-003 `output_artifacts` list for provenance completeness; (2) continue source-independent funding-accounting red-team hardening — the `normalize_funding_rate` adversarial audit is complete; remaining items include an independent recomputation test of `compute_pair_pnl` from immutable ledger rows and a multi-venue `simulate_signal` known-answer test covering the 1h/8h interval split. Monitor Binance monthly archive for 2026-10 files after month-end (2026-10-31); if published, reassess the OKX+Binance funding intersection against the 90-day threshold. No paid data, no credentials, no live/paper trading, no new probe run (cooldown active until 2026-10-28T04:24:53Z).
+The data gate remains blocked (instrument identity not provable, funding intersection ~72 days < 90-day threshold for OKX+Binance; contract identity candidate-level for HL+OKX). Probe cooldown active until `2026-10-28T04:24:53Z`. The next bounded, no-cost, source-independent actions are: (1) after 2026-10-31 (Binance monthly files publish post-month-end), if Binance 2026-10 archive files are live and a probe cooldown has elapsed, reassess the OKX+Binance funding intersection against the 90-day threshold and re-examine contract-identity evidence; (2) continue source-independent red-team hardening — remaining items could include extending `ImmutableLedgerRecomputeTests` with edge cases (extreme-magnitude rates, zero notional, `position_open_at_settlement=False` with multiple venues in `simulate_signal`), an adversarial test for `time_weighted_mean` gap handling at the 1h boundary, and a `run_backtest_skeleton` cross-pair gross-exposure aggregation recomputation test. No paid data, no credentials, no live/paper trading. Do not duplicate the controller 120-day probe; do not alter frozen confirmatory artifacts.
+
+---
 
 ---
 
