@@ -10,7 +10,7 @@
   "date_utc": "2026-10-27",
   "started_at_utc": "2026-10-27T02:19:25Z",
   "completed_at_utc": "2026-10-27T02:22:00Z",
-  "last_updated_utc": "2026-10-27T12:55:00Z",
+  "last_updated_utc": "2026-10-27T22:30:00Z",
   "purpose": "Exploratory registration of a distinct OKX+Binance (USDT) funding-dispersion estimand over the verified historical funding intersection of Binance USD-M futures and OKX USDT-swap perpetuals. This estimand is separately versioned from FVD-DISPERSION-V1, FVD-EXPLORATORY-001, and FVD-EXPLORATORY-002 (Hyperliquid+OKX). It does not modify the frozen grid, FVD001-FVD108, FVD053, or the original run_manifest.json.",
   "estimand": {
     "description": "Cross-venue funding-dispersion carry hypothesis restricted to the OKX|Binance USD-M pair, both of which settle funding in USDT. Distinct from the original FVD-DISPERSION-V1 estimand (market-cap-weighted universe) and from FVD-EXPLORATORY-002 (Hyperliquid+OKX, settlement unprovable).",
@@ -120,8 +120,8 @@
   "implementation_gate_result": "Source-independent primitives covered by known-answer/adversarial tests and conformance validators; no real-data anchor run (data gate fails before anchor per exploratory protocol section 6 stop rule)",
   "conclusion": "EXPLORATORY_ONLY / INCONCLUSIVE for inference. The OKX+Binance (USDT) estimand registers a distinct exploratory estimand where the settlement-currency sub-component of contract identity IS provable (both venues settle in USDT). However, instrument/contract identity is NOT provable (symbol-mapped only, candidate-level) and the OKX+Binance funding intersection is ~72 days, below the 90-day prior-observation threshold for the FVD053 anchor. Per exploratory_protocol_v1.md section 6, contract identity is a required eligibility criterion that is not established; the gates fail before anchor. The frozen FVD053 anchor was NOT exercised. No backtest, no performance metric, no economic edge claimed. Confirmatory gate BLOCKED_DATA_GATE preserved.",
   "next_step": "Per exploratory_protocol_v1.md section 6 stop rule: instrument identity (contract identity) is the binding constraint, not settlement currency. The OKX+Binance funding intersection (~72 days) is also below the 90-day threshold. Do not fabricate or substitute data; preserve the confirmatory gate BLOCKED_DATA_GATE. Move to a bounded source-independent task (e.g. adversarial/equity tests on _latest_at_or_before, independent recomputation of existing anchor results, or schema/contract validation). If a free source route that proves instrument/lifecycle identity emerges, a new exploratory version may register it.",
-  "reference_probe": "historical_overlap_probe_40506445204_attempt_1.json",
-  "reference_probe_sha256": "ee4db55a596f6f0bc20e3be5b779a6a461205d849b8ac9179f9d59ba6a7d3cf3",
+  "reference_probe": "historical_overlap_probe_40594574088_attempt_1.json",
+  "reference_probe_sha256": "6edb31ea5d7cfb508532faef9b728175f4c4a46fd6a7d1511922f91957877d8c",
   "parent_exploratory_manifest": "research_state/exploratory_run_manifest_2026-10-25.json",
   "parent_exploratory_manifest_sha256": "08bbecf10f80f46b3d56e62e5c82ce44915840b25612307c0d7026f7a9905f1f",
   "source_code_hashes": {
@@ -161,6 +161,10 @@
       "sha256": "ee4db55a596f6f0bc20e3be5b779a6a461205d849b8ac9179f9d59ba6a7d3cf3"
     },
     {
+      "path": "research_state/historical_overlap_probe_40594574088_attempt_1.json",
+      "sha256": "6edb31ea5d7cfb508532faef9b728175f4c4a46fd6a7d1511922f91957877d8c"
+    },
+    {
       "path": "research_state/exploratory_run_manifest_2026-10-25.json",
       "sha256": "08bbecf10f80f46b3d56e62e5c82ce44915840b25612307c0d7026f7a9905f1f"
     }
@@ -177,6 +181,7 @@
     "New controller probe historical_overlap_probe_40506445204_attempt_1.json (observed_at_utc 2026-10-27T12:47:03.494415Z, sha256 ee4db55a596f6f0bc20e3be5b779a6a461205d849b8ac9179f9d59ba6a7d3cf3) supersedes the prior reference probe 40432758814. Both probes confirm historical_coverage_gate=NOT_PASSED_BY_COVERAGE_PROBE and contract_identity evidence_level=candidate (instrument identity symbol-mapped only, settlement match not proven via HL meta). The newer probe additionally includes the top-level contract_identity field emitted by the committed collect_contract_identity-integrated run_probe(); coverage_matrix_2026-10-27.json (sha 485bf285...) generated from probe 40432758814 remains valid and unchanged.",
     "Survivorship bias, listing/delisting, and ticker-reuse handling for Binance USD-M futures are not assessed.",
     "Current cap snapshots are discovery-only; no market-cap rank substituted for historical ranks in this exploratory estimand.",
-    "Modeled fees/slippage (base 5/5 bps) are sensitivity assumptions, not measured venue costs."
+    "Modeled fees/slippage (base 5/5 bps) are sensitivity assumptions, not measured venue costs.",
+    "New controller probe historical_overlap_probe_40594574088_attempt_1.json (observed_at_utc 2026-10-27T22:24:53.785943Z, sha256 6edb31ea5d7cfb508532faef9b728175f4c4a46fd6a7d1511922f91957877d8c) supersedes reference probe 40506445204. Verified findings: Hyperliquid candles 2026-06-29 to 2026-10-27 (2881 rows, 1h, 0 gaps); Hyperliquid funding 2026-06-29 to 2026-10-27 (2880 rows, hourly, 6 pages, stop_reason window_reached, full 120-day lookback retrieved); OKX candles 2026-06-29 to 2026-10-27 (2880 rows, 1h, 10 pages, 0 gaps); OKX funding-rate-history 2026-07-27 to 2026-10-27 (277 rows, 8h, page_not_full, stop_reason page_not_full confirming OKX holds no older records beyond ~3 months). HL+OKX funding intersection is now ~92 days (meets the FVD053 90-day prior-observation minimum), but contract_identity remains candidate-level (evidence_level=candidate; settlement_match=false because Hyperliquid meta exposes no settlement-currency field — settlement equivalence is inferred, not proven), so gates still fail before anchor per exploratory_protocol_v1.md section 6. For the OKX+Binance (USDT) estimand registered here, the funding intersection is bounded by the Binance archive ending 2026-09-30 plus OKX funding retention, yielding ~65-72 days (< 90-day threshold); instrument identity remains symbol-mapped only (not provable). Binance monthly archive files for 2026-10 are not yet published (archive ends 2026-09). Coverage gate NOT_PASSED; confirmatory gate BLOCKED_DATA_GATE preserved; no backtest, no performance metrics."
   ]
 }
