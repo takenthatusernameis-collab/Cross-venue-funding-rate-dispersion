@@ -58,6 +58,12 @@ class TrackSeparationTests(unittest.TestCase):
         exploratory_002 = json.loads((ROOT / "research_state/exploratory_run_manifest_2026-10-25.json").read_text())
         validate_separation(confirmatory, exploratory_002, FROZEN_DIGEST)
 
+    def test_committed_exploratory_003_pair_passes(self):
+        import json
+        confirmatory = json.loads((ROOT / "research_state/run_manifest.json").read_text())
+        exploratory_003 = json.loads((ROOT / "research_state/exploratory_run_manifest_2026-10-27.json").read_text())
+        validate_separation(confirmatory, exploratory_003, FROZEN_DIGEST)
+
     def test_confirmatory_status_must_be_blocked(self):
         bad = dict(CONFIRMATORY, status="NOT_RUN")
         with self.assertRaises(SystemExit):

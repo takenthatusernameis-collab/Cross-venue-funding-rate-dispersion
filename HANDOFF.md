@@ -1,3 +1,65 @@
+## Register FVD-EXPLORATORY-003: OKX+Binance (USDT) estimand with instrument-identity binding constraint (2026-10-27)
+
+Executed the next measurable action from the adaptive research-gate policy and HANDOFF #1: registered a distinct exploratory estimand for the OKX+Binance (USDT) funding-dispersion mechanism. The settlement-currency sub-component of contract identity IS provable for this pair (both venues settle in USDT), but instrument/contract identity remains NOT provable (symbol-mapped only). This is the binding constraint for this estimand, distinct from the settlement limitation that blocked the HL+OKX pair in FVD-EXPLORATORY-002.
+
+### Action performed
+
+1. **Created `research_state/exploratory_run_manifest_2026-10-27.json`** (FVD-EXPLORATORY-003, sha256 `83b925194f857a03fc7028d3f1a5bae780a9f38beb6945b918028f93824f57ed`):
+   - **Estimand**: OKX+Binance USD-M (USDT) funding-dispersion carry hypothesis — distinct from FVD-DISPERSION-V1 (market-cap-ranked universe) and FVD-EXPLORATORY-002 (Hyperliquid+OKX, settlement unprovable).
+   - **Settlement identity**: PROVABLE for OKX|Binance (both USDT) — OKX `settleCcy=USDT` verified via `/public/instruments?instType=SWAP` (HTTP 200); Binance USD-M settles in USDT by definition + checksum-verified archive provenance (`binance_archive_feasibility_assessment_2026-10-26.json`).
+   - **Instrument identity**: NOT PROVABLE — Binance `BTCUSDT` vs OKX `BTC-USDT-SWAP` is symbol-mapped only; not independently verified via venue metadata or lifecycle events. Per `exploratory_protocol_v1.md` §3 requirement 1 ("compatible contract identities"), this is not established. **This is the binding constraint, not settlement currency.**
+   - **History depth**: Binance archive provides 6.82 years (2020-01 to 2026-09), 8h funding interval matching OKX — meets the 3-year depth requirement. OKX funding retention limited to ~98 days (296 rows, stop_reason=page_not_full, documented "up to three months").
+   - **Funding intersection**: ~72 days (2026-07-20T16:00:00Z to 2026-09-30T16:00:00Z), below the 90-day FVD053 prior-observation threshold. Binance archive cutoff at 2026-09 limits the 3-venue overlap; the 2-venue OKX+Binance overlap starts at OKX's earliest funding record (2026-07-20).
+   - **Status**: `EXPLORATORY_ONLY`, `INCONCLUSIVE` — data gates fail before anchor per `exploratory_protocol_v1.md` §6 stop rule. Anchor FVD053 NOT exercised. No backtest, no performance metrics.
+   - **confirmatory_status_preserved**: `BLOCKED_DATA_GATE`; `historical_point_in_time_market_cap_gate`: `BLOCKED`.
+   - **output_artifacts**: 7 entries referencing verified, existing evidence files (settlement metadata, Binance archive feasibility, Binance overlap sample, coverage matrix, newest probe, OKX pagination audit, parent FVD-EXPLORATORY-002 manifest) — all sha256 verified on disk.
+   - **source_code_hashes**: `scripts/probe_historical_overlap.py` sha `606f07bb...`, `src/cross_venue_funding_dispersion/status.py` sha `d99f2415...`.
+   - **config_hashes**: frozen grid sha `6be218bc84bf118cf67c238ad1c13ef1e445658db3b1346cd64ccaccc7aa5f07` (unchanged).
+
+2. **Registered FVD-EXPLORATORY-003 in all validation scripts and tests**:
+   - `scripts/validate_manifest_schema.py` — added `EXPLORATORY_003` constant + schema validation block.
+   - `scripts/validate_manifest_artifacts.py` — added path to `MANIFESTS` list.
+   - `scripts/validate_blocked_manifest_claims.py` — added path to `DEFAULT_PATHS`.
+   - `scripts/validate_research_state.py` — added path to `artifacts` list.
+   - `scripts/validate_research_state_artifacts.py` — added path to `MANIFESTS` list.
+   - `scripts/validate_track_separation.py` — added `expl003_path` + `validate_separation` call.
+   - `tests/test_manifest_schema.py` — added `test_committed_exploratory_003_manifest_passes_contract`.
+   - `tests/test_track_separation.py` — added `test_committed_exploratory_003_pair_passes`.
+   - `tests/test_manifest_artifacts.py` — added path to committed manifests list.
+   - `tests/test_research_state.py` — added filename to committed manifests list.
+   - `tests/test_research_state_artifacts.py` — added path to `MANIFESTS` list.
+   - `tests/test_blocked_manifest_claims.py` — added path to `COMMITTED_MANIFESTS`.
+
+### Validation commands run
+- `python3 -m compileall -q src scripts tests` = OK (exit 0)
+- `PYTHONPATH=src python3 -m unittest discover -s tests -v` = PASS (407 tests OK; was 405, +2 new tests)
+- `PYTHONPATH=src python3 scripts/validate_research.py` = RESEARCH_VALIDATION=PASS (grid 108, anchor FVD053, NOT_RUN, no metrics)
+- `python3 scripts/validate_skills.py` = SKILLS_VALIDATION=PASS count=4
+- `PYTHONPATH=src python3 scripts/validate_all.py` = ALL_VALIDATIONS=PASS count=23
+- `PYTHONPATH=src python3 scripts/validate_manifest_schema.py` = MANIFEST_SCHEMA_VALIDATION=PASS
+- `PYTHONPATH=src python3 scripts/validate_manifest_artifacts.py` = MANIFEST_ARTIFACTS_VALIDATION=PASS
+- `PYTHONPATH=src python3 scripts/validate_track_separation.py` = TRACK_SEPARATION_VALIDATION=PASS
+- `PYTHONPATH=src python3 scripts/validate_blocked_manifest_claims.py` = BLOCKED_MANIFEST_CLAIMS_VALIDATION=PASS
+- `PYTHONPATH=src python3 scripts/validate_research_state.py` = RESEARCH_STATE_VALIDATION=PASS
+- `PYTHONPATH=src python3 scripts/validate_research_state_artifacts.py` = RESEARCH_STATE_ARTIFACTS_VALIDATION=PASS files=35
+- `git diff --check` = clean (no whitespace errors)
+
+### Frozen artifacts verified unchanged
+- `configs/cross_venue_funding_dispersion_grid_v1.json` sha `6be218bc84bf118cf67c238ad1c13ef1e445658db3b1346cd64ccaccc7aa5f07` (FROZEN, 108 configs, anchor FVD053)
+- `research_state/run_manifest.json` sha `4f162ce128c741434addf6aa2fa7c7dbf1bf189d4a81b8893ed96899412c7aaf` (BLOCKED_DATA_GATE)
+- `research_state/fvd053_anchor_run_2026-10-25.json` sha `50b328baf5854dec40105a0f5ebe498bf589906f9c033ce659843659927ca4c2` (immutable)
+- `research_state/exploratory_run_manifest_2026-10-25.json` (FVD-EXPLORATORY-002) sha `08bbecf10f80f46b3d56e62e5c82ce44915840b25612307c0d7026f7a9905f1f` (unchanged)
+
+### Status
+- Confirmatory track: `BLOCKED_DATA_GATE` — FVD001–FVD108, FVD053 unchanged. No backtest, no performance metrics.
+- Exploratory track: FVD-EXPLORATORY-001 `INCONCLUSIVE` (4-day actionable overlap); FVD-EXPLORATORY-002 `EXPLORATORY_ONLY`/`INCONCLUSIVE` (0 signals on 98-day HL+OKX overlap, contract identity candidate-level); FVD-EXPLORATORY-003 `EXPLORATORY_ONLY`/`INCONCLUSIVE` (OKX+Binance estimand registered; gates fail before anchor — instrument identity not provable + ~72-day overlap < 90-day threshold).
+- Key finding: Settlement currency match is now PROVABLE for the OKX|Binance USD-M pair (both USDT). Instrument/contract identity remains the binding constraint (symbol-mapped only, not verified via lifecycle/listing metadata). This is a finer-grained finding than FVD-EXPLORATORY-002 where the settlement currency itself was unprovable (Hyperliquid meta exposes no settlement-currency field).
+
+### Next measurable task
+Per `exploratory_protocol_v1.md` §6 and §7 (promotion boundary): instrument identity is not provable and there is no free source route that makes it provable locally (per the finding that Hyperliquid meta exposes no settlement-currency field, and Binance/Bybit exchangeInfo endpoints return HTTP 451/403). The OKX+Binance funding intersection (~72 days) is also below the 90-day threshold. Move to a bounded source-independent task: extend the red-team accounting recomputation tests to cover the Binance archive schema parsing (`scripts/parse_binance_archive.py` if it exists) against the checksum-verified samples, or audit `normalize_funding_rate` against the documented Binance 8h interval for known-answer coverage of the OKX+Binance estimand. No re-run of settlement metadata probe or overlap probes; no anchor/backtest; no metric claim.
+
+---
+
 ## Settlement-metadata measurement study + FVD-EXPLORATORY-002 finalization (2026-10-27)
 
 Completed the next bounded, no-cost exploratory task defined by the adaptive research-gate policy: the settlement-currency sub-component of contract identity was the binding blocker for the HL+OKX pair.

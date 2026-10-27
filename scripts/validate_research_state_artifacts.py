@@ -33,6 +33,7 @@ MANIFESTS = [
     STATE_DIR / "run_manifest.json",
     STATE_DIR / "exploratory_run_manifest_2026-10-24.json",
     STATE_DIR / "exploratory_run_manifest_2026-10-25.json",
+    STATE_DIR / "exploratory_run_manifest_2026-10-27.json",
 ]
 
 

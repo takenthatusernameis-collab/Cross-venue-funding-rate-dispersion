@@ -130,6 +130,7 @@ def main() -> int:
         ROOT / "research_state/run_manifest.json",
         ROOT / "research_state/exploratory_run_manifest_2026-10-24.json",
         ROOT / "research_state/exploratory_run_manifest_2026-10-25.json",
+        ROOT / "research_state/exploratory_run_manifest_2026-10-27.json",
     ]
     for path in artifacts:
         if not path.is_file():

@@ -33,7 +33,7 @@ class ResearchStateArtifactTests(unittest.TestCase):
         v.ROOT = self.root
         v.STATE_DIR = self.root / "research_state"
         v.CORRECTIONS_PATH = v.STATE_DIR / "artifact_hash_corrections_2026-10-25.json"
-        v.MANIFESTS = [v.STATE_DIR / "run_manifest.json", v.STATE_DIR / "exploratory_run_manifest_2026-10-24.json", v.STATE_DIR / "exploratory_run_manifest_2026-10-25.json"]
+        v.MANIFESTS = [v.STATE_DIR / "run_manifest.json", v.STATE_DIR / "exploratory_run_manifest_2026-10-24.json", v.STATE_DIR / "exploratory_run_manifest_2026-10-25.json", v.STATE_DIR / "exploratory_run_manifest_2026-10-27.json"]
 
     def tearDown(self):
         shutil.rmtree(self.tmp, ignore_errors=True)

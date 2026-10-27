@@ -1,0 +1,177 @@
+{
+  "schema_version": "1.0",
+  "experiment_id": "FVD-EXPLORATORY-003",
+  "run_id": "FVD-EXPLORATORY-003-run-2026-10-27",
+  "status": "EXPLORATORY_ONLY",
+  "confirmatory_status_preserved": "BLOCKED_DATA_GATE",
+  "historical_point_in_time_market_cap_gate": "BLOCKED",
+  "backtest_completed": false,
+  "performance_metrics_computed": false,
+  "date_utc": "2026-10-27",
+  "started_at_utc": "2026-10-27T02:19:25Z",
+  "completed_at_utc": "2026-10-27T02:22:00Z",
+  "last_updated_utc": "2026-10-27T02:22:00Z",
+  "purpose": "Exploratory registration of a distinct OKX+Binance (USDT) funding-dispersion estimand over the verified historical funding intersection of Binance USD-M futures and OKX USDT-swap perpetuals. This estimand is separately versioned from FVD-DISPERSION-V1, FVD-EXPLORATORY-001, and FVD-EXPLORATORY-002 (Hyperliquid+OKX). It does not modify the frozen grid, FVD001-FVD108, FVD053, or the original run_manifest.json.",
+  "estimand": {
+    "description": "Cross-venue funding-dispersion carry hypothesis restricted to the OKX|Binance USD-M pair, both of which settle funding in USDT. Distinct from the original FVD-DISPERSION-V1 estimand (market-cap-weighted universe) and from FVD-EXPLORATORY-002 (Hyperliquid+OKX, settlement unprovable).",
+    "venue_set": [
+      "OKX",
+      "Binance USD-M"
+    ],
+    "settlement_currency": "USDT (provable for both venues: OKX settleCcy=USDT verified via /public/instruments HTTP 200; Binance USD-M settles in USDT by definition + checksum-verified archive provenance)",
+    "underlyings": [
+      "BTC",
+      "ETH",
+      "SOL",
+      "AVAX"
+    ],
+    "funding_interval_hours": 8,
+    "funding_interval_matches": true
+  },
+  "data_cutoff_utc": "2026-10-27T02:00:00Z",
+  "instrument_list": [
+    "BTC",
+    "ETH",
+    "SOL",
+    "AVAX"
+  ],
+  "venue_set": [
+    "OKX",
+    "Binance USD-M"
+  ],
+  "contract_mapping": {
+    "OKX": "BTC-USDT-SWAP, ETH-USDT-SWAP, SOL-USDT-SWAP, AVAX-USDT-SWAP",
+    "Binance USD-M": "BTCUSDT, ETHUSDT, SOLUSDT, AVAXUSDT"
+  },
+  "contract_mapping_basis": "underlying symbol match only (e.g. BTCUSDT <-> BTC-USDT-SWAP); instrument metadata cross-check, listing/delisting/lifecycle verification, and historical contract equivalence NOT independently verified via venue metadata or archive provenance",
+  "contract_identity_verified": false,
+  "contract_identity_evidence_level": "candidate",
+  "binding_constraint": "instrument_identity_not_verified — contract identity between Binance USD-M futures (e.g. BTCUSDT) and OKX USDT-swap perpetuals (e.g. BTC-USDT-SWAP) is symbol-mapped only, not proven equivalent via lifecycle/listing metadata. Per exploratory_protocol_v1.md section 3 requirement 1 ('compatible contract identities'), this is not established. This is the binding constraint for this estimand, distinct from the settlement-currency match which IS provable.",
+  "settlement_currency_match_provable": true,
+  "anchor": "FVD053",
+  "anchor_params": {
+    "dispersion_lookback_hours": 24,
+    "entry_percentile": 80,
+    "holding_hours": 24,
+    "minimum_eligible_venues": 2,
+    "portfolio_tail_fraction": 0.1
+  },
+  "anchor_exercised": false,
+  "anchor_result": "NOT EXERCISED — data gate fails before anchor per exploratory_protocol_v1.md section 6 stop rule. Instrument identity is not provable (candidate-level, symbol-mapped only) and the OKX+Binance funding intersection is ~72 days (< 90-day prior-observation threshold for FVD053). The frozen anchor was not run.",
+  "cost_assumptions": {
+    "id": "base",
+    "fee_bps_per_side": 5,
+    "slippage_bps_per_side": 5,
+    "note": "frozen grid base scenario; sensitivity assumption, not a venue fee claim"
+  },
+  "gross_exposure_cap": "1.0x equity",
+  "sample_construction": "Verified historical intersection of instruments with funding settlements + price history on >=2 venues over the OKX+Binance pair; no market-cap rank required for this distinct exploratory estimand; shorter history allowed; not market-cap representative.",
+  "coverage_summary": {
+    "common_days": 72,
+    "common_funding_end_utc": "2026-09-30T16:00:00Z",
+    "common_funding_start_utc": "2026-07-20T16:00:00Z",
+    "contract_identity_evidence_level": "candidate",
+    "contract_identity_verified": false,
+    "okx_funding_settlements": 296,
+    "binance_funding_settlements": "feasibility-assessed (6.82 years, 2020-01 to 2026-09; full download not performed)",
+    "binance_archive_start_utc": "2020-01-01T00:00:00Z",
+    "binance_archive_end_utc": "2026-09-30T00:00:00Z",
+    "binance_archive_years": 6.82,
+    "binance_funding_interval_hours": 8,
+    "binance_funding_interval_matches_okx": true,
+    "okx_funding_interval_hours": 8,
+    "okx_funding_history_limit_documented": "up to three months",
+    "okx_funding_stop_reason": "page_not_full",
+    "settlement_currency_match_provable": true,
+    "underlyings": 4,
+    "venues": 2
+  },
+  "data_gate_result": "NOT_PASSED — settlement currency match is provable for OKX|Binance (both USDT), but contract identity/instrument identity is NOT provable (symbol-mapped only, candidate-level). Per exploratory_protocol_v1.md section 3 requirement 1, 'compatible contract identities' are required but not established (Hyperliquid meta exposes no settlement currency; Binance|Hyperliquid settlement unprovable; Binance|OKX instrument identity symbol-only). Additionally, the OKX+Binance funding intersection is ~72 days (2026-07-20 to 2026-09-30T16:00:00Z), below the 90-day prior-observation threshold for FVD053. Binance archive provides 6.82 years of history (meets 3-year depth), but Okx funding retention limits the intersection. No anchor run, no backtest, no performance metric.",
+  "historical_coverage_gate": "NOT_PASSED_BY_COVERAGE_PROBE",
+  "threshold_history_eligibility": {
+    "common_days": 72,
+    "common_funding_intersection_utc": [
+      "2026-07-20T16:00:00Z",
+      "2026-09-30T00:00:00Z"
+    ],
+    "contract_identity_verified": false,
+    "contract_identity_evidence_level": "candidate",
+    "eligible_for_threshold_computation": false,
+    "eligible_reason": "Instrument identity not provable + funding intersection (72 days) below 90-day minimum",
+    "settlement_currency_match_provable": true,
+    "minimum_prior_daily_observations_required": 90,
+    "prior_daily_observations_available": 72,
+    "binance_archive_meets_3year_history": true,
+    "okx_funding_retained_days": 98,
+    "okx_funding_history_limit_documented": "up to three months",
+    "underlyings": 4,
+    "venues_per_underlying": 2
+  },
+  "exclusion_rules": [
+    "no forward fill",
+    "no invented fills",
+    "settlement-timed funding only",
+    "gross exposure <= 1.0x equity",
+    "minimum 2 eligible venues",
+    "threshold excludes current signal date",
+    ">=90 prior daily observations required for threshold",
+    "compatible contract identities required (NOT met — symbol-mapped only)"
+  ],
+  "implementation_gate_result": "Source-independent primitives covered by known-answer/adversarial tests and conformance validators; no real-data anchor run (data gate fails before anchor per exploratory protocol section 6 stop rule)",
+  "conclusion": "EXPLORATORY_ONLY / INCONCLUSIVE for inference. The OKX+Binance (USDT) estimand registers a distinct exploratory estimand where the settlement-currency sub-component of contract identity IS provable (both venues settle in USDT). However, instrument/contract identity is NOT provable (symbol-mapped only, candidate-level) and the OKX+Binance funding intersection is ~72 days, below the 90-day prior-observation threshold for the FVD053 anchor. Per exploratory_protocol_v1.md section 6, contract identity is a required eligibility criterion that is not established; the gates fail before anchor. The frozen FVD053 anchor was NOT exercised. No backtest, no performance metric, no economic edge claimed. Confirmatory gate BLOCKED_DATA_GATE preserved.",
+  "next_step": "Per exploratory_protocol_v1.md section 6 stop rule: instrument identity (contract identity) is the binding constraint, not settlement currency. The OKX+Binance funding intersection (~72 days) is also below the 90-day threshold. Do not fabricate or substitute data; preserve the confirmatory gate BLOCKED_DATA_GATE. Move to a bounded source-independent task (e.g. adversarial/equity tests on _latest_at_or_before, independent recomputation of existing anchor results, or schema/contract validation). If a free source route that proves instrument/lifecycle identity emerges, a new exploratory version may register it.",
+  "reference_probe": "historical_overlap_probe_40432758814_attempt_1.json",
+  "reference_probe_sha256": "8f3a4e869737a2e778130bbef1f01a9097675da389952ca0c194f48f91896932",
+  "parent_exploratory_manifest": "research_state/exploratory_run_manifest_2026-10-25.json",
+  "parent_exploratory_manifest_sha256": "08bbecf10f80f46b3d56e62e5c82ce44915840b25612307c0d7026f7a9905f1f",
+  "source_code_hashes": {
+    "scripts/probe_historical_overlap.py": "606f07bb27b1b9f4e1a723b8ac42acac7f9741dd6000d6968218a37047acfa09",
+    "src/cross_venue_funding_dispersion/status.py": "d99f24152c4bd364103355bbb6ee12df10dcd50eb39e69bd9afb487b0bb3e2a0"
+  },
+  "config_hashes": {
+    "configs/cross_venue_funding_dispersion_grid_v1.json": "6be218bc84bf118cf67c238ad1c13ef1e445658db3b1346cd64ccaccc7aa5f07"
+  },
+  "output_artifacts": [
+    {
+      "path": "research_state/settlement_metadata_measurement_2026-10-27.json",
+      "sha256": "5184d5e25cbb7badde958d2da768d00e371d2dd8d1272181d94cbf91ec9014b4"
+    },
+    {
+      "path": "research_state/binance_archive_feasibility_assessment_2026-10-26.json",
+      "sha256": "5bf31c0a878ffcb2f38c21f0578bfa584f4f6a2df8357afcfb5bdb570c38e0f9"
+    },
+    {
+      "path": "research_state/binance_overlap_sample_2026-10-26.json",
+      "sha256": "a61fa295c74fd5f17e9b50d516bdd640c0d55c239db8c0e2e3c6664ef2d1712b"
+    },
+    {
+      "path": "research_state/coverage_matrix_2026-10-27.json",
+      "sha256": "485bf28538e3d9955dfc027b33010cf910c5afa9af3afd70362ccb9d88d4245d"
+    },
+    {
+      "path": "research_state/historical_overlap_probe_40432758814_attempt_1.json",
+      "sha256": "8f3a4e869737a2e778130bbef1f01a9097675da389952ca0c194f48f91896932"
+    },
+    {
+      "path": "research_state/okx_funding_pagination_audit_2026-10-26.json",
+      "sha256": "ed349246f739eee5e2024cdb6ede874fa15ea1d189b9e786e73477243fd20637"
+    },
+    {
+      "path": "research_state/exploratory_run_manifest_2026-10-25.json",
+      "sha256": "08bbecf10f80f46b3d56e62e5c82ce44915840b25612307c0d7026f7a9905f1f"
+    }
+  ],
+  "caveats": [
+    "Free public sources lack >=3 years of historical point-in-time market-cap ranks with both effective/as-of and publication/availability timestamps; confirmatory gate remains BLOCKED_DATA_GATE.",
+    "This is a registry of the OKX+Binance (USDT) estimand only; no anchor run, no backtest, no performance metric claimed.",
+    "Settlement currency match IS provable for OKX|Binance (both USDT) via OKX /public/instruments (HTTP 200, settleCcy=USDT) and Binance USD-M archive provenance (checksum-verified, defined to settle in USDT).",
+    "Instrument/contract identity is NOT provable: Binance BTCUSDT vs OKX BTC-USDT-SWAP is symbol-mapped only; not independently verified via venue metadata or lifecycle events. This is the binding constraint for this estimand.",
+    "Binance USD-M archive provides 6.82 years of funding+price history (2020-01 to 2026-09, 8h funding interval matching OKX) — meets the 3-year depth requirement, but only checksum objects were verified, not the full archive downloaded.",
+    "OKX funding-rate-history retention is documented as 'up to three months'; the probe returned 296 rows with stop_reason=page_not_full, confirming the server holds no older records. The OKX+Binance funding intersection is ~72 days (2026-07-20 to 2026-09), below the 90-day prior-observation threshold for the FVD053 anchor.",
+    "No performance metric or economic edge claimed; EXPLORATORY_ONLY does not authorize live or paper trading.",
+    "FVD-EXPLORATORY-003 is INCONCLUSIVE for inference — data gates fail before anchor per exploratory_protocol_v1.md section 6 stop rule.",
+    "Survivorship bias, listing/delisting, and ticker-reuse handling for Binance USD-M futures are not assessed.",
+    "Current cap snapshots are discovery-only; no market-cap rank substituted for historical ranks in this exploratory estimand.",
+    "Modeled fees/slippage (base 5/5 bps) are sensitivity assumptions, not measured venue costs."
+  ]
+}

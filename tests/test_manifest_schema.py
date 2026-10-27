@@ -9,7 +9,7 @@ sys.path.insert(0, str(ROOT / "scripts"))
 sys.path.insert(0, str(ROOT / "src"))
 
 from validate_manifest_schema import (  # noqa: E402
-    CONFIRMATORY, EXPLORATORY, EXPLORATORY_002, FROZEN_GRID_SHA, load_schema, validate_contract, validate_json_schema,
+    CONFIRMATORY, EXPLORATORY, EXPLORATORY_002, EXPLORATORY_003, FROZEN_GRID_SHA, load_schema, validate_contract, validate_json_schema,
 )
 
 BASE_MANIFEST = {
@@ -56,6 +56,15 @@ class ManifestSchemaTests(unittest.TestCase):
         self.assertFalse(committed["performance_metrics_computed"])
         self.assertEqual(committed["status"], "EXPLORATORY_ONLY")
         self.assertEqual(committed["experiment_id"], "FVD-EXPLORATORY-002")
+
+    def test_committed_exploratory_003_manifest_passes_contract(self):
+        committed = json.loads(EXPLORATORY_003.read_text(encoding="utf-8"))
+        self.assertTrue(set(committed) - set(self.schema["properties"]), "exploratory carries versioned extra fields")
+        validate_contract(committed, EXPLORATORY_003, allow_extra=True)
+        self.assertFalse(committed["backtest_completed"])
+        self.assertFalse(committed["performance_metrics_computed"])
+        self.assertEqual(committed["status"], "EXPLORATORY_ONLY")
+        self.assertEqual(committed["experiment_id"], "FVD-EXPLORATORY-003")
 
     def test_missing_required_key_fails(self):
         bad = dict(BASE_MANIFEST)

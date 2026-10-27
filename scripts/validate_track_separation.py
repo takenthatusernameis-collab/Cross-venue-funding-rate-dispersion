@@ -98,18 +98,21 @@ def main() -> int:
     confirm_path = ROOT / "research_state/run_manifest.json"
     expl_path = ROOT / "research_state/exploratory_run_manifest_2026-10-24.json"
     expl002_path = ROOT / "research_state/exploratory_run_manifest_2026-10-25.json"
+    expl003_path = ROOT / "research_state/exploratory_run_manifest_2026-10-27.json"
     grid_path = ROOT / "configs/cross_venue_funding_dispersion_grid_v1.json"
 
-    for path in (confirm_path, expl_path, expl002_path, grid_path):
+    for path in (confirm_path, expl_path, expl002_path, expl003_path, grid_path):
         check(path.is_file(), f"missing required artifact {path.name}")
 
     confirmatory = load_json(confirm_path)
     exploratory = load_json(expl_path)
     exploratory_002 = load_json(expl002_path)
+    exploratory_003 = load_json(expl003_path)
     import hashlib
     digest = hashlib.sha256(grid_path.read_bytes()).hexdigest()
     validate_separation(confirmatory, exploratory, digest)
     validate_separation(confirmatory, exploratory_002, digest)
+    validate_separation(confirmatory, exploratory_003, digest)
 
     print("TRACK_SEPARATION_VALIDATION=PASS")
     return 0
