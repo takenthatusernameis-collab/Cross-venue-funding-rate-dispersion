@@ -516,6 +516,87 @@ class SimulateSignalTests(unittest.TestCase):
         self.assertAlmostEqual(res["net_pnl"], 4.0)
         self.assertAlmostEqual(res["net_return"], 4.0 / anchor.EQUITY)
 
+    def test_position_closed_at_entry_instant_excludes_funding(self):
+        """Known-answer: simulate_signal's open-interval funding filter excludes
+        settlements at the entry instant — the multi-venue analog of
+        position_open_at_settlement=False.
+
+        Entry is aligned to BOTH venues' settlement grids: 00:00 UTC is an OKX
+        8h settlement boundary (00:00/08:00/16:00) and an HL hourly boundary. A
+        funding settlement therefore exists at entry_ms for both venues. The
+        strict `entry_ms < t <= exit_ms` filter must exclude those
+        entry-boundary settlements; a `>=` bug would wrongly include them and
+        inflate both the settlement count and the cash flow.
+
+        Fixture (8h window 2026-08-03T00:00Z .. 2026-08-03T08:00Z):
+          HL rate (1h)  = 0.0004 -> normalized 8h = 0.0032
+          OKX rate (8h) = 0.0016 -> normalized 8h = 0.0016
+          hl_n (0.0032) > okx_n (0.0016) => long=OKX, short=Hyperliquid
+          OKX settlements in (00:00, 08:00]: {08:00} => 1  (00:00 excluded)
+          HL  settlements in (00:00, 08:00]: {01:00..08:00} => 8  (00:00 excluded)
+
+        Independent computation via accounting primitives:
+          OKX long  (side +1): 1 * funding_cash_flow(1, 5000, 0.0016) = -8.0
+          HL short  (side -1): 8 * funding_cash_flow(-1, 5000, 0.0004) = +16.0
+          net funding = 16.0 - 8.0 = 8.0 ; settlements = 9
+          prices flat => price_basis_pnl = 0.0
+          fees = 4 * execution_cost(5000, 5.0, 0.0) = 10.0
+          slippage = 4 * execution_cost(5000, 0.0, 5.0) = 10.0
+          net_pnl = 0.0 + 8.0 - 10.0 - 10.0 = -12.0
+          net_return = -12.0 / 10000.0 = -0.0012
+        """
+        from cross_venue_funding_dispersion.accounting import (
+            execution_cost, funding_cash_flow,
+        )
+        u = "BTC"
+        notional = 5000.0
+        hl_rate = 0.0004
+        okx_rate = 0.0016
+        entry = dt.datetime(2026, 8, 3, 0, 0, tzinfo=dt.timezone.utc)
+        exit_ = dt.datetime(2026, 8, 3, 8, 0, tzinfo=dt.timezone.utc)
+        entry_ms = anchor.utc_ms(entry)
+        exit_ms = anchor.utc_ms(exit_)
+        data = {
+            "BTC": {
+                "hl_funding": internal_hl_funding_series(START_MS, END_MS, hl_rate),
+                "okx_funding": internal_okx_funding_series(START_MS, END_MS, okx_rate),
+                "hl_candles": internal_candle_list(START_MS, END_MS, PRICE_OPEN, PRICE_OPEN),
+                "okx_candles": internal_candle_list(START_MS, END_MS, PRICE_OPEN, PRICE_OPEN),
+            }
+        }
+        # Prove a settlement exists at the entry instant for both venues; the
+        # open-interval filter must exclude it (position not open at that time).
+        self.assertIn(entry_ms, {r["time"] for r in data[u]["okx_funding"]})
+        self.assertIn(entry_ms, {r["time"] for r in data[u]["hl_funding"]})
+
+        res = anchor.simulate_signal(
+            u, "OKX", "Hyperliquid", notional, entry, exit_, data,
+            anchor.ANCHOR_PARAMS["fee_bps_per_side"],
+            anchor.ANCHOR_PARAMS["slippage_bps_per_side"],
+        )
+        self.assertFalse(res["skipped"])
+        self.assertEqual(res["long_venue"], "OKX")
+        self.assertEqual(res["short_venue"], "Hyperliquid")
+
+        okx_long_cf = funding_cash_flow(1, notional, okx_rate)
+        hl_short_cf = funding_cash_flow(-1, notional, hl_rate)
+        okx_settlements = 1  # 08:00 only; 00:00 entry-boundary settlement excluded
+        hl_settlements = 8  # 01:00..08:00; 00:00 entry-boundary settlement excluded
+        expected_funding = okx_long_cf * okx_settlements + hl_short_cf * hl_settlements
+        expected_fees = execution_cost(notional, 5.0, 0.0) * 4
+        expected_slippage = execution_cost(notional, 0.0, 5.0) * 4
+        expected_net = expected_funding - expected_fees - expected_slippage
+
+        self.assertAlmostEqual(res["funding_cash_flow"], expected_funding)
+        self.assertAlmostEqual(res["funding_cash_flow"], 8.0)
+        self.assertEqual(res["funding_settlements"], 9)
+        self.assertAlmostEqual(res["price_basis_pnl"], 0.0)
+        self.assertAlmostEqual(res["fees"], expected_fees)
+        self.assertAlmostEqual(res["slippage"], expected_slippage)
+        self.assertAlmostEqual(res["net_pnl"], expected_net)
+        self.assertAlmostEqual(res["net_pnl"], -12.0)
+        self.assertAlmostEqual(res["net_return"], -0.0012)
+
     def test_missing_candle_skips_signal(self):
         u = "BTC"
         notional = 5000.0

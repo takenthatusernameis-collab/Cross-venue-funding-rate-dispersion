@@ -322,6 +322,24 @@ class ImmutableLedgerRecomputeTests(unittest.TestCase):
              funding_rate_long=0.001, funding_rate_short=-0.0005,
              fee_bps_per_side=10.0, slippage_bps_per_side=8.0,
              gross_multiple=1.0, position_open_at_settlement=True, fills_per_leg=2),
+        # Extreme-magnitude rates (50% per settlement): verifies large finite
+        # rates flow through funding_cash_flow/price_pnl independently of sign
+        # and that gross exposure stays exactly at the 1.0x cap boundary.
+        dict(equity=10000.0, notional_per_leg=5000.0,
+             entry_price_long=100.0, exit_price_long=120.0,
+             entry_price_short=50.0, exit_price_short=40.0,
+             funding_rate_long=0.5, funding_rate_short=-0.5,
+             fee_bps_per_side=0.0, slippage_bps_per_side=0.0,
+             gross_multiple=1.0, position_open_at_settlement=True, fills_per_leg=2),
+        # Zero notional with extreme rates + nonzero bps: every ledger field
+        # must be exactly zero (no funding, no price move, no cost on a
+        # zero-sized position). Guards against sign/division edge cases.
+        dict(equity=10000.0, notional_per_leg=0.0,
+             entry_price_long=100.0, exit_price_long=100.0,
+             entry_price_short=100.0, exit_price_short=100.0,
+             funding_rate_long=0.5, funding_rate_short=-0.5,
+             fee_bps_per_side=5.0, slippage_bps_per_side=5.0,
+             gross_multiple=1.0, position_open_at_settlement=True, fills_per_leg=2),
     ]
 
     def _independently_compute_expected(self, kw: dict) -> dict[str, float]:
@@ -449,6 +467,65 @@ class ImmutableLedgerRecomputeTests(unittest.TestCase):
                 funding_rate_long=0.0, funding_rate_short=0.0,
                 fee_bps_per_side=0.0, slippage_bps_per_side=0.0,
                 gross_multiple=1.0,
+            )
+
+    def test_extreme_magnitude_rate_known_answer(self):
+        """Independent known-answer for an extreme-magnitude (50%) rate row.
+
+        Long entry 100->120, short entry 50->40, notional 5000/leg,
+        funding_rate_long=+0.5 (long pays), funding_rate_short=-0.5 (short
+        receives), zero fees/slippage, position open at settlement.
+        Independently computed via accounting primitives:
+          long_price_pnl  = price_pnl(1, 5000, 100, 120) = 1000.0
+          short_price_pnl = price_pnl(-1, 5000, 50, 40)   = 1000.0
+          net_price_basis_pnl = 2000.0
+          funding = funding_cash_flow(1, 5000, 0.5)
+                  + funding_cash_flow(-1, 5000, -0.5)
+                  = -2500.0 + -2500.0 = -5000.0
+          total_net_pnl = 2000.0 - 5000.0 = -3000.0
+          gross_exposure = 10000.0; gross_exposure_cap = 10000.0
+        """
+        kw = dict(
+            equity=10000.0, notional_per_leg=5000.0,
+            entry_price_long=100.0, exit_price_long=120.0,
+            entry_price_short=50.0, exit_price_short=40.0,
+            funding_rate_long=0.5, funding_rate_short=-0.5,
+            fee_bps_per_side=0.0, slippage_bps_per_side=0.0,
+            gross_multiple=1.0, position_open_at_settlement=True, fills_per_leg=2,
+        )
+        expected = self._independently_compute_expected(kw)
+        actual = compute_pair_pnl(**kw)
+        for field, exp_val in expected.items():
+            self.assertAlmostEqual(
+                actual[field], exp_val, places=10,
+                msg=f"extreme-magnitude field {field}: got {actual[field]}, expected {exp_val}",
+            )
+        self.assertAlmostEqual(expected["funding_cash_flow"], -5000.0)
+        self.assertAlmostEqual(expected["total_net_pnl"], -3000.0)
+        self.assertAlmostEqual(expected["gross_exposure"], 10000.0)
+        self.assertAlmostEqual(expected["gross_exposure_cap"], 10000.0)
+
+    def test_zero_notional_extreme_rate_all_fields_zero(self):
+        """Zero notional with extreme rates and nonzero bps yields an all-zero
+        ledger, independently recomputed from primitives. Guards the
+        zero-sized-position branch against any sign/division surprise."""
+        kw = dict(
+            equity=10000.0, notional_per_leg=0.0,
+            entry_price_long=100.0, exit_price_long=100.0,
+            entry_price_short=100.0, exit_price_short=100.0,
+            funding_rate_long=0.5, funding_rate_short=-0.5,
+            fee_bps_per_side=5.0, slippage_bps_per_side=5.0,
+            gross_multiple=1.0, position_open_at_settlement=True, fills_per_leg=2,
+        )
+        expected = self._independently_compute_expected(kw)
+        actual = compute_pair_pnl(**kw)
+        self.assertAlmostEqual(expected["funding_cash_flow"], 0.0)
+        self.assertAlmostEqual(expected["total_net_pnl"], 0.0)
+        self.assertAlmostEqual(expected["gross_exposure"], 0.0)
+        for field, exp_val in expected.items():
+            self.assertAlmostEqual(
+                actual[field], exp_val, places=10,
+                msg=f"zero-notional field {field}: got {actual[field]}, expected {exp_val}",
             )
 
 

@@ -1,3 +1,47 @@
+## Source-independent red-team hardening: extreme-magnitude rate / zero-notional + multi-venue position-closed-at-settlement known-answer (2026-10-28)
+
+Executed the remaining source-independent item from the active prompt (`prompts/autonomous_free_data_gate_unblocking_v3_3.md` §12.6) and HANDOFF #1's "Next measurable task." The data gate remains BLOCKED and UNCHANGED: newest probe `historical_overlap_probe_40647845563_attempt_1.json` (`historical_coverage_gate=NOT_PASSED_BY_COVERAGE_PROBE`, `contract_identity` evidence_level=candidate for BTC/ETH/SOL/AVAX, OKX funding intersection 2026-07-27T16:00Z→2026-10-28 (~89 days, at/below the 90-day FVD053 threshold)) and instrument identity remains not provable (symbol-mapped only). Today is 2026-10-28, so the Binance 2026-10 monthly archive (published post-month-end) is not yet available; the data-gated OKX+Binance reassessment is deferred to after 2026-10-31. No paid data, credentials, live/paper trading, or re-probe dispatched. Frozen artifacts untouched; only test files modified.
+
+### Action performed
+
+1. **Extended `ImmutableLedgerRecomputeTests` (`tests/test_pair_pnl.py`)** with two edge-case rows in `LEDGER_INPUTS` (independently recomputed from `price_pnl`/`funding_cash_flow`/`execution_cost`, so all 4 class tests now cover them):
+   - **Extreme-magnitude rate** (`funding_rate_long=0.5`, `funding_rate_short=-0.5`, 50% per settlement, position open): known-answer `long_price_pnl=1000.0`, `short_price_pnl=1000.0`, `net_price_basis_pnl=2000.0`, `funding_cash_flow=-5000.0`, `total_net_pnl=-3000.0`, `gross_exposure=10000.0=cap` — verifies large-finite-rate sign arithmetic through the accounting primitives.
+   - **Zero notional** (`notional_per_leg=0.0` with extreme rates + nonzero 5/5 bps): known-answer all-zero ledger (`funding_cash_flow=0.0`, `total_net_pnl=0.0`, `gross_exposure=0.0`) — guards the zero-sized-position branch against sign/division surprises.
+
+2. **Added `test_extreme_magnitude_rate_known_answer`** (`tests/test_pair_pnl.py`): crisp known-answer asserting the exact independently-computed values for the extreme-magnitude row, including the `1.0x` gross-exposure cap boundary (gross_exposure==cap permitted, no raise).
+
+3. **Added `test_zero_notional_extreme_rate_all_fields_zero`** (`tests/test_pair_pnl.py`): crisp known-answer asserting every ledger field is exactly `0.0` for the zero-notional row.
+
+4. **Added `test_position_closed_at_entry_instant_excludes_funding`** (`tests/test_run_fvd053_anchor.py`, `SimulateSignalTests`): known-answer for the multi-venue `position_open_at_settlement=False` analog. Entry aligned to both venues' grids (2026-08-03T00:00Z = OKX 8h boundary + HL hourly boundary), so a settlement exists at `entry_ms` for BOTH venues and must be excluded by the strict `entry_ms < t <= exit_ms` filter. Independent recompute: OKX long 1 settlement × `funding_cash_flow(1,5000,0.0016)=-8.0`; HL short 8 settlements (01:00..08:00; 00:00 excluded) × `funding_cash_flow(-1,5000,0.0004)=+2.0` → `funding_cash_flow=8.0`, `funding_settlements=9`, flat prices `price_basis_pnl=0.0`, `fees=10.0`, `slippage=10.0`, `net_pnl=-12.0`, `net_return=-0.0012`. A `>=`-bug entry filter would wrongly include both entry-boundary settlements (HL 9, OKX 2 → `funding=2.0`, `settlements=11`), so the test is discriminating.
+
+### Validation commands run
+- `python3 -m compileall -q src scripts tests` = OK (exit 0)
+- `PYTHONPATH=src python3 -m unittest discover -s tests` = PASS (468 tests OK; was 465, +3 new tests). The `FAIL:` diagnostics printed during the discovery run are pre-existing synthetic-fixture **negative tests** (`tests/test_manifest_schema.py` injects `status="PROFITABLE"`, `extra_field`, etc. to confirm validators reject malformed input); they are unrelated to this change and non-blocking.
+- `PYTHONPATH=src python3 scripts/validate_research.py` = RESEARCH_VALIDATION=PASS (grid 108, anchor FVD053, NOT_RUN, `performance_metrics_computed=false`)
+- `PYTHONPATH=src:scripts python3 scripts/validate_all.py` = ALL_VALIDATIONS=PASS count=24
+- `python3 scripts/validate_skills.py` = SKILLS_VALIDATION=PASS count=4
+- `git diff --check` = clean (exit 0)
+
+### Frozen artifacts verified unchanged
+- `configs/cross_venue_funding_dispersion_grid_v1.json` sha `6be218bc84bf118cf67c238ad1c13ef1e445658db3b1346cd64ccaccc7aa5f07` (frozen, 108 configs, anchor FVD053)
+- `research_state/run_manifest.json` sha `4f162ce128c741434addf6aa2fa7c7dbf1bf189d4a81b8893ed96899412c7aaf` (BLOCKED_DATA_GATE)
+- `research_state/fvd053_anchor_run_2026-10-25.json` sha `50b328baf5854dec40105a0f5ebe498bf589906f9c033ce659843659927ca4c2` (immutable)
+- `research_state/historical_overlap_probe_40647845563_attempt_1.json` sha `970e821e9cb1b6609bb1008435d0ffe4c25148288a4619c6541874699f10ef19` (newest probe, unchanged; candidate BTC/ETH/SOL/AVAX, `contract_identity` candidate-level)
+
+### Modified working-tree files (uncommitted)
+- `tests/test_pair_pnl.py` — sha `84d95b2fd41a7de46b85430b6dc7fad6f17c4ed0d58d441e322bc20ae69efb4f` (added 2 LEDGER_INPUTS rows; added `test_extreme_magnitude_rate_known_answer`, `test_zero_notional_extreme_rate_all_fields_zero`)
+- `tests/test_run_fvd053_anchor.py` — sha `0fe5ed5b6eefdacd82d6385d4823fc5412765134d08bb8df0cb0bdd9071c3f72` (added `test_position_closed_at_entry_instant_excludes_funding`)
+
+### Status
+- Confirmatory track: `BLOCKED_DATA_GATE` — FVD001–FVD108, FVD053 unchanged. No backtest, no performance metrics.
+- FVD-EXPLORATORY-003 (OKX+Binance USDT): `EXPLORATORY_ONLY`/`INCONCLUSIVE` — both gates fail before anchor (instrument identity candidate-level + ~72–89-day funding intersection at/below 90-day threshold). Anchor NOT exercised. No backtest, no metrics.
+- Source-independent hardening complete: accounting primitives known-answer + independent recompute (funding signs, 1.0x gross cap, per-leg/fill costs, additive decomposition, extreme-magnitude rates, zero-notional), multi-venue `simulate_signal` known-answer covering 1h/8h interval split AND position-closed-at-settlement boundary exclusion, plus `time_weighted_mean` hourly 1h-boundary strict-staleness adversarial test.
+
+### Next measurable task
+Data-gated: after 2026-10-31 (Binance USD-M monthly files publish post-month-end), if Binance 2026-10 monthly archives are live and a probe cooldown has elapsed, re-assess the OKX+Binance funding intersection against the 90-day FVD053 threshold and re-examine contract-identity evidence. If Binance 2026-10 is still absent and instrument identity remains candidate-level, keep FVD-EXPLORATORY-003 INCONCLUSIVE and continue monitoring for a free source route that proves OKX|Binance instrument/lifecycle identity (the binding constraint). No re-probe duplication, no paid data, no credentials, no live/paper trading, no alteration of frozen confirmatory artifacts.
+
+---
+
 ## Source-independent red-team tests: backtest cross-pair aggregation recomputation + signals hourly 1h-boundary (2026-10-28)
 
 Executed the source-independent action called for by the adaptive research-gate policy (active prompt `prompts/autonomous_free_data_gate_unblocking_v3_3.md` §12.6) and HANDOFF #1's "Next measurable task". The data gate remains blocked and UNCHANGED this session: reference probe `historical_overlap_probe_40594574088_attempt_1.json` (`historical_coverage_gate=NOT_PASSED_BY_COVERAGE_PROBE`, `contract_identity` candidate-level), probe cooldown active (`scripts/should_run_historical_probe.py` → `should_run=false`, `next_eligible_at_utc=2026-10-28T04:24:53Z`), and the Binance 2026-10 monthly archive is not yet published (month-end). No paid data, credentials, live/paper trading, or re-probe dispatched. Frozen artifacts untouched; only test files extended.
