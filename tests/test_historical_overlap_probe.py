@@ -854,5 +854,72 @@ class HyperliquidFundingPaginationTests(unittest.TestCase):
         self.assertEqual(result["pages_received"], 2)
 
 
+class CommittedProbeGateConsistencyTests(unittest.TestCase):
+    """Source-independent validation of committed probe artifacts.
+
+    Reads committed research_state/historical_overlap_probe_*_attempt_*.json
+    artifacts from disk (no network) and asserts internal consistency between
+    the probe-reported contract_identity evidence levels and the
+    historical_coverage_gate flag. This guards against a future code path or
+    artifact mutation that would incorrectly lower the gate to PASS while any
+    underlying remains at candidate/unverified contract identity.
+    """
+
+    STATE_DIR = ROOT / "research_state"
+
+    def _committed_probes(self):
+        probes = []
+        if not self.STATE_DIR.is_dir():
+            return probes
+        for path in sorted(self.STATE_DIR.glob("historical_overlap_probe_*_attempt_*.json")):
+            try:
+                data = json.loads(path.read_text(encoding="utf-8"))
+            except (OSError, json.JSONDecodeError):
+                continue
+            if isinstance(data, dict) and "historical_coverage_gate" in data:
+                probes.append((path, data))
+        return probes
+
+    def test_committed_probes_present(self):
+        probes = self._committed_probes()
+        self.assertGreater(len(probes), 0, "expected committed overlap probe artifacts")
+
+    def test_no_probes_claim_gate_passed(self):
+        for path, data in self._committed_probes():
+            self.assertEqual(
+                data["historical_coverage_gate"],
+                "NOT_PASSED_BY_COVERAGE_PROBE",
+                f"{path.name}: historical_coverage_gate must never be PASS",
+            )
+            self.assertEqual(
+                data.get("original_confirmatory_gate"),
+                "BLOCKED_DATA_GATE",
+                f"{path.name}: original_confirmatory_gate must remain BLOCKED_DATA_GATE",
+            )
+            self.assertFalse(
+                data.get("backtest_completed", False),
+                f"{path.name}: probe must never set backtest_completed=true",
+            )
+            self.assertFalse(
+                data.get("performance_metrics_computed", False),
+                f"{path.name}: probe must never set performance_metrics_computed=true",
+            )
+
+    def test_non_verified_contract_identity_keeps_gate_not_passed(self):
+        for path, data in self._committed_probes():
+            ci = data.get("contract_identity", {})
+            per = ci.get("per_underlying", {}) if isinstance(ci, dict) else {}
+            has_non_verified = any(
+                isinstance(v, dict) and v.get("evidence_level") != "verified"
+                for v in per.values()
+            )
+            if has_non_verified:
+                self.assertEqual(
+                    data["historical_coverage_gate"],
+                    "NOT_PASSED_BY_COVERAGE_PROBE",
+                    f"{path.name}: non-verified contract_identity must keep gate NOT_PASSED",
+                )
+
+
 if __name__ == "__main__":
     unittest.main()
