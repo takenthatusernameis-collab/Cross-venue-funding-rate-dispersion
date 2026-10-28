@@ -1,10 +1,48 @@
-## Source-independent red-team hardening: extreme-magnitude rate / zero-notional + multi-venue position-closed-at-settlement known-answer (2026-10-28)
+## Link newest controller probe (40647845563) into FVD-EXPLORATORY-003 + independent validation (2026-10-28)
 
-Executed the remaining source-independent item from the active prompt (`prompts/autonomous_free_data_gate_unblocking_v3_3.md` §12.6) and HANDOFF #1's "Next measurable task." The data gate remains BLOCKED and UNCHANGED: newest probe `historical_overlap_probe_40647845563_attempt_1.json` (`historical_coverage_gate=NOT_PASSED_BY_COVERAGE_PROBE`, `contract_identity` evidence_level=candidate for BTC/ETH/SOL/AVAX, OKX funding intersection 2026-07-27T16:00Z→2026-10-28 (~89 days, at/below the 90-day FVD053 threshold)) and instrument identity remains not provable (symbol-mapped only). Today is 2026-10-28, so the Binance 2026-10 monthly archive (published post-month-end) is not yet available; the data-gated OKX+Binance reassessment is deferred to after 2026-10-31. No paid data, credentials, live/paper trading, or re-probe dispatched. Frozen artifacts untouched; only test files modified.
+Per v3.3 §12.6 and v3.3 acceptance check #2 ("Every newly committed research-state manifest is validated against the current schemas and artifact hashes before it is treated as accepted work"): the controller CI committed probe `historical_overlap_probe_40647845563_attempt_1.json` at commit `4dba28c` (observed_at_utc 2026-10-28T08:30:18Z), but it was NOT linked into the FVD-EXPLORATORY-003 manifest (reference_probe was still the older `40594574088`). This session links the newly committed probe into the manifest, independently re-runs all validators, and verifies frozen artifacts are unchanged. The data gate remains BLOCKED_DATA_GATE and UNCHANGED: probe confirms `historical_coverage_gate=NOT_PASSED_BY_COVERAGE_PROBE`, `contract_identity` evidence_level=candidate for BTC/ETH/SOL/AVAX, OKX funding intersection 2026-07-27T16:00Z→2026-10-28 (~89 days, at/below the 90-day FVD053 threshold). Binance 2026-10 monthly archive not yet published (month-end 2026-10-31); OKX+Binance reassessment deferred. Probe cooldown active until 2026-10-28T14:30:18Z. No paid data, credentials, live/paper trading, or re-probe dispatched.
 
 ### Action performed
 
-1. **Extended `ImmutableLedgerRecomputeTests` (`tests/test_pair_pnl.py`)** with two edge-case rows in `LEDGER_INPUTS` (independently recomputed from `price_pnl`/`funding_cash_flow`/`execution_cost`, so all 4 class tests now cover them):
+1. **Updated `research_state/exploratory_run_manifest_2026-10-27.json`** (FVD-EXPLORATORY-003, EXPLORATORY_ONLY / INCONCLUSIVE):
+   - Added `historical_overlap_probe_40647845563_attempt_1.json` (sha256 `970e821e9cb1b6609bb1008435d0ffe4c25148288a4619c6541874699f10ef19`) to `output_artifacts` (now 11 entries, up from 10).
+   - Updated `reference_probe` from `historical_overlap_probe_40594574088_attempt_1.json` to `historical_overlap_probe_40647845563_attempt_1.json`.
+   - Updated `reference_probe_sha256` from `6edb31ea...` to `970e821e...`.
+   - Added caveat #19 documenting the newest probe's verified findings (identical to prior probe: HL candles/funding 2026-06-30→2026-10-28, OKX candles 2026-06-30→2026-10-28, OKX funding 2026-07-27→2026-10-28 at 278 rows / page_not_full, contract_identity candidate-level, ~89-day HL+OKX funding intersection at/below 90-day threshold, historical_coverage_gate=NOT_PASSED_BY_COVERAGE_PROBE confirmed, confirmatory gate BLOCKED_DATA_GATE preserved, no backtest/metrics).
+   - Updated `last_updated_utc` from `2026-10-27T22:36:00Z` to `2026-10-28T08:43:34Z`.
+   - New manifest sha256: `5f313ac5f37ef65a876406c89c585fe8eea5b18ae44232181c119323f22bf7a0` (was `0f601b5ae3fb27e85473e5afc75a4a39626eb23f660a7b0102f1f7782bceb9a0`).
+
+### Validation commands run (independently re-run, not trusting CI)
+- `python3 -m compileall -q src scripts tests` = OK (exit 0)
+- `PYTHONPATH=src python3 -m unittest discover -s tests -v` = PASS (exit 0; FAIL diagnostics in output are pre-existing synthetic-fixture negative tests, unrelated to this change)
+- `PYTHONPATH=src python3 scripts/validate_research.py` = RESEARCH_VALIDATION=PASS (grid 108, anchor FVD053, NOT_RUN, performance_metrics_computed=false)
+- `PYTHONPATH=src:scripts python3 scripts/validate_all.py` = ALL_VALIDATIONS=PASS count=24
+- `python3 scripts/validate_skills.py` = SKILLS_VALIDATION=PASS count=4
+- `PYTHONPATH=src:scripts python3 scripts/validate_manifest_artifacts.py` = MANIFEST_ARTIFACTS_VALIDATION=PASS (new probe `40647845563` now in OK list)
+- `PYTHONPATH=src:scripts python3 scripts/validate_research_state_artifacts.py` = RESEARCH_STATE_ARTIFACTS_VALIDATION=PASS files=39 (2 pre-existing ACK items from 2026-10-24 corrections, unrelated)
+- `PYTHONPATH=src:scripts python3 scripts/validate_manifest_schema.py` = MANIFEST_SCHEMA_VALIDATION=PASS
+- `PYTHONPATH=src:scripts python3 scripts/validate_track_separation.py` = TRACK_SEPARATION_VALIDATION=PASS
+- `PYTHONPATH=src:scripts python3 scripts/validate_blocked_manifest_claims.py` = BLOCKED_MANIFEST_CLAIMS_VALIDATION=PASS
+- `PYTHONPATH=src:scripts python3 scripts/validate_research_state.py` = RESEARCH_STATE_VALIDATION=PASS
+- `git diff --check` = clean (exit 0); `git status --short` = ` M research_state/exploratory_run_manifest_2026-10-27.json` only
+
+### Frozen artifacts verified unchanged
+- `configs/cross_venue_funding_dispersion_grid_v1.json` sha `6be218bc84bf118cf67c238ad1c13ef1e445658db3b1346cd64ccaccc7aa5f07` (frozen, 108 configs, anchor FVD053)
+- `research_state/run_manifest.json` sha `4f162ce128c741434addf6aa2fa7c7dbf1bf189d4a81b8893ed96899412c7aaf` (BLOCKED_DATA_GATE)
+- `research_state/fvd053_anchor_run_2026-10-25.json` sha `50b328baf5854dec40105a0f5ebe498bf589906f9c033ce659843659927ca4c2` (immutable)
+
+### Status
+- Confirmatory track: `BLOCKED_DATA_GATE` — FVD001–FVD108, FVD053 unchanged. No backtest, no performance metrics.
+- FVD-EXPLORATORY-003 (OKX+Binance USDT): `EXPLORATORY_ONLY`/`INCONCLUSIVE`. Gates fail before anchor: instrument identity candidate-level (symbol-mapped only) + ~72-day OKX+Binance funding intersection < 90-day threshold + Binance archive ends 2026-09. Newest probe `40647845563` (HL+OKX coverage) confirms same findings: contract_identity candidate-level, ~89-day HL+OKX funding intersection at/below 90-day threshold. Anchor NOT exercised. No backtest, no metrics.
+- Source-independent hardening: complete (accounting primitives known-answer + independent recompute, multi-venue simulate_signal known-answer, time_weighted_mean 1h-boundary strict-staleness, normalize_funding_rate adversarial audit).
+- Newest probe `40647845563` now linked into manifest and independently validated against schemas/artifacts per v3.3 acceptance check #2.
+
+### Next measurable task
+Data-gated: after 2026-10-31 (Binance USD-M monthly files publish post-month-end), run `python3 scripts/should_run_historical_probe.py`; if cooldown has elapsed (`next_eligible_at_utc` was 2026-10-28T14:30:18Z) and Binance 2026-10 archive files are live (HTTP 200), reassess the OKX+Binance funding intersection against the 90-day FVD053 threshold and re-examine contract-identity evidence. If Binance 2026-10 is still absent and instrument identity remains candidate-level, keep FVD-EXPLORATORY-003 INCONCLUSIVE and continue monitoring for a free source route that proves OKX|Binance instrument/lifecycle identity (the binding constraint). No re-probe duplication, no paid data, no credentials, no live/paper trading, no alteration of frozen confirmatory artifacts.
+
+---
+
+
    - **Extreme-magnitude rate** (`funding_rate_long=0.5`, `funding_rate_short=-0.5`, 50% per settlement, position open): known-answer `long_price_pnl=1000.0`, `short_price_pnl=1000.0`, `net_price_basis_pnl=2000.0`, `funding_cash_flow=-5000.0`, `total_net_pnl=-3000.0`, `gross_exposure=10000.0=cap` — verifies large-finite-rate sign arithmetic through the accounting primitives.
    - **Zero notional** (`notional_per_leg=0.0` with extreme rates + nonzero 5/5 bps): known-answer all-zero ledger (`funding_cash_flow=0.0`, `total_net_pnl=0.0`, `gross_exposure=0.0`) — guards the zero-sized-position branch against sign/division surprises.
 
