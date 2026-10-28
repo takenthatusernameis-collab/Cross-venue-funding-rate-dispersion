@@ -1,3 +1,51 @@
+## Independent verification of committed probe linkage + v3.3 acceptance check re-verification (2026-10-28T14:02Z)
+
+Per v3.3 acceptance check #2 ("Every newly committed research-state manifest is validated against the current schemas and artifact hashes before it is treated as accepted work; an agent-reported validation result is evidence in the handoff, but not an independently re-run CI result") and v3.3 acceptance check #1 ("The current run's commit timeline and last job step are inspected before any stale-run diagnosis"): independently re-verified that the probe `historical_overlap_probe_40647845563_attempt_1.json` and its manifest linkage were actually committed, and that all validators pass on the committed state. This session made no code or artifact changes; it performed independent verification only.
+
+### Commit timeline inspected (v3.3 §v3.3)
+- `4dba28c` (kilo-autonomous, 2026-10-28T08:30:18Z): `research: record bounded historical coverage probe` — committed the probe JSON (1585 lines) to `research_state/historical_overlap_probe_40647845563_attempt_1.json`. This is the actual source-response artifact, NOT just workflow metadata.
+- `1460563` (kilo-autonomous, 2026-10-28T08:55:17Z): `chore(kilo): checkpoint agent session` — updated `research_state/exploratory_run_manifest_2026-10-27.json` (reference_probe → 40647845563, sha256 → 970e821e..., last_updated_utc → 2026-10-28T08:43:34Z, output_artifacts now 11 entries, caveat #19 added) and `HANDOFF.md`.
+- Conclusion: real project commits by `kilo-autonomous` exist on the default branch despite any stale workflow-run `updated_at` field. The commit timeline confirms actual progress was checkpointed, not just stale metadata. No stale-run false diagnosis issued.
+
+### Independent validation re-run (all PASS, exit 0)
+- `python3 -m compileall -q src scripts tests` = OK
+- `PYTHONPATH=src python3 -m unittest discover -s tests -v` = PASS (full suite, all tests OK)
+- `PYTHONPATH=src:scripts python3 scripts/validate_all.py` = ALL_VALIDATIONS=PASS count=24
+- `PYTHONPATH=src:scripts python3 scripts/validate_manifest_artifacts.py` = MANIFEST_ARTIFACTS_VALIDATION=PASS (45 artifact entries OK, including `historical_overlap_probe_40647845563_attempt_1.json`)
+- `PYTHONPATH=src:scripts python3 scripts/validate_manifest_schema.py` = MANIFEST_SCHEMA_VALIDATION=PASS (confirmatory=strict, exploratory=contract)
+- `PYTHONPATH=src:scripts python3 scripts/validate_track_separation.py` = TRACK_SEPARATION_VALIDATION=PASS
+- `PYTHONPATH=src:scripts python3 scripts/validate_blocked_manifest_claims.py` = BLOCKED_MANIFEST_CLAIMS_VALIDATION=PASS
+- `PYTHONPATH=src:scripts python3 scripts/validate_research_state.py` = RESEARCH_STATE_VALIDATION=PASS
+- `PYTHONPATH=src:scripts python3 scripts/validate_research_state_artifacts.py` = RESEARCH_STATE_ARTIFACTS_VALIDATION=PASS files=39 (2 pre-existing ACK items from 2026-10-24, unrelated)
+- `PYTHONPATH=src:scripts python3 scripts/validate_controller_progress.py` = CONTROLLER_PROGRESS_VALIDATION=PASS
+- `PYTHONPATH=src:scripts python3 -m unittest tests.test_controller_progress tests.test_workflow_contract -v` = 22 tests OK (progress detection + workflow contract)
+- `python3 scripts/validate_skills.py` = SKILLS_VALIDATION=PASS count=4
+- `PYTHONPATH=src python3 scripts/validate_research.py` = RESEARCH_VALIDATION=PASS (grid 108, anchor FVD053, NOT_RUN, performance_metrics_computed=false)
+- `git diff --check` = clean (exit 0); `git status --short` = (empty — working tree clean, all work committed)
+
+### Frozen artifacts verified unchanged (sha256 match)
+- `configs/cross_venue_funding_dispersion_grid_v1.json` = `6be218bc84bf118cf67c238ad1c13ef1e445658db3b1346cd64ccaccc7aa5f07` (frozen, 108 configs, anchor FVD053) ✓
+- `research_state/run_manifest.json` = `4f162ce128c741434addf6aa2fa7c7dbf1bf189d4a81b8893ed96899412c7aaf` (BLOCKED_DATA_GATE) ✓
+- `research_state/fvd053_anchor_run_2026-10-25.json` = `50b328baf5854dec40105a0f5ebe498bf589906f9c033ce659843659927ca4c2` (immutable) ✓
+- `research_state/exploratory_run_manifest_2026-10-27.json` = `5f313ac5f37ef65a876406c89c585fe8eea5b18ae44232181c119323f22bf7a0` (FVD-EXPLORATORY-003, EXPLORATORY_ONLY) ✓
+- `research_state/historical_overlap_probe_40647845563_attempt_1.json` = `970e821e9cb1b6609bb1008435d0ffe4c25148288a4619c6541874699f10ef19` ✓
+- `scripts/probe_historical_overlap.py` = `606f07bb27b1b9f4e1a723b8ac42acac7f9741dd6000d6968218a37047acfa09` ✓
+- `src/cross_venue_funding_dispersion/status.py` = `d99f24152c4bd364103355bbb6ee12df10dcd50eb39e69bd9afb487b0bb3e2a0` ✓
+
+### Status (UNCHANGED)
+- Confirmatory track: `BLOCKED_DATA_GATE` — FVD001–FVD108, FVD053 frozen. No backtest, no performance metrics.
+- FVD-EXPLORATORY-003 (OKX+Binance USDT): `EXPLORATORY_ONLY`/`INCONCLUSIVE`. Data gate fails before anchor: instrument identity candidate-level (symbol-mapped only) + ~72-day funding intersection < 90-day threshold. Anchor NOT exercised. No backtest, no metrics.
+- FVD-EXPLORATORY-002 (HL+OKX): `EXPLORATORY_ONLY`/`INCONCLUSIVE` (contract identity candidate-level; HL+OKX funding intersection ~89 days, at/below 90-day threshold).
+- Probe cooldown: active, `should_run=false`, `next_eligible_at_utc=2026-10-28T14:30:18.661888Z`.
+
+### Highest-priority measurable action executed
+Per v3.3 §12 item 2 and acceptance check #2: independently validated the newly committed research-state manifest (`exploratory_run_manifest_2026-10-27.json` at commit `1460563`) against all current schemas and artifact hashes. All validators pass. No code or artifact changes were made in this session — only independent verification. This satisfies the v3.3 requirement that agent-reported validation results be independently re-verified, not trusted blindly.
+
+### Next measurable task
+Data-gated and cooldown-gated: after 2026-10-28T14:30:18Z (cooldown expiry) AND after 2026-10-31 (Binance USD-M monthly files publish post-month-end), run `python3 scripts/should_run_historical_probe.py`. If `should_run=true` and Binance 2026-10 monthly archive checksum objects return HTTP 200, reassess the OKX+Binance funding intersection against the 90-day FVD053 threshold and re-examine contract-identity evidence. If Binance 2026-10 remains absent and instrument identity stays candidate-level, keep FVD-EXPLORATORY-003 INCONCLUSIVE. No re-probe duplication, no paid data, no credentials, no live/paper trading, no alteration of frozen confirmatory artifacts.
+
+---
+
 ## Link newest controller probe (40647845563) into FVD-EXPLORATORY-003 + independent validation (2026-10-28)
 
 Per v3.3 §12.6 and v3.3 acceptance check #2 ("Every newly committed research-state manifest is validated against the current schemas and artifact hashes before it is treated as accepted work"): the controller CI committed probe `historical_overlap_probe_40647845563_attempt_1.json` at commit `4dba28c` (observed_at_utc 2026-10-28T08:30:18Z), but it was NOT linked into the FVD-EXPLORATORY-003 manifest (reference_probe was still the older `40594574088`). This session links the newly committed probe into the manifest, independently re-runs all validators, and verifies frozen artifacts are unchanged. The data gate remains BLOCKED_DATA_GATE and UNCHANGED: probe confirms `historical_coverage_gate=NOT_PASSED_BY_COVERAGE_PROBE`, `contract_identity` evidence_level=candidate for BTC/ETH/SOL/AVAX, OKX funding intersection 2026-07-27T16:00Z→2026-10-28 (~89 days, at/below the 90-day FVD053 threshold). Binance 2026-10 monthly archive not yet published (month-end 2026-10-31); OKX+Binance reassessment deferred. Probe cooldown active until 2026-10-28T14:30:18Z. No paid data, credentials, live/paper trading, or re-probe dispatched.
