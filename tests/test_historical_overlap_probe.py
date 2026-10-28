@@ -822,6 +822,37 @@ class HyperliquidFundingPaginationTests(unittest.TestCase):
         self.assertEqual(result["stop_reason"], "max_pages_reached")
         self.assertEqual(result["pages_received"], probe.MAX_HL_FUNDING_PAGES)
 
+    def test_hl_funding_cursor_stalled_branch_is_unreachable(self):
+        """Regression guard for the documented dead-code gap in probe_hl_funding.
+
+        The `cursor_stalled` stop-reason branch (`next_cursor <= cursor`) can
+        never fire. The preceding guard skips to `cursor_missing_or_nonprogressing`
+        when `page_max is None or page_max < cursor`, so reaching the
+        cursor_stalled check implies `page_max >= cursor`. Since timestamps are
+        integers, `next_cursor = page_max + 1 > cursor` always holds, making
+        `next_cursor <= cursor` permanently False.
+
+        Direct demonstration: a repeated identical full 500-row page (with
+        page_max below end_ms so `window_reached_or_page_not_full` cannot
+        preempt on page 1) advances the cursor on page 1; on page 2 the same
+        page yields `page_max < cursor`, which stops as
+        `cursor_missing_or_nonprogressing` -- never `cursor_stalled`. This
+        pins the invariant so a future guard reordering cannot silently
+        introduce a dead branch or alter stop-reason semantics. Mirrors the
+        OKX `test_cursor_stalled_stops_pagination` symmetry while proving the
+        HL path diverges by design.
+        """
+        start_ms = 1_000
+        end_ms = 10_000_000
+        page_times = list(range(start_ms, start_ms + 500))
+        page = [self._funding_row(t) for t in page_times]
+        with patch.object(probe, "request_json",
+                          return_value=(self._make_meta(probe.HYPERLIQUID), page)):
+            result = probe.probe_hl_funding("BTC", start_ms, end_ms)
+        self.assertNotEqual(result["stop_reason"], "cursor_stalled")
+        self.assertEqual(result["stop_reason"], "cursor_missing_or_nonprogressing")
+        self.assertEqual(result["pages_received"], 2)
+
 
 if __name__ == "__main__":
     unittest.main()
