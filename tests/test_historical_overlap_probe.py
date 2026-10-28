@@ -854,6 +854,124 @@ class HyperliquidFundingPaginationTests(unittest.TestCase):
         self.assertEqual(result["pages_received"], 2)
 
 
+class UnwrapOkxTests(unittest.TestCase):
+    """Tests for unwrap_okx — OKX paginated response unwrapping.
+
+    unwrap_okx is a critical branch point for both probe_okx_candles and
+    probe_okx_funding: every row of OKX coverage data passes through it.
+    These tests verify each decision branch directly (not only as a
+    side effect of the pagination tests).
+    """
+
+    def test_returns_data_list_when_code_zero(self):
+        payload = {"code": "0", "data": [{"ts": 1}, {"ts": 2}]}
+        self.assertEqual(probe.unwrap_okx(payload), [{"ts": 1}, {"ts": 2}])
+
+    def test_returns_empty_for_non_zero_code(self):
+        self.assertEqual(probe.unwrap_okx({"code": "500", "data": [1]}), [])
+        self.assertEqual(probe.unwrap_okx({"code": "1", "data": [1]}), [])
+
+    def test_returns_empty_when_data_not_list(self):
+        self.assertEqual(probe.unwrap_okx({"code": "0", "data": "not-a-list"}), [])
+        self.assertEqual(probe.unwrap_okx({"code": "0", "data": {"key": "val"}}), [])
+
+    def test_returns_empty_when_data_missing(self):
+        self.assertEqual(probe.unwrap_okx({"code": "0"}), [])
+
+    def test_returns_empty_when_code_missing(self):
+        self.assertEqual(probe.unwrap_okx({"data": [1, 2]}), [])
+
+    def test_returns_empty_for_non_dict_payload(self):
+        self.assertEqual(probe.unwrap_okx([1, 2, 3]), [])
+        self.assertEqual(probe.unwrap_okx(None), [])
+        self.assertEqual(probe.unwrap_okx("string"), [])
+
+
+class BinanceArchiveProbeTests(unittest.TestCase):
+    """Tests for probe_binance_archive ().
+
+    probe_binance_archive () checks Binance archive checksum-object
+    availability via request_json for two hardcoded BTC URLs.  These tests
+    mock request_json to verify URL construction, metadata field
+    correctness, and fail-closed behavior for missing objects.  No network
+    access is required.
+    """
+
+    def _ok_meta(self, url):
+        return {
+            "url": url, "method": "GET",
+            "request_sha256": None, "http_status": 200,
+            "response_bytes_read": 89, "response_sha256": "abc123",
+            "response_prefix_sha256": None, "response_hash_complete": True,
+            "response_shape": "non-json", "latency_ms": 100.0,
+            "error": None,
+        }
+
+    def _fail_meta(self, url, code):
+        return {
+            "url": url, "method": "GET",
+            "request_sha256": None, "http_status": code,
+            "response_bytes_read": None, "response_sha256": None,
+            "response_prefix_sha256": None, "response_hash_complete": False,
+            "response_shape": None, "latency_ms": 50.0,
+            "error": f"HTTPError: {code}",
+        }
+
+    @patch.object(probe, "request_json")
+    def test_probes_two_archive_checksum_urls(self, mock_req):
+        def fake_req(url, payload=None, timeout=probe.TIMEOUT_SECONDS, opener=None):
+            return (self._ok_meta(url), None)
+        mock_req.side_effect = fake_req
+        results = probe.probe_binance_archive()
+        self.assertEqual(len(results), 2)
+        urls = [r["url"] for r in results]
+        self.assertTrue(any("klines" in u for u in urls),
+                        "first candidate must be a kline checksum URL")
+        self.assertTrue(any("fundingRate" in u for u in urls),
+                        "second candidate must be a fundingRate checksum URL")
+        self.assertEqual(mock_req.call_count, 2)
+
+    @patch.object(probe, "request_json")
+    def test_http_200_marks_coverage_not_proven(self, mock_req):
+        """HTTP 200 returns coverage_proven=False — checksum only, no archive bytes downloaded."""
+        def fake_req(url, payload=None, timeout=probe.TIMEOUT_SECONDS, opener=None):
+            return (self._ok_meta(url), None)
+        mock_req.side_effect = fake_req
+        results = probe.probe_binance_archive()
+        for result in results:
+            self.assertEqual(result["source"], "Binance Public Data archive")
+            self.assertFalse(result["coverage_proven"],
+                              "checksum-object probe must never claim coverage_proven")
+            self.assertIn("checksum-object response only", result["note"])
+
+    @patch.object(probe, "request_json")
+    def test_http_404_records_error(self, mock_req):
+        """HTTP 404 records the error while keeping coverage_proven=False (fail-closed)."""
+        def fake_req(url, payload=None, timeout=probe.TIMEOUT_SECONDS, opener=None):
+            return (self._fail_meta(url, 404), None)
+        mock_req.side_effect = fake_req
+        results = probe.probe_binance_archive()
+        self.assertEqual(len(results), 2)
+        for result in results:
+            self.assertEqual(result["http_status"], 404)
+            self.assertFalse(result["coverage_proven"])
+            self.assertIsNotNone(result["error"])
+            self.assertIn("404", result["error"])
+
+    @patch.object(probe, "request_json")
+    def test_result_metadata_fields_present(self, mock_req):
+        """Every result dict has all required metadata fields after merge."""
+        def fake_req(url, payload=None, timeout=probe.TIMEOUT_SECONDS, opener=None):
+            return (self._ok_meta(url), None)
+        mock_req.side_effect = fake_req
+        results = probe.probe_binance_archive()
+        for result in results:
+            for key in ("source", "field", "coverage_proven", "note",
+                        "http_status", "response_sha256", "error",
+                        "url", "method", "response_hash_complete"):
+                self.assertIn(key, result, f"missing key {key} in binance archive result")
+
+
 class CommittedProbeGateConsistencyTests(unittest.TestCase):
     """Source-independent validation of committed probe artifacts.
 
@@ -919,6 +1037,61 @@ class CommittedProbeGateConsistencyTests(unittest.TestCase):
                     "NOT_PASSED_BY_COVERAGE_PROBE",
                     f"{path.name}: non-verified contract_identity must keep gate NOT_PASSED",
                 )
+
+    def test_coverage_summary_internal_consistency(self):
+        """Independently verify internal consistency of coverage summaries.
+
+        For every coverage dict found inside committed probe artifacts,
+        recompute the mathematical invariants that summarize_rows must
+        satisfy, rather than trusting the stored values:
+
+        - duplicate_timestamps == timestamp_count - unique_timestamp_count
+        - unique_timestamp_count <= timestamp_count <= row_count
+        - hourly_gap_count == 0 implies maximum_missing_hours_in_gap == 0
+
+        This is a source-independent red-team recompute over committed
+        artifacts (no network).  It guards against silent corruption or
+        code changes that would produce internally inconsistent summaries.
+        """
+        for path, data in self._committed_probes():
+            routes = data.get("routes", {})
+            for route_key, route_value in routes.items():
+                items = route_value if isinstance(route_value, list) else [route_value]
+                for item in items:
+                    if not isinstance(item, dict):
+                        continue
+                    coverage = item.get("coverage")
+                    if not isinstance(coverage, dict):
+                        continue
+                    tc = coverage.get("timestamp_count")
+                    uc = coverage.get("unique_timestamp_count")
+                    dc = coverage.get("duplicate_timestamps")
+                    rc = coverage.get("row_count")
+                    if all(v is not None for v in (tc, uc, dc, rc)):
+                        self.assertEqual(
+                            dc, tc - uc,
+                            f"{path.name} {route_key}: duplicate_timestamps "
+                            f"({dc}) != timestamp_count ({tc}) - "
+                            f"unique_timestamp_count ({uc})",
+                        )
+                        self.assertLessEqual(
+                            uc, tc,
+                            f"{path.name} {route_key}: unique_timestamp_count "
+                            f"({uc}) > timestamp_count ({tc})",
+                        )
+                        self.assertLessEqual(
+                            tc, rc,
+                            f"{path.name} {route_key}: timestamp_count "
+                            f"({tc}) > row_count ({rc})",
+                        )
+                    gc = coverage.get("hourly_gap_count", 0)
+                    mg = coverage.get("maximum_missing_hours_in_gap", 0)
+                    if gc == 0:
+                        self.assertEqual(
+                            mg, 0,
+                            f"{path.name} {route_key}: hourly_gap_count==0 "
+                            f"but maximum_missing_hours_in_gap ({mg})!=0",
+                        )
 
 
 if __name__ == "__main__":
