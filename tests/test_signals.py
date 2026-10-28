@@ -125,6 +125,26 @@ class SignalTests(unittest.TestCase):
         # max staleness 2h means change at +3.5h from previous is stale? previous is 00:00, next is at 03:30; gap from current_time (00:00) to next_time (03:30) is 3.5h > 2h -> fail closed
         self.assertIsNone(time_weighted_mean(rows2, "2024-01-01T00:00:00Z", "2024-01-01T04:00:00Z", max_staleness_hours=2))
 
+    def test_time_weighted_mean_hourly_1h_boundary_strict_staleness(self):
+        hourly = [
+            {"timestamp": "2026-01-01T00:00:00Z", "rate_8h": 1.0},
+            {"timestamp": "2026-01-01T01:00:00Z", "rate_8h": 2.0},
+        ]
+        self.assertAlmostEqual(
+            time_weighted_mean(hourly, "2026-01-01T00:00:00Z", "2026-01-01T02:00:00Z", max_staleness_hours=1.0),
+            1.5,
+        )
+        single = [{"timestamp": "2026-01-01T00:00:00Z", "rate_8h": 1.0}]
+        # gap from 00:00 to finish 01:00 is exactly max_staleness (1.0h): strict `>` => accepted.
+        self.assertAlmostEqual(
+            time_weighted_mean(single, "2026-01-01T00:00:00Z", "2026-01-01T01:00:00Z", max_staleness_hours=1.0),
+            1.0,
+        )
+        # gap from 00:00 to finish 02:00 is 2.0h > 1.0h => fail closed.
+        self.assertIsNone(
+            time_weighted_mean(single, "2026-01-01T00:00:00Z", "2026-01-01T02:00:00Z", max_staleness_hours=1.0)
+        )
+
     def test_dispersion_requires_minimum_venues_strict(self):
         start = "2024-01-01T00:00:00Z"
         end = "2024-01-01T02:00:00Z"

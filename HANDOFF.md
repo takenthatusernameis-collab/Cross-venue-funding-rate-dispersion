@@ -1,3 +1,47 @@
+## Source-independent red-team tests: backtest cross-pair aggregation recomputation + signals hourly 1h-boundary (2026-10-28)
+
+Executed the source-independent action called for by the adaptive research-gate policy (active prompt `prompts/autonomous_free_data_gate_unblocking_v3_3.md` §12.6) and HANDOFF #1's "Next measurable task". The data gate remains blocked and UNCHANGED this session: reference probe `historical_overlap_probe_40594574088_attempt_1.json` (`historical_coverage_gate=NOT_PASSED_BY_COVERAGE_PROBE`, `contract_identity` candidate-level), probe cooldown active (`scripts/should_run_historical_probe.py` → `should_run=false`, `next_eligible_at_utc=2026-10-28T04:24:53Z`), and the Binance 2026-10 monthly archive is not yet published (month-end). No paid data, credentials, live/paper trading, or re-probe dispatched. Frozen artifacts untouched; only test files extended.
+
+### Action performed
+
+1. **Added `BacktestAggregationRecomputeTests` class (4 tests)** to `tests/test_backtest.py` (new sha256 `8e361a044b55fcfc666273c58f7c58934136e0ad25ae626e47167d3ae1f88394`):
+   - Added `from cross_venue_funding_dispersion.accounting import execution_cost, funding_cash_flow, price_pnl`.
+   - `test_cross_pair_totals_match_independent_recompute` — 3 pairs / 6 unique assets (BTC/ETH, SOL/AVAX, LINK/XRP) with mixed PnL directions, asymmetric and negative funding rates; independently recomputes every pair ledger field and the cross-pair `total_*` aggregates from RAW inputs via `price_pnl`/`funding_cash_flow`/`execution_cost` (NOT via `compute_pair_pnl`) using the documented allocation formula `notional = equity*multiple/(2*n_assets)`, then asserts `run_backtest_skeleton` totals match within 1e-9.
+   - `test_additive_identity_holds_across_pairs` — verifies `total_net_pnl == total_price_basis_pnl + total_funding_cash_flow - total_fees - total_slippage`.
+   - `test_cross_pair_gross_exposure_cap_and_allocation` — equal-notional per asset, `gross_exposure == equity*multiple <= gross_exposure_cap`.
+   - `test_missed_settlement_zero_funding_independent_of_nonzero_rates` — pair 3 (`position_open_at_settlement=False`, nonzero rates) yields ledger `funding_cash_flow == 0` while the independently-computed raw funding != 0, proving the zero comes from the closed-leg rule, not a coincidental zero rate.
+
+2. **Added `test_time_weighted_mean_hourly_1h_boundary_strict_staleness`** to `tests/test_signals.py` (`SignalTests`) (new sha256 `c63f420ecf22f14e5fdb5babd8d6ca8a59c969f7b5a1ae29fc3d16b508caa2b7`):
+   - Known-answer at hourly (Hyperliquid-style) cadence: 1.0→2.0 over a 2h window ⇒ 1.5.
+   - Strict `>` boundary semantics at `max_staleness_hours=1.0`: gap exactly == 1.0h ACCEPTED; gap == 2.0h (> 1.0h) ⇒ `None` (fail-closed).
+
+### Validation commands run
+- `python3 -m compileall -q src scripts tests` = OK (exit 0)
+- `PYTHONPATH=src python3 -m unittest discover -s tests -v` = PASS (465 tests OK; was 460, +5 new tests)
+- `PYTHONPATH=src python3 scripts/validate_research.py` = RESEARCH_VALIDATION=PASS (grid 108, anchor FVD053, NOT_RUN, performance_metrics_computed=false). Note: the validator prints FAIL diagnostics for pre-existing synthetic validation fixtures in `research_state/` (e.g. `a.json`, `broken.json`, `missing.json`, and gate-rule fixtures); `git status` confirms only the two test files below were modified, so these are unrelated to this change and remain non-blocking (on-disk real artifacts PASS: `RESEARCH_STATE_ARTIFACTS_VALIDATION=PASS files=38`, `GRID/BACKTEST/SIGNALS/PAIR_PNL/RECOMPUTE/ACCOUNTING/PORTFOLIO/SKILLS/UNIVERSE_VALIDATION=PASS`).
+- `PYTHONPATH=src:scripts python3 scripts/validate_all.py` = ALL_VALIDATIONS=PASS count=24
+- `python3 scripts/validate_skills.py` = SKILLS_VALIDATION=PASS count=4
+- `git diff --check` = clean; `git status --short` = `M tests/test_backtest.py` + `M tests/test_signals.py` only
+
+### Frozen artifacts verified unchanged
+- `configs/cross_venue_funding_dispersion_grid_v1.json` sha `6be218bc84bf118cf67c238ad1c13ef1e445658db3b1346cd64ccaccc7aa5f07` (frozen, 108 configs, anchor FVD053)
+- `research_state/run_manifest.json` sha `4f162ce128c741434addf6aa2fa7c7dbf1bf189d4a81b8893ed96899412c7aaf` (BLOCKED_DATA_GATE)
+- `research_state/fvd053_anchor_run_2026-10-25.json` sha `50b328baf5854dec40105a0f5ebe498bf589906f9c033ce659843659927ca4c2` (immutable)
+- `research_state/exploratory_run_manifest_2026-10-27.json` sha `0f601b5ae3fb27e85473e5afc75a4a39626eb23f660a7b0102f1f7782bceb9a0` (FVD-EXPLORATORY-003, EXPLORATORY_ONLY, confirmatory_status_preserved=BLOCKED_DATA_GATE)
+- `research_state/historical_overlap_probe_40594574088_attempt_1.json` sha `6edb31ea5d7cfb508532faef9b728175f4c4a46fd6a7d1511922f91957877d8c` (reference probe, unchanged)
+
+### Status
+- Confirmatory track: `BLOCKED_DATA_GATE` — FVD001–FVD108, FVD053 unchanged. No backtest, no performance metrics.
+- FVD-EXPLORATORY-003: `EXPLORATORY_ONLY`/`INCONCLUSIVE`. Gates fail before anchor: instrument identity candidate-level (symbol-mapped only) and ~72-day funding intersection < 90-day threshold. Anchor NOT exercised. No backtest, no metrics. The added tests harden the accounting gate, not the data gate: backtest aggregation totals are now cross-checked by an independent recompute from primitives, and `time_weighted_mean` gap/boundary semantics are covered at the Hyperliquid 1h cadence.
+- Source-independent verification added: cross-pair `run_backtest_skeleton` total aggregation independent recomputation (4 tests) + `time_weighted_mean` hourly 1h-boundary strict-staleness adversarial test.
+
+### Next measurable task
+Source-independent red-team hardening completed 2 of the 3 remaining items noted in HANDOFF #1 point 2. (1) Remaining source-independent item: extend `ImmutableLedgerRecomputeTests` (`tests/test_pair_pnl.py`) with extreme-magnitude rate / zero-notional edge cases and a `simulate_signal` multi-venue `position_open_at_settlement=False` known-answer. (2) Data-gated: after 2026-10-31 (Binance monthly files publish post-month-end) and probe cooldown expiry `2026-10-28T04:24:53Z`, run `scripts/should_run_historical_probe.py`; if cleared and Binance 2026-10 archive files are live, reassess the OKX+Binance funding intersection vs the 90-day threshold and re-examine contract-identity evidence. No re-probe duplication, no paid data, no credentials, no live/paper trading, no alteration of frozen confirmatory artifacts.
+
+---
+
+---
+
 ## Link Binance archive-availability provenance artifact into FVD-EXPLORATORY-003 + source-independent accounting red-team tests (2026-10-27)
 
 Executed the highest-priority measurable actions from the active prompt (`prompts/autonomous_free_data_gate_unblocking_v3_3.md` §3.2) and HANDOFF #1's "Next measurable task": (1) linked the already-persisted `binance_monthly_archive_availability_2026-10-27.json` artifact into the FVD-EXPLORATORY-003 manifest's `output_artifacts` for provenance completeness; (2) added an independent recomputation test of `compute_pair_pnl` from immutable ledger rows; (3) added a multi-venue `simulate_signal` known-answer test covering the 1h/8h settlement-interval split. No new network probe was dispatched (cooldown active, `should_run=false`, `next_eligible_at_utc=2026-10-28T04:24:53Z`). No frozen artifact was rewritten.
