@@ -1,3 +1,66 @@
+## Add source-independent probe pagination coverage tests for OKX candles + Hyperliquid funding (2026-10-28T~14:15Z)
+
+Executed the highest-priority source-independent measurable action per v3.3 §12 step 6 and the adaptive research-gate policy ("do not merely write another blocker memo; complete the next bounded, no-cost exploratory task"). The data gate remains blocked and unchanged this session: probe cooldown active (`should_run=false`, `next_eligible_at_utc=2026-10-28T14:30:18Z`), Binance 2026-10 monthly archive not yet published (month-end 2026-10-31), and the OKX+Binance funding intersection (~72 days) is below the 90-day FVD053 prior-observation threshold with instrument identity at candidate-level. No network probe was re-dispatched, no paid data/credentials/trading used, and no frozen artifact was altered.
+
+**Gap identified:** The committed probe source `scripts/probe_historical_overlap.py` (sha `606f07bb…`) had thorough pagination tests for `probe_okx_funding` (6 tests) but **zero** pagination tests for `probe_okx_candles` and `probe_hl_funding`. These two functions are the central coverage-collection paths feeding the data-gate assessment: `probe_okx_candles` retrieves executable prices (entry/exit), and `probe_hl_funding` retrieves settled funding histories. Unverified pagination stop-reason branches (`cursor_stalled`, `window_start_reached`, `cursor_missing_or_nonprogressing`, `max_pages_reached`, `no_rows_or_request_failed`, `window_reached_or_page_not_full`) could silently truncate coverage and invalidate the gate assessment without detection.
+
+### Action performed
+
+1. **Added `OKxCandlePaginationTests` class (6 tests)** to `tests/test_historical_overlap_probe.py`:
+   - `test_page_not_full_when_api_returns_below_limit` — <300 rows → `page_not_full`, 1 page
+   - `test_page_not_full_boundary_at_exactly_limit_continues` — exactly 300 rows → continues, `after=` cursor verified in URL
+   - `test_cursor_stalled_stops_pagination` — oldest does not advance → `cursor_stalled`
+   - `test_window_start_reached_stops_pagination` — oldest ≤ start_ms → `window_start_reached`
+   - `test_empty_data_stops_pagination` — empty data → `no_rows_or_request_failed`
+   - `test_filtering_excludes_rows_outside_window` — rows outside [start, end] excluded from coverage row_count but included in oldest/cursor computation
+
+2. **Added `HyperliquidFundingPaginationTests` class (7 tests)** to `tests/test_historical_overlap_probe.py`:
+   - `test_below_500_stops_with_window_reached_or_page_not_full` — <500 rows → stop
+   - `test_full_page_continues_then_second_page_stops` — exactly 500 rows → continues, second page stops
+   - `test_empty_data_stops_pagination` — empty list → `no_rows_or_request_failed`
+   - `test_cursor_missing_or_nonprogressing_when_no_digit_times` — non-digit/missing `time` → `cursor_missing_or_nonprogressing`
+   - `test_filtering_excludes_rows_outside_window` — out-of-window rows excluded from coverage but advance cursor → stop
+   - `test_settled_rate_nonempty_count` — truthy `fundingRate` count from in-window rows (empty string and None are falsy)
+   - `test_max_pages_reached_with_full_pages` — 12 full pages → `max_pages_reached` at `MAX_HL_FUNDING_PAGES`
+
+### Validation commands run (all PASS, exit 0)
+- `python3 -m compileall -q src scripts tests` = OK
+- `PYTHONPATH=src:scripts python3 -m unittest discover -s tests -p 'test_historical_overlap_probe.py' -v` = 45 tests OK (was 32, +13 new)
+- `PYTHONPATH=src python3 -m unittest discover -s tests -v` = PASS (481 tests OK; was 468, +13 new)
+- `PYTHONPATH=src python3 scripts/validate_research.py` = RESEARCH_VALIDATION=PASS (grid 108, anchor FVD053, NOT_RUN, performance_metrics_computed=false)
+- `PYTHONPATH=src:scripts python3 scripts/validate_all.py` = ALL_VALIDATIONS=PASS count=24
+- `PYTHON3 scripts/validate_skills.py` = SKILLS_VALIDATION=PASS count=4
+- `PYTHONPATH=src:scripts python3 scripts/validate_manifest_artifacts.py` = MANIFEST_ARTIFACTS_VALIDATION=PASS (45 artifact entries OK)
+- `PYTHONPATH=src:scripts python3 scripts/validate_manifest_schema.py` = MANIFEST_SCHEMA_VALIDATION=PASS
+- `PYTHONPATH=src:scripts python3 scripts/validate_track_separation.py` = TRACK_SEPARATION_VALIDATION=PASS
+- `PYTHONPATH=src:scripts python3 scripts/validate_blocked_manifest_claims.py` = BLOCKED_MANIFEST_CLAIMS_VALIDATION=PASS
+- `PYTHONPATH=src:scripts python3 scripts/validate_research_state.py` = RESEARCH_STATE_VALIDATION=PASS
+- `PYTHONPATH=src:scripts python3 scripts/validate_research_state_artifacts.py` = RESEARCH_STATE_ARTIFACTS_VALIDATION=PASS files=39
+- `PYTHONPATH=src:scripts python3 scripts/validate_controller_progress.py` = CONTROLLER_PROGRESS_VALIDATION=PASS
+- `git diff --check` = clean (exit 0); `git status --short` = ` M tests/test_historical_overlap_probe.py` only
+
+### Frozen artifacts verified unchanged (sha256 match)
+- `configs/cross_venue_funding_dispersion_grid_v1.json` = `6be218bc84bf118cf67c238ad1c13ef1e445658db3b1346cd64ccaccc7aa5f07` (frozen, 108 configs, anchor FVD053) ✓
+- `research_state/run_manifest.json` = `4f162ce128c741434addf6aa2fa7c7dbf1bf189d4a81b8893ed96899412c7aaf` (BLOCKED_DATA_GATE) ✓
+- `research_state/fvd053_anchor_run_2026-10-25.json` = `50b328baf5854dec40105a0f5ebe498bf589906f9c033ce659843659927ca4c2` (immutable) ✓
+- `research_state/exploratory_run_manifest_2026-10-27.json` = `5f313ac5f37ef65a876406c89c585fe8eea5b18ae44232181c119323f22bf7a0` (FVD-EXPLORATORY-003, EXPLORATORY_ONLY) ✓
+- `research_state/historical_overlap_probe_40647845563_attempt_1.json` = `970e821e9cb1b6609bb1008435d0ffe4c25148288a4619c6541874699f10ef19` (latest probe, unchanged) ✓
+- `scripts/probe_historical_overlap.py` = `606f07bb27b1b9f4e1a723b8ac42acac7f9741dd6000d6968218a37047acfa09` ✓
+
+### Modified file
+- `tests/test_historical_overlap_probe.py` — new sha256 `b2eb555ba9b48f9d46ccd2e52817c4aeafb8dbd61e3bbf9c6a5a6236af66a353` (+269 lines, +13 tests: `OKxCandlePaginationTests` 6 + `HyperliquidFundingPaginationTests` 7)
+
+### Status (UNCHANGED)
+- Confirmatory track: `BLOCKED_DATA_GATE` — FVD001–FVD108, FVD053 frozen. No backtest, no performance metrics.
+- FVD-EXPLORATORY-003 (OKX+Binance USDT): `EXPLORATORY_ONLY`/`INCONCLUSIVE`. Gates fail before anchor: instrument identity candidate-level (symbol-mapped only) + ~72-day OKX+Binance funding intersection < 90-day threshold + Binance 2026-10 archive not yet published. Anchor NOT exercised. No backtest, no metrics.
+- Probe cooldown: active, `should_run=false`, `next_eligible_at_utc=2026-10-28T14:30:18.661888Z`.
+- Source-independent hardening progress: OKX candle pagination and HL funding pagination stop-reason branches now covered by known-answer tests mirroring the existing funding-pagination tests. Red-team gap: `probe_hl_funding`'s `cursor_stalled` branch (lines 345–346) is unreachable dead code — if `page_max >= cursor` (first check passes), then `next_cursor = page_max + 1 > cursor`, so `next_cursor <= cursor` can never be True. This is a defensive check that cannot fire; it is documented here rather than altered.
+
+### Next measurable task
+Data-gated and cooldown-gated: after `2026-10-28T14:30:18Z` (cooldown expiry, now `should_run` eligible) AND after `2026-10-31` (Binance USD-M monthly files publish post-month-end), run `python3 scripts/should_run_historical_probe.py` from the repository's authorized runner with outbound public-network access. If `should_run=true` and Binance 2026-10 monthly archive checksum objects return HTTP 200, reassess the OKX+Binance funding intersection against the 90-day FVD003 threshold and re-examine contract-identity evidence. If Binance 2026-10 remains absent (HTTP 404) and instrument identity stays candidate-level, keep FVD-EXPLORATORY-003 INCONCLUSIVE. No re-probe duplication, no paid data, no credentials, no live/paper trading, no alteration of frozen confirmatory artifacts.
+
+---
+
 ## Independent verification of committed probe linkage + v3.3 acceptance check re-verification (2026-10-28T14:02Z)
 
 Per v3.3 acceptance check #2 ("Every newly committed research-state manifest is validated against the current schemas and artifact hashes before it is treated as accepted work; an agent-reported validation result is evidence in the handoff, but not an independently re-run CI result") and v3.3 acceptance check #1 ("The current run's commit timeline and last job step are inspected before any stale-run diagnosis"): independently re-verified that the probe `historical_overlap_probe_40647845563_attempt_1.json` and its manifest linkage were actually committed, and that all validators pass on the committed state. This session made no code or artifact changes; it performed independent verification only.

@@ -554,5 +554,274 @@ class RunProbeContractIdentityTests(unittest.TestCase):
         self.assertFalse(report["performance_metrics_computed"])
 
 
+class OKxCandlePaginationTests(unittest.TestCase):
+    """Offline known-answer tests for OKX historical-candles pagination logic.
+
+    probe_okx_candles() paginates backward using the `after` cursor (oldest
+    timestamp) with 300-row pages from array rows (timestamp at index 0).
+    These mirror OKxFundingPaginationTests for the candle endpoint, which
+    was previously untested for pagination stop-reason branches.
+    """
+
+    def _make_meta(self, url):
+        return {
+            "url": url, "method": "GET",
+            "request_sha256": None, "http_status": 200,
+            "response_bytes_read": 100, "response_sha256": "fake",
+            "response_prefix_sha256": None, "response_hash_complete": True,
+            "response_shape": "json", "latency_ms": 100.0, "error": None,
+        }
+
+    @staticmethod
+    def _candle(ts):
+        return [str(ts), "100", "101", "99", "100", "10"]
+
+    def test_page_not_full_when_api_returns_below_limit(self):
+        """page_not_full: API returns <300 rows -> stops after one page.
+        Mirrors verified live behavior where OKX returns a short final page."""
+        start_ms = 1_000
+        end_ms = 1_000_000
+        step = (end_ms - start_ms - 1) // 292
+        times = list(range(end_ms, start_ms, -step))[:292]
+        rows = [self._candle(t) for t in times]
+        payload = {"code": "0", "data": rows}
+        with patch.object(probe, "request_json",
+                          return_value=(self._make_meta("https://fake"), payload)):
+            result = probe.probe_okx_candles("BTC-USDT-SWAP", start_ms, end_ms)
+        self.assertEqual(result["stop_reason"], "page_not_full")
+        self.assertEqual(result["pages_received"], 1)
+        self.assertEqual(result["coverage"]["row_count"], 292)
+
+    def test_page_not_full_boundary_at_exactly_limit_continues(self):
+        """When API returns exactly 300 rows, pagination continues to next page.
+        The `after` cursor must be the previous page's oldest timestamp."""
+        start_ms = 1_000
+        end_ms = 1_000_000
+        page1_times = list(range(end_ms, end_ms - 300, -1))
+        page1 = [self._candle(t) for t in page1_times]
+        oldest1 = min(page1_times)
+        page2_times = list(range(oldest1 - 1, oldest1 - 201, -1))
+        page2 = [self._candle(t) for t in page2_times]
+
+        call_idx = [0]
+        payloads = [
+            {"code": "0", "data": page1},
+            {"code": "0", "data": page2},
+        ]
+
+        def fake_request(url, payload=None, timeout=probe.TIMEOUT_SECONDS, opener=None):
+            idx = call_idx[0]
+            call_idx[0] += 1
+            if idx == 0:
+                self.assertNotIn("after=", url)
+            else:
+                self.assertIn(f"after={oldest1}", url)
+            return self._make_meta(url), payloads[idx]
+
+        with patch.object(probe, "request_json", side_effect=fake_request):
+            result = probe.probe_okx_candles("BTC-USDT-SWAP", start_ms, end_ms)
+        self.assertEqual(result["stop_reason"], "page_not_full")
+        self.assertEqual(result["pages_received"], 2)
+        self.assertEqual(result["coverage"]["row_count"], 500)
+
+    def test_cursor_stalled_stops_pagination(self):
+        """cursor_stalled: oldest timestamp does not advance beyond the cursor."""
+        start_ms = 1_000
+        end_ms = 1_000_000
+        page_times = list(range(end_ms, end_ms - 300, -1))
+        rows = [self._candle(t) for t in page_times]
+        payload = {"code": "0", "data": rows}
+
+        with patch.object(probe, "request_json",
+                          return_value=(self._make_meta("https://fake"), payload)):
+            result = probe.probe_okx_candles("BTC-USDT-SWAP", start_ms, end_ms)
+        self.assertEqual(result["stop_reason"], "cursor_stalled")
+        self.assertEqual(result["pages_received"], 2)
+
+    def test_window_start_reached_stops_pagination(self):
+        """window_start_reached: oldest timestamp falls at or below start_ms."""
+        start_ms = 5_000
+        end_ms = 10_000
+        rows = [self._candle(t) for t in range(end_ms, start_ms - 100, -1)]
+        payload = {"code": "0", "data": rows}
+
+        with patch.object(probe, "request_json",
+                          return_value=(self._make_meta("https://fake"), payload)):
+            result = probe.probe_okx_candles("BTC-USDT-SWAP", start_ms, end_ms)
+        self.assertEqual(result["stop_reason"], "window_start_reached")
+        self.assertEqual(result["pages_received"], 1)
+
+    def test_empty_data_stops_pagination(self):
+        """no_rows_or_request_failed: API returns empty data list."""
+        start_ms = 1_000
+        end_ms = 1_000_000
+        payload = {"code": "0", "data": []}
+
+        with patch.object(probe, "request_json",
+                          return_value=(self._make_meta("https://fake"), payload)):
+            result = probe.probe_okx_candles("BTC-USDT-SWAP", start_ms, end_ms)
+        self.assertEqual(result["stop_reason"], "no_rows_or_request_failed")
+        self.assertEqual(result["pages_received"], 1)
+
+    def test_filtering_excludes_rows_outside_window(self):
+        """Only rows within [start_ms, end_ms] are counted in coverage.
+        Rows above end_ms are excluded from rows_all but included in the
+        oldest/cursor computation (which uses ALL returned rows)."""
+        start_ms = 500
+        end_ms = 1500
+        rows = [
+            self._candle(2000),  # above end_ms, excluded from coverage
+            self._candle(600),   # in window
+            self._candle(1000),  # in window
+            self._candle(1500),  # at end_ms, included
+        ]
+        payload = {"code": "0", "data": rows}
+
+        with patch.object(probe, "request_json",
+                          return_value=(self._make_meta("https://fake"), payload)):
+            result = probe.probe_okx_candles("BTC-USDT-SWAP", start_ms, end_ms)
+        self.assertEqual(result["coverage"]["row_count"], 3)
+        self.assertEqual(result["stop_reason"], "page_not_full")
+
+
+class HyperliquidFundingPaginationTests(unittest.TestCase):
+    """Offline known-answer tests for Hyperliquid fundingHistory pagination.
+
+    probe_hl_funding() uses forward cursor pagination: startTime advances past
+    the newest returned record (page_max + 1) each iteration. Stop reasons
+    include window_reached_or_page_not_full, cursor_missing_or_nonprogressing,
+    no_rows_or_request_failed, and max_pages_reached.
+    """
+
+    def _make_meta(self, url):
+        return {
+            "url": url, "method": "POST",
+            "request_sha256": None, "http_status": 200,
+            "response_bytes_read": 100, "response_sha256": "fake",
+            "response_prefix_sha256": None, "response_hash_complete": True,
+            "response_shape": "json", "latency_ms": 10.0, "error": None,
+        }
+
+    @staticmethod
+    def _funding_row(ts, rate="0.0001"):
+        return {"time": ts, "fundingRate": rate}
+
+    def test_below_500_stops_with_window_reached_or_page_not_full(self):
+        """Page returns <500 rows and cursor hasn't exceeded end_ms -> stop."""
+        start_ms = 1_000
+        end_ms = 1_000_000
+        rows = [self._funding_row(t) for t in range(start_ms, start_ms + 400)]
+        with patch.object(probe, "request_json",
+                          return_value=(self._make_meta(probe.HYPERLIQUID), rows)):
+            result = probe.probe_hl_funding("BTC", start_ms, end_ms)
+        self.assertEqual(result["stop_reason"], "window_reached_or_page_not_full")
+        self.assertEqual(result["pages_received"], 1)
+        self.assertEqual(result["coverage"]["row_count"], 400)
+
+    def test_full_page_continues_then_second_page_stops(self):
+        """First page has exactly 500 rows (continues); second page (<500) stops."""
+        start_ms = 1_000
+        end_ms = 1_000_000
+        page1_times = list(range(start_ms, start_ms + 500))
+        page2_times = list(range(start_ms + 500, start_ms + 900))
+
+        call_idx = [0]
+        payloads = [
+            [self._funding_row(t) for t in page1_times],
+            [self._funding_row(t) for t in page2_times],
+        ]
+
+        def fake_request(url, payload=None, timeout=probe.TIMEOUT_SECONDS, opener=None):
+            idx = call_idx[0]
+            call_idx[0] += 1
+            return self._make_meta(url), payloads[idx]
+
+        with patch.object(probe, "request_json", side_effect=fake_request):
+            result = probe.probe_hl_funding("BTC", start_ms, end_ms)
+        self.assertEqual(result["stop_reason"], "window_reached_or_page_not_full")
+        self.assertEqual(result["pages_received"], 2)
+        self.assertEqual(result["coverage"]["row_count"], 900)
+
+    def test_empty_data_stops_pagination(self):
+        """no_rows_or_request_failed: API returns empty list."""
+        start_ms = 1_000
+        end_ms = 1_000_000
+        with patch.object(probe, "request_json",
+                          return_value=(self._make_meta(probe.HYPERLIQUID), [])):
+            result = probe.probe_hl_funding("BTC", start_ms, end_ms)
+        self.assertEqual(result["stop_reason"], "no_rows_or_request_failed")
+        self.assertEqual(result["pages_received"], 1)
+
+    def test_cursor_missing_or_nonprogressing_when_no_digit_times(self):
+        """cursor_missing_or_nonprogressing: rows have non-digit or missing
+        time values so page_max cannot be computed."""
+        start_ms = 1_000
+        end_ms = 1_000_000
+        rows = [
+            {"time": "abc", "fundingRate": "0.0001"},
+            {"time": None, "fundingRate": "0.0001"},
+            {"fundingRate": "0.0001"},
+        ]
+        with patch.object(probe, "request_json",
+                          return_value=(self._make_meta(probe.HYPERLIQUID), rows)):
+            result = probe.probe_hl_funding("BTC", start_ms, end_ms)
+        self.assertEqual(result["stop_reason"], "cursor_missing_or_nonprogressing")
+        self.assertEqual(result["pages_received"], 1)
+
+    def test_filtering_excludes_rows_outside_window(self):
+        """Only rows within [start_ms, end_ms] counted in coverage; page_max
+        uses all rows, so an out-of-window row can advance the cursor past
+        end_ms and trigger the stop."""
+        start_ms = 500
+        end_ms = 1500
+        rows = [
+            self._funding_row(2000),  # above end, excluded from coverage
+            self._funding_row(600),
+            self._funding_row(1000),
+            self._funding_row(1500),  # at end, included
+        ]
+        with patch.object(probe, "request_json",
+                          return_value=(self._make_meta(probe.HYPERLIQUID), rows)):
+            result = probe.probe_hl_funding("BTC", start_ms, end_ms)
+        self.assertEqual(result["coverage"]["row_count"], 3)
+        # page_max = 2000, next_cursor = 2001 > end_ms (1500) -> stop
+        self.assertEqual(result["stop_reason"], "window_reached_or_page_not_full")
+
+    def test_settled_rate_nonempty_count(self):
+        """settled_rate_nonempty_count counts rows with truthy fundingRate
+        from rows_all (in-window rows only)."""
+        start_ms = 1_000
+        end_ms = 1_000_000
+        rows = [
+            self._funding_row(2000, rate="0.0001"),   # truthy
+            self._funding_row(3000, rate=""),          # falsy (empty string)
+            self._funding_row(4000, rate=None),        # falsy (None)
+            self._funding_row(5000, rate="0.0002"),    # truthy
+        ]
+        with patch.object(probe, "request_json",
+                          return_value=(self._make_meta(probe.HYPERLIQUID), rows)):
+            result = probe.probe_hl_funding("BTC", start_ms, end_ms)
+        self.assertEqual(result["settled_rate_nonempty_count"], 2)
+
+    def test_max_pages_reached_with_full_pages(self):
+        """When all pages are full (500 rows) and cursor stays within window,
+        pagination exhausts the MAX_HL_FUNDING_PAGES budget."""
+        start_ms = 1_000
+        end_ms = 100_000
+        call_idx = [0]
+
+        def fake_request(url, payload=None, timeout=probe.TIMEOUT_SECONDS, opener=None):
+            idx = call_idx[0]
+            call_idx[0] += 1
+            page_start = start_ms + idx * 500
+            rows = [self._funding_row(page_start + i) for i in range(500)]
+            return self._make_meta(url), rows
+
+        with patch.object(probe, "request_json", side_effect=fake_request):
+            result = probe.probe_hl_funding("BTC", start_ms, end_ms)
+        self.assertEqual(result["stop_reason"], "max_pages_reached")
+        self.assertEqual(result["pages_received"], probe.MAX_HL_FUNDING_PAGES)
+
+
 if __name__ == "__main__":
     unittest.main()
