@@ -1,3 +1,80 @@
+## v3.3 verification: run-progress from commits and evidence, not timestamps (2026-10-29T02:43Z)
+
+Per AGENTS.md active source-data blocker prompt v3.3: read and executed `prompts/autonomous_free_data_gate_unblocking_v3_3.md` alongside `docs/research_protocol.md`, `docs/exploratory_protocol_v1.md`, relevant skills, current `HANDOFF.md`, and latest coverage/run artifacts. The v3.3 prompt's core directive is to determine run progress from commits and evidence, not stale workflow-run `updated_at` timestamps.
+
+### v3.3 acceptance checks — all verified
+
+1. **Commit timeline inspected before any stale-run diagnosis** (v3.3 §v3.3): `git log --oneline -15` shows active Kilo checkpoint activity. HEAD=`b9b25c3` (kilo-autonomous, "chore: capture completed workflow run diagnostics"). Recent commits: `b9b25c3`, `dd54a79`, `e22b6c4`, `5f12548` (research: record probe `55aa224`), `55aa224`, `b4ee404`. Worker is NOT stalled; the workflow-run `updated_at` field lagging does not imply inactivity per the v3.0-v3.3 design.
+
+2. **Every newly committed research-state manifest validated against current schemas and artifact hashes**: `MANIFEST_ARTIFACTS_VALIDATION=PASS (45 artifact entries OK, including probe 40785768996)`; `MANIFEST_SCHEMA_VALIDATION=PASS`; `RESEARCH_STATE_ARTIFACTS_VALIDATION=PASS files=41`. Committed probe `historical_overlap_probe_40785768996_attempt_1.json` (sha `ed08a7de…`) is verified and linked into FVD-EXPLORATORY-003 as `reference_probe`.
+
+3. **FVD-EXPLORATORY-002 remains exploratory**: `exploratory_run_manifest_2026-10-25.json` confirms `status=EXPLORATORY_ONLY`, `confirmatory_status_preserved=BLOCKED_DATA_GATE`, `backtest_completed=false`, `performance_metrics_computed=false`, `experiment_id=FVD-EXPLORATORY-002`, `anchor_exercised=true` (0 signals, anchor exercised but no metrics computed). `TRACK_SEPARATION_VALIDATION=PASS` independently validates all three exploratory manifests (001/002/003) against the confirmatory track. `NO_PERFORMANCE_CLAIMS_VALIDATION=PASS`.
+
+4. **Checkpoints preserved; no newer handoff overwritten by older blob SHA**: All frozen artifacts verified unchanged (sha256 match below). Working tree clean (`git status --short` empty, `git diff --check` clean).
+
+### v3.0-v3.2 verification infrastructure confirmed
+
+- `scripts/controller_progress.py` + `test_controller_progress.py` (9 tests) + `validate_controller_progress.py`: fail-closed progress detection. `CONTROLLER_PROGRESS_VALIDATION=PASS`.
+- `scripts/should_run_historical_probe.py` + `test_should_run_historical_probe.py` (7 tests): cooldown logic (6h normal, 15min network-failure retry).
+- `.github/workflows/historical-coverage-probe.yml` (schedule-only, separate concurrency group, 20min timeout): `test_independent_coverage_probe_is_bounded_and_separate_from_kilo` verifies ordering, shell syntax (`bash -n` on real newline-joined script), no-Kilo/no-ledger separation.
+- `scripts/kilo_free_model_fallback.py` + `test_kilo_free_model_fallback.py`: free model preflight.
+- `tests/test_workflow_contract.py` (4 tests): verifies main.yml ordering and shell syntax with proper Python newline escape (v3.2 fix: `"\n"` not `"\\n"`).
+
+### Probe cooldown and Binance archive status
+
+- `python3 scripts/should_run_historical_probe.py` → `should_run=false`, `reason=recent_probe_cooldown`, `age_seconds=12618`, `cooldown_seconds=21600`, `next_eligible_at_utc=2026-10-29T05:13:36.199104Z`.
+- Binance USD-M monthly archive for 2026-10 not yet published (month-end 2026-10-31). `binance_monthly_archive_availability_2026-10-27.json` records HTTP 404 for 2026-10/2026-11 objects.
+- The live 120-day probe was **not executed from this environment** (cooldown active; environment networking unverified). The scheduled `historical-coverage-probe.yml` workflow remains the authorized execution path. No attempt to bypass the cooldown or run the probe outside its cadence.
+
+### Exact failed requirement (unchanged)
+
+`contract_identity` evidence_level = `candidate` for BTC/ETH/SOL/AVAX on every pairing in the newest probe `historical_overlap_probe_40785768996_attempt_1.json` (sha `ed08a7de…`). The `verify_contract_identity` function in `scripts/probe_historical_overlap.py:174` requires `underlying_match=True` AND `settlement_match=True` AND `hl_settle_known=True` to assign `verified`. Since `hl_settle_known` depends on `hl.get("settleCcy") or hl.get("settlementCurrency")` — and Hyperliquid's `meta` endpoint exposes neither field — `hl_settle_known` is always `False`, so the level can never reach `verified`. This is a structural free-source impossibility (not a duration or cooldown issue); repeated retries of the same OKX/Hyperliquid routes are unwarranted per AGENTS.md adaptive research-gate policy §2.
+
+### Validation commands run (all PASS, exit 0)
+
+- `python3 -m compileall -q src scripts tests` = OK (exit 0)
+- `PYTHONPATH=src:scripts python3 -m unittest discover -s tests -v` = PASS (496 tests OK)
+- `PYTHONPATH=src python3 scripts/validate_research.py` = RESEARCH_VALIDATION=PASS (grid 108, anchor FVD053, NOT_RUN, `performance_metrics_computed=false`)
+- `PYTHONPATH=src:scripts python3 scripts/validate_all.py` = ALL_VALIDATIONS=PASS count=24
+- `python3 scripts/validate_skills.py` = SKILLS_VALIDATION=PASS count=4
+- `PYTHONPATH=src:scripts python3 scripts/validate_controller_progress.py` = CONTROLLER_PROGRESS_VALIDATION=PASS
+- `PYTHONPATH=src:scripts python3 scripts/validate_no_performance_claims.py` = NO_PERFORMANCE_CLAIMS_VALIDATION=PASS
+- `PYTHONPATH=src:scripts python3 scripts/validate_track_separation.py` = TRACK_SEPARATION_VALIDATION=PASS
+- `PYTHONPATH=src scripts/should_run_historical_probe.py` → `should_run=false` (cooldown active)
+- `git diff --check` = clean (exit 0); `git status --short` = (empty — working tree clean)
+
+### Frozen artifacts verified unchanged (sha256 match)
+
+- `configs/cross_venue_funding_dispersion_grid_v1.json` = `6be218bc84bf118cf67c238ad1c13ef1e445658db3b1346cd64ccaccc7aa5f07` (108 configs, anchor FVD053) ✓
+- `research_state/run_manifest.json` = `4f162ce128c741434addf6aa2fa7c7dbf1bf189d4a81b8893ed96899412c7aaf` (BLOCKED_DATA_GATE) ✓
+- `research_state/fvd053_anchor_run_2026-10-25.json` = `50b328baf5854dec40105a0f5ebe498bf589906f9c033ce659843659927ca4c2` (immutable) ✓
+- `research_state/exploratory_run_manifest_2026-10-25.json` = `08bbecf10f80f46b3d56e62e5c82ce44915840b2561230f9c0d7026f7a9905f1f` (FVD-EXPLORATORY-002) ✓
+- `research_state/exploratory_run_manifest_2026-10-27.json` = `503b49a12af37dfae5913d294891e1474c2c768ae98001df998b4fb82aa9ca2a` (FVD-EXPLORATORY-003) ✓
+- `research_state/historical_overlap_probe_40785768996_attempt_1.json` = `ed08a7decf1a794ee924f78630f48fb259ad701dbfa9f5e5dc72913bf1806a93` ✓
+- `scripts/probe_historical_overlap.py` = `606f07bb27b1b9f4e1a723b8ac42acac7f9741dd6000d6968218a37047acfa09` (unchanged) ✓
+- `src/cross_venue_funding_dispersion/status.py` = `d99f24152c4bd364103355bbb6ee12df10dcd50eb39e69bd9afb487b0bb3e2a0` (unchanged) ✓
+
+### Modified files
+
+- `HANDOFF.md` — prepended this v3.3 verification section (new sha256 to be computed after edit).
+- No other files modified. Working tree was clean before this edit.
+
+### Status
+
+- Confirmatory track: `BLOCKED_DATA_GATE` — FVD001–FVD108, FVD053 frozen. No backtest, no performance metrics.
+- FVD-EXPLORATORY-002 (HL+OKX): `EXPLORATORY_ONLY`/`INCONCLUSIVE`. Anchor exercised (0 signals) but no metrics. `TRACK_SEPARATION` verified.
+- FVD-EXPLORATORY-003 (OKX+Binance USDT): `EXPLORATORY_ONLY`/`INCONCLUSIVE`. Anchor NOT exercised. Funding intersection ~65 days < 90-day threshold (will extend to ~93 days after Binance 2026-10 archive on 2026-10-31, meeting threshold but contract identity remains binding constraint).
+- Probe cooldown: `should_run=false`, `next_eligible_at_utc=2026-10-29T05:13:36.199104Z`.
+- v3.3 verification infrastructure: complete and all acceptance checks met.
+
+### Next measurable task
+
+After **both** conditions are satisfied:
+(a) probe cooldown expiry at `2026-10-29T05:13:36Z` (now `should_run` eligible), AND
+(b) Binance USD-M monthly archives for 2026-10 publish at month-end `2026-10-31` (extending the OKX+Binance funding intersection to ~93 days, meeting the 90-day FVD053 threshold),
+
+run `python3 scripts/should_run_historical_probe.py`; if `should_run=true`, the scheduled `historical-coverage-probe.yml` workflow (cron at :13/:43 each hour) will execute the bounded 120-day probe and commit the artifact. Then reassess: the OKX+Binance funding intersection will meet the 90-day threshold, BUT contract identity remains the binding constraint (`evidence_level=candidate`, `settlement_match=false` for Hyperliquid; instrument identity symbol-mapped only for OKX|Binance). Per `exploratory_protocol_v1.md` §3 requirement 1, compatible contract identities are required but not established. **Expect FVD-EXPLORATORY-003 to remain INCONCLUSIVE — do NOT promote.** No re-probe duplication while on cooldown, no paid data, no credentials, no live/paper trading, no alteration of frozen confirmatory artifacts. If no free source route emerges that proves cross-venue contract identity, continue with source-independent verification tasks (workflow contract, accounting known-answer tests, manifest/schema validation) per v3.3 §12.6.
+
 ## Source-independent hardening: unwrap_okx + probe_binance_archive + coverage-invariant recompute tests (2026-10-28T23:30Z)
 
 Per v3.3 §12.6 ("If no route works, document the exact failed requirement and execute another useful independent task"): the data gate remains structurally blocked — free public metadata cannot prove cross-venue contract/instrument identity (Hyperliquid `meta` exposes no settlement-currency field; OKX `baseCcy` is empty for linear USDT swaps), making `contract_identity` evidence_level `candidate` for all underlyings. The probe cooldown is active (`should_run=false`, `next_eligible_at_utc=2026-10-29T05:13:36.199104Z`) and Binance 2026-10 monthly archive is unpublished until 2026-10-31. No data-gated re-probe, backtest, or performance metrics were dispatched. Executed bounded, source-independent test coverage instead.
