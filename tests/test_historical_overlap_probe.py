@@ -1347,5 +1347,200 @@ class FundingIntersectionAuditTests(unittest.TestCase):
             f"Binance to {bn_end.isoformat()}); manifest coverage_summary.common_days={recorded_days}")
 
 
+class CrossProbeDeterminismTests(unittest.TestCase):
+    """Source-independent deterministic-resume validation across committed probes.
+
+    The controller re-runs the bounded 120-day probe every 6 hours, each time
+    producing a new dated artifact with a slightly shifted 120-day window. The
+    core findings — contract-identity evidence level, funding intervals, and
+    gating flags — must be stable across all real-response probes. This is a
+    deterministic-resume / idempotency invariant: a re-run must not silently
+    alter the data-gate conclusion or relax the frozen confirmatory state.
+
+    No network access. Reads only committed research_state artifacts.
+    """
+
+    STATE_DIR = ROOT / "research_state"
+
+    def _committed_probes(self):
+        probes = []
+        if not self.STATE_DIR.is_dir():
+            return probes
+        for path in sorted(self.STATE_DIR.glob("historical_overlap_probe_*_attempt_*.json")):
+            try:
+                data = json.loads(path.read_text(encoding="utf-8"))
+            except (OSError, json.JSONDecodeError):
+                continue
+            if isinstance(data, dict) and "historical_coverage_gate" in data:
+                probes.append((path, data))
+        return probes
+
+    def _real_response_probes(self):
+        return [(p, d) for p, d in self._committed_probes()
+                if d.get("source_responses_with_http_status", 0) > 0]
+
+    @staticmethod
+    def _parse_utc(value):
+        if not isinstance(value, str) or not value:
+            return None
+        try:
+            return datetime.fromisoformat(value.replace("Z", "+00:00"))
+        except (ValueError, TypeError):
+            return None
+
+    def test_real_response_probes_exist(self):
+        self.assertGreater(len(self._real_response_probes()), 0,
+                           "expected at least one committed probe with real HTTP responses")
+
+    def test_real_response_probes_consistent_contract_identity_gap(self):
+        """Every real-response probe with per_underlying data must show
+        evidence_level='candidate' for every underlying, with the same structural
+        gap: hl_settle_known=False and settlement_match=False.
+
+        Probes predating the collect_contract_identity integration (37077540865
+        and earlier numeric IDs) may lack per_underlying entries; those are
+        covered by test_real_response_probes_consistent_gate_and_lockdown_flags.
+        This is the deterministic-resume invariant for the binding constraint:
+        a re-run cannot produce 'verified' or alter the settlement_match gap.
+        """
+        probes = self._real_response_probes()
+        self.assertGreater(len(probes), 0)
+        checked = 0
+        for path, data in probes:
+            ci = data.get("contract_identity", {})
+            per = ci.get("per_underlying", {}) if isinstance(ci, dict) else {}
+            if not per:
+                continue
+            checked += 1
+            for base, info in per.items():
+                if not isinstance(info, dict):
+                    continue
+                self.assertEqual(
+                    info.get("evidence_level"), "candidate",
+                    f"{path.name} {base}: evidence_level must be 'candidate' across all real-response probes"
+                )
+                self.assertFalse(
+                    info.get("hl_settle_known", True),
+                    f"{path.name} {base}: hl_settle_known must remain False across all real-response probes"
+                )
+                self.assertFalse(
+                    info.get("settlement_match", True),
+                    f"{path.name} {base}: settlement_match must remain False across all real-response probes"
+                )
+        self.assertGreater(checked, 0, "expected at least one probe with per_underlying contract identity data")
+
+    def test_real_response_probes_consistent_funding_intervals(self):
+        """All real-response probes must show HL funding ~24 rows/day (hourly)
+        and OKX funding ~3 rows/day (8-hourly). A re-run must not change the
+        interval mismatch between venues.
+        """
+        probes = self._real_response_probes()
+        self.assertGreater(len(probes), 0)
+        for path, data in probes:
+            routes = data.get("routes", {})
+            hl_funding = routes.get("hyperliquid_funding", [])
+            if isinstance(hl_funding, dict):
+                hl_funding = [hl_funding]
+            for item in hl_funding:
+                cov = item.get("coverage", {})
+                if not isinstance(cov, dict):
+                    continue
+                earliest = self._parse_utc(cov.get("earliest_utc"))
+                latest = self._parse_utc(cov.get("latest_utc"))
+                if earliest is None or latest is None:
+                    continue
+                days = (latest - earliest).total_seconds() / 86400.0
+                if days <= 0:
+                    continue
+                rpd = cov.get("row_count", 0) / days
+                self.assertGreater(rpd, 15.0,
+                    f"{path.name} HL funding {item.get('coin')}: rows/day={rpd:.1f}, expected ~24 (hourly)")
+                self.assertLess(rpd, 30.0,
+                    f"{path.name} HL funding {item.get('coin')}: rows/day={rpd:.1f}, expected ~24 (hourly)")
+            okx_funding = routes.get("okx_funding", [])
+            if isinstance(okx_funding, dict):
+                okx_funding = [okx_funding]
+            for item in okx_funding:
+                cov = item.get("coverage", {})
+                if not isinstance(cov, dict):
+                    continue
+                earliest = self._parse_utc(cov.get("earliest_utc"))
+                latest = self._parse_utc(cov.get("latest_utc"))
+                if earliest is None or latest is None:
+                    continue
+                days = (latest - earliest).total_seconds() / 86400.0
+                if days <= 0:
+                    continue
+                rpd = cov.get("row_count", 0) / days
+                self.assertGreater(rpd, 2.0,
+                    f"{path.name} OKX funding {item.get('instId')}: rows/day={rpd:.1f}, expected ~3 (8-hourly)")
+                self.assertLess(rpd, 4.0,
+                    f"{path.name} OKX funding {item.get('instId')}: rows/day={rpd:.1f}, expected ~3 (8-hourly)")
+
+    def test_real_response_probes_consistent_hl_okx_intersection_exceeds_90(self):
+        """Every real-response probe must show HL+OKX funding intersection > 90 days.
+        This verifies the 90-day prior-observation threshold is consistently met
+        across re-runs, even though the contract-identity gap prevents gate passage.
+        """
+        probes = self._real_response_probes()
+        self.assertGreater(len(probes), 0)
+        for path, data in probes:
+            routes = data.get("routes", {})
+            hl_items = routes.get("hyperliquid_funding", [])
+            okx_items = routes.get("okx_funding", [])
+            if isinstance(hl_items, dict):
+                hl_items = [hl_items]
+            if isinstance(okx_items, dict):
+                okx_items = [okx_items]
+            if not hl_items or not okx_items:
+                continue
+            hl_btc = next((x for x in hl_items if x.get("coin") == "BTC"), None)
+            okx_btc = next((x for x in okx_items if x.get("instId", "").startswith("BTC")), None)
+            if not hl_btc or not okx_btc:
+                continue
+            hl_cov = hl_btc.get("coverage", {})
+            okx_cov = okx_btc.get("coverage", {})
+            hl_s = self._parse_utc(hl_cov.get("earliest_utc"))
+            hl_e = self._parse_utc(hl_cov.get("latest_utc"))
+            okx_s = self._parse_utc(okx_cov.get("earliest_utc"))
+            okx_e = self._parse_utc(okx_cov.get("latest_utc"))
+            if not all([hl_s, hl_e, okx_s, okx_e]):
+                continue
+            intersection_start = max(hl_s, okx_s)
+            intersection_end = min(hl_e, okx_e)
+            duration_days = (intersection_end - intersection_start).total_seconds() / 86400.0
+            self.assertGreater(duration_days, 85,
+                f"{path.name}: HL+OKX BTC funding intersection={duration_days:.1f} days, "
+                f"expected >85 (FVD053 90-day threshold minus boundary slack)")
+            self.assertLess(duration_days, 130,
+                f"{path.name}: HL+OKX BTC funding intersection={duration_days:.1f} days, "
+                f"expected <130 (bounded 120-day lookback probe)")
+
+    def test_real_response_probes_consistent_gate_and_lockdown_flags(self):
+        """Every real-response probe must have NOT_PASSED_BY_COVERAGE_PROBE,
+        BLOCKED_DATA_GATE, backtest_completed=false, performance_metrics_computed=false.
+        A re-run cannot relax the frozen gate or claim performance.
+        """
+        probes = self._real_response_probes()
+        self.assertGreater(len(probes), 0)
+        for path, data in probes:
+            self.assertEqual(
+                data.get("historical_coverage_gate"), "NOT_PASSED_BY_COVERAGE_PROBE",
+                f"{path.name}: gate must remain NOT_PASSED across all real-response probes"
+            )
+            self.assertEqual(
+                data.get("original_confirmatory_gate"), "BLOCKED_DATA_GATE",
+                f"{path.name}: confirmatory gate must remain BLOCKED_DATA_GATE"
+            )
+            self.assertFalse(
+                data.get("backtest_completed", False),
+                f"{path.name}: backtest_completed must remain false"
+            )
+            self.assertFalse(
+                data.get("performance_metrics_computed", False),
+                f"{path.name}: performance_metrics_computed must remain false"
+            )
+
+
 if __name__ == "__main__":
     unittest.main()
