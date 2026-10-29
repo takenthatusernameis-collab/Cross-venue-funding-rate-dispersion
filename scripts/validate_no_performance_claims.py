@@ -75,14 +75,5 @@ def default_targets() -> list[Path]:
     return targets
 
 
-def main(targets=None) -> int:
-    if targets is None:
-        targets = default_targets()
-    for p in targets:
-        scan_path(p)
-    print("NO_PERFORMANCE_CLAIMS_VALIDATION=PASS")
-    return 0
-
-
 if __name__ == "__main__":
     raise SystemExit(main())

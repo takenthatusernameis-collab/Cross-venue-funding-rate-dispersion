@@ -1,4 +1,61 @@
-## Link controller-committed probe 40943850244 into FVD-EXPLORATORY-003 manifest (2026-10-29T20:32Z)
+## Fix duplicate main() in validate_no_performance_claims.py + add fail-closed pipeline tests (2026-10-29T20:55Z)
+
+Per v3.3 §12 step 6 ("execute another useful independent task in the existing codebase: source-independent accounting checks, adversarial tests, result/schema validation, independent recomputation or deterministic resume validation"): the data gate remains structurally blocked — probe `40943850244` confirms `historical_coverage_gate=NOT_PASSED_BY_COVERAGE_PROBE`, `original_confirmatory_gate=BLOCKED_DATA_GATE`, `contract_identity` evidence_level=`candidate` for BTC/ETH/SOL/AVAX (Hyperliquid `meta` exposes no settlement-currency field → `hl_settle_known=false` → `evidence_level` can never reach `verified`; structural free-source impossibility). Probe cooldown active (`should_run=false`, `next_eligible_at_utc=2026-10-30T02:25:02.942165Z`); Binance USD-M monthly archive for 2026-10 not yet published (month-end `2026-10-31`). No network probe re-dispatched, no paid data/credentials, no live/paper trading, no frozen artifact altered.
+
+### Exact failed requirement (unchanged)
+
+`contract_identity` evidence_level = `candidate` for BTC/ETH/SOL/AVAX on every pairing in probe `historical_overlap_probe_40943850244_attempt_1.json` (sha `edaa31e0fa2937f0c66c66f82cb4934dabf9f6e6bf6b0a5c3e8f1d367ac65335`). The `verify_contract_identity` function in `scripts/probe_historical_overlap.py:174` requires `underlying_match=True` AND `settlement_match=True` AND `hl_settle_known=True` to assign `verified`. Since `hl_settle_known` depends on `hl.get("settleCcy") or hl.get("settlementCurrency")` — and (a) Hyperliquid's `meta` endpoint exposes neither field, and (b) `extract_hl_universe_details` (`probe_historical_overlap.py:130`, `HL_UNIVERSE_FIELDS` at line 117) strips those fields before `verify_contract_identity` is ever called — `hl_settle_known` is always `False`, so the level can never reach `verified`. This is a structural free-source impossibility; repeated retries of the same OKX/Hyperliquid routes are unwarranted per AGENTS.md adaptive research-gate policy §2.
+
+### Actions performed
+
+1. **Fixed duplicate `main()` function in `scripts/validate_no_performance_claims.py`** (sha `9981d76391acbd21d23305e2abdbea1bed237ed138ffada8802ac0fe40f4fa8d`):
+   - The script had two `main()` definitions (lines 57–64 and 78–84). Python uses the last definition, so the first `main()` — which properly uses the testable `validate_no_performance_claims()` function returning an error list — was dead code. The second `main()` used `scan_path()` → `scan_text()` which calls `sys.exit(1)` immediately on the first forbidden token, bypassing error collection and making the script untestable at the integration level.
+   - Removed the shadow duplicate `main()` so the testable, error-collecting first `main()` is the active implementation. `scan_text` and `scan_path` retained as utility functions (tested by `test_fail_closed_validators.py`).
+
+2. **Added 15 fail-closed tests to `tests/test_no_performance_claims.py`** (sha `5a99d31e74c4423f4238dbf9ed09052c571e06e6009bc51c9dc017124f517cf3`):
+   - `NoPerformanceClaimsValidationTests` (12 tests): `validate_no_performance_claims` with empty targets, clean file, forbidden token, multiple tokens, nonexistent file skip; `main()` returns 0 when clean and 1 when forbidden (fail-closed); `scan_path` skips nonexistent, passes clean, raises `SystemExit` on forbidden; `test_committed_default_targets_pass` verifies all committed repo files pass the no-performance-claims scan.
+   - `DefaultTargetsTests` (3 tests): `default_targets` includes HANDOFF.md/SKILLS.md, includes research_state JSON files, excludes docs/ markdown.
+
+### Validation commands run (all PASS, exit 0)
+
+- `python3 -m compileall -q src scripts tests` = OK (exit 0)
+- `PYTHONPATH=src:scripts python3 -m unittest tests.test_no_performance_claims -v` = 20 tests OK (was 5, +15 new)
+- `PYTHONPATH=src:scripts python3 -m unittest tests.test_fail_closed_validators -v` = 20 tests OK (existing tests still pass with the un-shadowed `main()`)
+- `PYTHONPATH=src:scripts python3 -m unittest discover -s tests -v` = PASS (550 tests OK; was 535, +15 new)
+- `PYTHONPATH=src python3 scripts/validate_research.py` = RESEARCH_VALIDATION=PASS (grid 108, anchor FVD053, NOT_RUN, performance_metrics_computed=false)
+- `PYTHONPATH=src:scripts python3 scripts/validate_all.py` = ALL_VALIDATIONS=PASS count=24
+- `python3 scripts/validate_skills.py` = SKILLS_VALIDATION=PASS count=4
+- `PYTHONPATH=src python3 scripts/should_run_historical_probe.py` → `should_run=false` (cooldown active, next_eligible_at_utc=2026-10-30T02:25:02.942165Z)
+- `git diff --check` = clean (exit 0); `git status --short` = ` M scripts/validate_no_performance_claims.py` + ` M tests/test_no_performance_claims.py`
+
+### Frozen artifacts verified unchanged (sha256 match)
+
+- `configs/cross_venue_funding_dispersion_grid_v1.json` = `6be218bc84bf118cf67c238ad1c13ef1e445658db3b1346cd64ccaccc7aa5f07` (108 configs, anchor FVD053)
+- `research_state/run_manifest.json` = `4f162ce128c741434addf6aa2fa7c7dbf1bf189d4a81b8893ed96899412c7aaf` (BLOCKED_DATA_GATE)
+- `research_state/fvd053_anchor_run_2026-10-25.json` = `50b328baf5854dec40105a0f5ebe498bf589906f9c033ce659843659927ca4c2` (immutable)
+- `research_state/exploratory_run_manifest_2026-10-27.json` = `6d831a7615def367e525032c8dd6f962178a29c6e591eff4c89a2d8536e634c9` (FVD-EXPLORATORY-003, EXPLORATORY_ONLY)
+- `scripts/probe_historical_overlap.py` = `606f07bb27b1b9f4e1a723b8ac42acac7f9741dd6000d6968218a37047acfa09` (unchanged)
+- `src/cross_venue_funding_dispersion/status.py` = `d99f24152c4bd364103355bbb6ee12df10dcd50eb39e69bd9afb487b0bb3e2a0` (unchanged)
+
+### Modified files
+
+- `scripts/validate_no_performance_claims.py` — sha `9981d76391acbd21d23305e2abdbea1bed237ed138ffada8802ac0fe40f4fa8d` (removed shadow duplicate `main()`; no behavioral change to pass/fail on clean inputs — the second `main()` and first `main()` produce identical output on clean repos, both return 0)
+- `tests/test_no_performance_claims.py` — sha `5a99d31e74c4423f4238dbf9ed09052c571e06e6009bc51c9dc017124f517cf3` (+188 lines, +15 tests across 2 new test classes)
+
+### Status
+
+- Confirmatory track: `BLOCKED_DATA_GATE` — FVD001–FVD108, FVD053 frozen. No backtest, no performance metrics.
+- FVD-EXPLORATORY-003 (OKX+Binance USDT): `EXPLORATORY_ONLY`/`INCONCLUSIVE`. Settlement currency match IS provable (both USDT), but instrument/contract identity symbol-mapped only (candidate-level, NOT provable — binding constraint). OKX+Binance funding intersection ~66 days (2026-07-27→2026-10-29) < 90-day threshold. Anchor NOT exercised. No backtest, no metrics.
+- FVD-EXPLORATORY-002 (HL+OKX): `EXPLORATORY_ONLY`/`INCONCLUSIVE`. Funding intersection ~120 days meets 90-day threshold, but contract_identity candidate-level (Hyperliquid `meta` exposes no settlement-currency field — structural impossibility).
+- Probe cooldown: active, `should_run=false`, `next_eligible_at_utc=2026-10-30T02:25:02.942165Z`.
+- Binance 2026-10 monthly archive: not yet published (month-end 2026-10-31).
+- Cross-probe determinism: verified across 9 real-response probes (40432758814, 40506445204, 40594574088, 40647845563, 40721540865, 40785768996, 40832853929, 40889677363, 40943850244).
+
+### Next measurable task
+
+After BOTH (a) probe cooldown expiry at `2026-10-30T02:25:02Z` AND (b) Binance USD-M monthly archive for 2026-10 publishes at month-end `2026-10-31`, run `python3 scripts/should_run_historical_probe.py`; if `should_run=true`, the scheduled `historical-coverage-probe.yml` workflow will execute the bounded 120-day probe and commit a new dated artifact. Then link the new probe into the FVD-EXPLORATORY-003 manifest and re-run all validation. Contract identity remains the binding constraint regardless of duration (Hyperliquid `meta` does not expose settlement currency; OKX `baseCcy` is empty for linear USDT swaps) — expect FVD-EXPLORATORY-003 to remain INCONCLUSIVE. Do NOT promote. If no free source route emerges that proves cross-venue instrument/contract identity, continue source-independent verification tasks (red-team audit, workflow contract, known-answer tests, manifest/schema validation). No paid data, no credentials, no live/paper trading, no alteration of frozen confirmatory artifacts.
+
+
 
 Controller CI committed probe `historical_overlap_probe_40943850244_attempt_1.json` (sha `edaa31e0fa2937f0c66c66f82cb4934dabf9f6e6bf6b0a5c3e8f1d367ac65335`, committed in `b291a4d`, observed `2026-10-29T20:25:02.942165Z`) with `status=SOURCE_PROBE_COMPLETED`, `source_responses_with_http_status=8`, `historical_coverage_gate=NOT_PASSED_BY_COVERAGE_PROBE`, `backtest_completed=false`, `performance_metrics_computed=false`, and `contract_identity` evidence_level=`candidate` for BTC/ETH/SOL/AVAX — identical structural findings to all prior real-response probes. This probe was committed by the controller after the previous HANDOFF was written but was NOT yet linked into the FVD-EXPLORATORY-003 manifest. This session links probe `40943850244` as the new `reference_probe`, updates `okx_funding_settlements` 282→283 (one additional 8h settlement since probe 40889677363), updates the probe cooldown reference, adds caveat #20, and re-validates. The existing `CrossProbeDeterminismTests`, `CommittedProbeGateConsistencyTests`, and `FundingIntersectionAuditTests` classes automatically cover this new probe because they iterate over ALL committed real-response probes — no new tests were needed. The confirmatory track remains frozen at `BLOCKED_DATA_GATE`; no frozen artifacts altered.
 
