@@ -1,3 +1,78 @@
+## Independent recomputation test for settlement_metadata_measurement artifact (2026-10-29T16:00Z)
+
+Per v3.3 §12.6 ("execute another useful independent task: known-answer test or independent recomputation for an existing artifact"): the data gate remains blocked (probe cooldown active until `2026-10-29T20:15:58.689336Z` per `scripts/should_run_historical_probe.py`; Binance 2026-10 monthly archive not yet published, month-end `2026-10-31`). The `settlement_metadata_measurement_2026-10-27.json` artifact (committed, sha `5184d5e25cbb7badde958d2da768d00e371d2dd8d1272181d94cbf91ec9014b4`) had its `measurement_summary` claims validated only for sha256 integrity by `validate_research_state_artifacts.py` — no test independently recomputed the derived summary flags from the raw `venues` and `settle_match_pairs` data. This session adds 28 source-independent (no-network) tests that verify every `measurement_summary` claim is independently derivable from the artifact's raw data, that honor-code boundaries (`backtest_completed=false`, `performance_metrics_computed=false`) hold, and that the provenance policy (`evidence_level` assignments, HTTP response metadata) is internally consistent.
+
+### Action performed
+
+Created `tests/test_settlement_metadata_consistency.py` (sha `526613b75715cf86d120ac05b3f16c382ece37256273a5686005a9f7aa45404f`) with `SettlementMetadataConsistencyTests` (28 tests):
+
+**Honor-code boundary tests:**
+- `test_backtest_not_completed` — `backtest_completed=false`
+- `test_no_performance_metrics` — `performance_metrics_computed=false`
+- `test_original_confirmatory_gate_blocked` — `original_confirmatory_gate=BLOCKED_DATA_GATE`
+
+**Independent recomputation of `measurement_summary` from venue data:**
+- `test_okx_settle_provable_recomputed` — OKX `settle_currency=USDT` for all 4 underlyings → `okx_settle_provable=true`
+- `test_binance_settle_provable_recomputed` — Binance `settle_currency=USDT` for all 4 → `binance_settle_provable=true`
+- `test_hyperliquid_settle_unprovable_recompute` — HL `settle_currency=null` for all 4 → `hyperliquid_settle_provable=false`
+- `test_settlement_currency_values` — OKX/Binance=USDT, HL=None for each underlying
+
+**Independent recomputation of pair-level match flags from venue data:**
+- `test_okx_binance_pair_match_provable` — recomputed match = True (both USDT), matches recorded
+- `test_okx_hyperliquid_pair_match_not_provable` — HL is None → False
+- `test_binance_hyperliquid_pair_match_not_provable` — HL is None → False
+- `test_all_pairs_present` — all 3 pair keys exist (OKX|Binance, OKX|HL, Binance|HL)
+- `test_per_underlying_settle_in_pairs_consistent` — per-underlying pair data matches venue data
+- `test_provable_matched_pair_summary_consistent` — `provable_matched_pair` derivable from pair match
+- `test_settlement_subcomponent_resolved_consistent` — `settlement_currency_subcomponent_resolved_for_okx_binance_pair` matches pair flag
+
+**Evidence-level provenance policy (independently recomputed):**
+- `test_okx_evidence_level_verified` — all OKX underlyings `evidence_level=verified`
+- `test_binance_evidence_level_verified_documented` — all Binance underlyings `verified_documented`
+- `test_hyperliquid_evidence_level_candidate` — all HL underlyings `candidate`
+- `test_hyperliquid_evidence_basis_reused` — `evidence_basis=REUSED_FROM_DEPTH_PROBE` with correct `reference_artifact`
+- `test_binance_evidence_basis_documented` — Binance `evidence_basis` contains `LIVE_FAILOVER` (geo-blocked HTTP 451)
+
+**HTTP response metadata (no re-fetch, only schema/format validation):**
+- `test_okx_response_meta_http_200` — OKX `http_status=200`, `error=null`
+- `test_binance_response_meta_geo_blocked` — Binance `http_status=451`, error contains `451`
+- `test_okx_response_sha256_valid` — OKX `response_sha256` is valid 64-char hex
+
+**Residual/limitations (instrument identity NOT cleared):**
+- `test_instrument_identity_not_cleared` — residuals document `symbol-mapped only` and `BLOCKED_DATA_GATE`
+- `test_limitation_disclaims_performance` — limitations disclaim all performance claims
+- `test_binance_provenance_references_feasibility_assessment` — Binance provenance_note references `binance_archive_feasibility_assessment_2026-10-26.json`
+- `test_binance_feasibility_assessment_exists` — referenced assessment artifact exists on disk
+
+### Validation commands run (all PASS, exit 0)
+
+- `python3 -m compileall -q src scripts tests` = OK (exit 0)
+- `PYTHONPATH=src:scripts python3 -m unittest discover -s tests -v` = PASS (535 tests OK; was 507, +28 new)
+- `PYTHONPATH=src:scripts python3 -m unittest tests.test_settlement_metadata_consistency -v` = 28 tests OK
+- `PYTHONPATH=src python3 scripts/validate_research.py` = RESEARCH_VALIDATION=PASS (grid 108, anchor FVD053, NOT_RUN, performance_metrics_computed=false)
+- `PYTHONPATH=src:scripts python3 scripts/validate_all.py` = ALL_VALIDATIONS=PASS count=24
+- `python3 scripts/validate_skills.py` = SKILLS_VALIDATION=PASS count=4
+- `python3 scripts/should_run_historical_probe.py` → `should_run=false` (cooldown active, next_eligible_at_utc=2026-10-29T20:15:58.689336Z)
+- `git diff --check` = clean (exit 0); `git status --short` = `?? tests/test_settlement_metadata_consistency.py` (untracked, no frozen artifacts modified)
+
+### Evidence paths
+
+- New test: `tests/test_settlement_metadata_consistency.py` (sha `526613b75715cf86d120ac05b3f16c382ece37256273a5686005a9f7aa45404f`)
+- Artifact under test: `research_state/settlement_metadata_measurement_2026-10-27.json`
+- Cross-referenced artifact: `research_state/binance_archive_feasibility_assessment_2026-10-26.json`
+
+### Status (UNCHANGED)
+
+- Confirmatory track: `BLOCKED_DATA_GATE` — FVD001–FVD108, FVD053 frozen.
+- FVD-EXPLORATORY-003 (OKX+Binance USDT): `EXPLORATORY_ONLY`/`INCONCLUSIVE`. Settlement currency match IS provable (both USDT, evidence independently verified), but instrument identity is symbol-mapped only (`candidate`-level, NOT provable — binding constraint). Source-independent consistency tests confirm no summary claims overreach.
+- FVD-EXPLORATORY-002 (HL+OKX): `EXPLORATORY_ONLY`/`INCONCLUSIVE`. Contract identity candidate-level (Hyperliquid `meta` exposes no settlement-currency field).
+- Probe cooldown: active, `should_run=false`, `next_eligible_at_utc=2026-10-29T20:15:58.689336Z`.
+- Binance 2026-10 monthly archive: not yet published (month-end `2026-10-31`).
+
+### Next measurable task
+
+After BOTH (a) probe cooldown expiry at `2026-10-29T20:15:58Z` AND (b) Binance USD-M monthly archive for 2026-10 publishes at month-end `2026-10-31`, run `python3 scripts/should_run_historical_probe.py`; if `should_run=true`, the scheduled `historical-coverage-probe.yml` workflow will execute the bounded 120-day probe and commit a new dated artifact. Then link the new probe into the FVD-EXPLORATORY-003 manifest and re-run all validation. Contract identity remains the binding constraint regardless of duration (candidate-level for all pairings); expect FVD-EXPLORATORY-003 to remain INCONCLUSIVE — do NOT promote. No paid data, no credentials, no live/paper trading, no alteration of frozen confirmatory artifacts.
+
 ## Link controller-committed probe 40889677363 into FVD-EXPLORATORY-003 manifest (2026-10-29T15:33Z)
 
 Controller CI committed probe `historical_overlap_probe_40889677363_attempt_1.json` (sha `04dc4440…`, observed `2026-10-29T14:15:58.689336Z`) with identical structural findings to the previously linked probe `40832853929`: `NOT_PASSED_BY_COVERAGE_PROBE`, `BLOCKED_DATA_GATE`, `candidate`-level contract identity for BTC/ETH/SOL/AVAX (8 HTTP 200 source responses, `backtest_completed=false`, `performance_metrics_computed=false`). This newer probe was committed by the controller after the previous HANDOFF was written but was NOT yet linked into the FVD-EXPLORATORY-003 manifest (reference_probe was still `40832853929`). This session links probe `40889677363` as the new `reference_probe`, updates `okx_funding_settlements` 281→282 (the new probe's OKX funding page_not_full returned 282 rows per underlying vs 281 in the prior probe, consistent with ~93-day OKX retention growing by one 8h settlement), updates the probe cooldown reference, adds caveat #19, and re-validates. The existing `CrossProbeDeterminismTests` class automatically covers this probe because it iterates over ALL committed real-response probes — no new tests were needed. The confirmatory track remains frozen at `BLOCKED_DATA_GATE`; no frozen artifacts altered. Per AGENTS.md and v3.3 §12.6, this is a source-independent manifest-linking task executed while the probe cooldown is active (`should_run=false`, `next_eligible_at_utc=2026-10-29T20:15:58Z`) and the Binance 2026-10 monthly archive remains unpublished (month-end 2026-10-31).
