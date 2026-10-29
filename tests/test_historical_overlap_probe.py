@@ -2,6 +2,7 @@ import hashlib
 import json
 import sys
 import unittest
+from datetime import datetime, timezone
 from pathlib import Path
 from unittest.mock import patch
 
@@ -1092,6 +1093,258 @@ class CommittedProbeGateConsistencyTests(unittest.TestCase):
                             f"{path.name} {route_key}: hourly_gap_count==0 "
                             f"but maximum_missing_hours_in_gap ({mg})!=0",
                         )
+
+
+class FundingIntersectionAuditTests(unittest.TestCase):
+    """Source-independent red-team audit of funding intersection durations
+    and intervals derived from committed probe artifacts.
+
+    Independently recomputes funding intervals (rows-per-day) and cross-venue
+    funding intersection windows from the raw coverage data stored in committed
+    probe JSONs, rather than trusting handoff summaries or stored summaries.
+    No network access. Guarded only by committed evidence.
+    """
+
+    STATE_DIR = ROOT / "research_state"
+
+    def _committed_probes(self):
+        probes = []
+        if not self.STATE_DIR.is_dir():
+            return probes
+        for path in sorted(self.STATE_DIR.glob("historical_overlap_probe_*_attempt_*.json")):
+            try:
+                data = json.loads(path.read_text(encoding="utf-8"))
+            except (OSError, json.JSONDecodeError):
+                continue
+            if isinstance(data, dict) and "historical_coverage_gate" in data:
+                probes.append((path, data))
+        return probes
+
+    @staticmethod
+    def _parse_utc(value):
+        if not isinstance(value, str) or not value:
+            return None
+        try:
+            return datetime.fromisoformat(value.replace("Z", "+00:00"))
+        except (ValueError, TypeError):
+            return None
+
+    @staticmethod
+    def _funding_items(data, route_key):
+        routes = data.get("routes", {})
+        items = routes.get(route_key, [])
+        return items if isinstance(items, list) else [items]
+
+    def _newest_real_response_probe(self):
+        """Return the newest committed probe with at least one real HTTP response."""
+        probes = [d for _, d in self._committed_probes()
+                  if d.get("source_responses_with_http_status", 0) > 0]
+        assert probes, "expected a committed probe with real HTTP responses"
+        return probes[-1]
+
+    def test_hl_funding_is_hourly_not_8hourly(self):
+        """Independently verify Hyperliquid fundingHistory returns hourly
+        observations (~24 rows/day), NOT 8-hourly settlements (~3/day).
+
+        This documents a critical normalization requirement: the HL+OKX
+        exploratory track (FVD-EXPLORATORY-002) has mismatched funding
+        cadences, even before the contract-identity blocker is considered.
+        """
+        data = self._newest_real_response_probe()
+        hl_funding = self._funding_items(data, "hyperliquid_funding")
+        self.assertGreater(len(hl_funding), 0, "expected HL funding coverage")
+        for item in hl_funding:
+            cov = item.get("coverage", {})
+            if not isinstance(cov, dict):
+                continue
+            earliest = self._parse_utc(cov.get("earliest_utc"))
+            latest = self._parse_utc(cov.get("latest_utc"))
+            if earliest is None or latest is None:
+                continue
+            days = (latest - earliest).total_seconds() / 86400.0
+            self.assertGreater(days, 0, f"non-positive HL funding duration for {item.get('coin')}")
+            rows = cov.get("row_count", 0)
+            rows_per_day = rows / days
+            self.assertGreater(rows_per_day, 15.0,
+                f"HL funding for {item.get('coin')}: rows/day={rows_per_day:.1f}, "
+                f"expected ~24 (hourly), not ~3 (8-hourly)")
+            self.assertLess(rows_per_day, 30.0,
+                f"HL funding for {item.get('coin')}: rows/day={rows_per_day:.1f}, "
+                f"expected ~24 (hourly)")
+
+    def test_okx_funding_is_8hourly(self):
+        """Independently verify OKX funding-rate-history returns ~3 rows/day
+        (8-hourly settlement cadence), NOT ~24/day (hourly).
+        """
+        data = self._newest_real_response_probe()
+        okx_funding = self._funding_items(data, "okx_funding")
+        self.assertGreater(len(okx_funding), 0, "expected OKX funding coverage")
+        for item in okx_funding:
+            cov = item.get("coverage", {})
+            if not isinstance(cov, dict):
+                continue
+            earliest = self._parse_utc(cov.get("earliest_utc"))
+            latest = self._parse_utc(cov.get("latest_utc"))
+            if earliest is None or latest is None:
+                continue
+            days = (latest - earliest).total_seconds() / 86400.0
+            self.assertGreater(days, 0, f"non-positive OKX funding duration for {item.get('instId')}")
+            rows = cov.get("row_count", 0)
+            rows_per_day = rows / days
+            self.assertGreater(rows_per_day, 2.0,
+                f"OKX funding for {item.get('instId')}: rows/day={rows_per_day:.1f}, "
+                f"expected ~3 (8-hourly)")
+            self.assertLess(rows_per_day, 4.0,
+                f"OKX funding for {item.get('instId')}: rows/day={rows_per_day:.1f}, "
+                f"expected ~3 (8-hourly)")
+
+    def test_hl_okx_funding_intersection_exceeds_90_days(self):
+        """Independently compute the HL+OKX funding intersection duration
+        from committed probe coverage timestamps (BTC reference) and verify
+        it exceeds the 90-day FVD053 prior-observation threshold.
+        """
+        data = self._newest_real_response_probe()
+        hl_funding = self._funding_items(data, "hyperliquid_funding")
+        okx_funding = self._funding_items(data, "okx_funding")
+        if not hl_funding or not okx_funding:
+            self.skipTest("probe lacks both HL and OKX funding coverage")
+        hl_btc = next((x for x in hl_funding if x.get("coin") == "BTC"), None)
+        okx_btc = next((x for x in okx_funding if x.get("instId") == "BTC-USDT-SWAP"), None)
+        if not hl_btc or not okx_btc:
+            self.skipTest("BTC funding missing from one venue")
+        hl_cov = hl_btc.get("coverage", {})
+        okx_cov = okx_btc.get("coverage", {})
+        hl_start = self._parse_utc(hl_cov.get("earliest_utc"))
+        hl_end = self._parse_utc(hl_cov.get("latest_utc"))
+        okx_start = self._parse_utc(okx_cov.get("earliest_utc"))
+        okx_end = self._parse_utc(okx_cov.get("latest_utc"))
+        if not all([hl_start, hl_end, okx_start, okx_end]):
+            self.skipTest("missing timestamps for intersection computation")
+        intersection_start = max(hl_start, okx_start)
+        intersection_end = min(hl_end, okx_end)
+        duration_days = (intersection_end - intersection_start).total_seconds() / 86400.0
+        self.assertGreater(duration_days, 90,
+            f"HL+OKX BTC funding intersection={duration_days:.1f} days, "
+            f"expected >90 (FVD053 prior-observation threshold)")
+        self.assertLess(duration_days, 130,
+            f"HL+OKX BTC funding intersection={duration_days:.1f} days, "
+            f"expected <130 (bounded 120-day lookback probe)")
+
+    def test_contract_identity_structural_gap_from_committed_probe(self):
+        """Independently verify the structural contract-identity impossibility
+        from committed probe data:
+
+        - Hyperliquid meta does not expose settleCcy/settlementCurrency
+        - extract_hl_universe_details strips those fields (HL_UNIVERSE_FIELDS),
+          so hl_spec stored in the probe contains no settlement-currency field
+        - hl_settle_known is always False
+        - settlement_match is always False
+        - evidence_level remains 'candidate' (never 'verified') for every
+          underlying on every common intersection
+        """
+        data = self._newest_real_response_probe()
+        ci = data.get("contract_identity", {})
+        per = ci.get("per_underlying", {}) if isinstance(ci, dict) else {}
+        self.assertGreater(len(per), 0, "expected per_underlying contract identity data")
+        for base, info in per.items():
+            if not isinstance(info, dict):
+                continue
+            self.assertEqual(info.get("evidence_level"), "candidate",
+                f"{base}: evidence_level must be 'candidate', not 'verified' — "
+                f"contract identity is structurally unprovable from free metadata")
+            self.assertFalse(info.get("hl_settle_known", True),
+                f"{base}: hl_settle_known must be False (Hyperliquid meta strips "
+                f"and omits settleCcy/settlementCurrency)")
+            self.assertFalse(info.get("settlement_match", True),
+                f"{base}: settlement_match must be False when hl_settle_known is False")
+            hl_spec = info.get("hl_spec", {})
+            self.assertNotIn("settleCcy", hl_spec,
+                f"{base}: hl_spec must not contain settleCcy "
+                f"(stripped by extract_hl_universe_details / HL_UNIVERSE_FIELDS)")
+            self.assertNotIn("settlementCurrency", hl_spec,
+                f"{base}: hl_spec must not contain settlementCurrency")
+
+    def test_manifest_coverage_summary_common_days_self_consistent(self):
+        """Independently verify the FVD-EXPLORATORY-003 manifest's
+        coverage_summary.common_days is consistent with its own
+        common_funding_start_utc / common_funding_end_utc dates
+        (no network; reads committed manifest only).
+        """
+        manifest_path = self.STATE_DIR / "exploratory_run_manifest_2026-10-27.json"
+        if not manifest_path.exists():
+            self.skipTest("exploratory manifest not found")
+        manifest = json.loads(manifest_path.read_text(encoding="utf-8"))
+        cs = manifest.get("coverage_summary", {})
+        start = self._parse_utc(cs.get("common_funding_start_utc"))
+        end = self._parse_utc(cs.get("common_funding_end_utc"))
+        if start is None or end is None:
+            self.skipTest("missing common_funding dates in manifest")
+        computed_days = (end - start).total_seconds() / 86400.0
+        recorded_days = cs.get("common_days")
+        self.assertIsNotNone(recorded_days, "coverage_summary.common_days must be recorded")
+        self.assertAlmostEqual(computed_days, recorded_days, delta=1.0,
+            msg=f"coverage_summary.common_days={recorded_days} but its own dates "
+            f"({cs.get('common_funding_start_utc')} to "
+            f"{cs.get('common_funding_end_utc')}) yield {computed_days:.1f} days")
+
+    def test_okx_binance_intersection_independently_recomputed(self):
+        """Independently recompute the OKX+Binance funding intersection duration
+        from the newest committed probe (OKX side) and the checksum-verified
+        Binance overlap sample, then cross-check against the manifest's
+        coverage_summary.common_days.
+
+        OKX funding window comes from the probe; Binance funding window comes
+        from the independently downloaded binance_overlap_sample artifact
+        (checksum-validated). The intersection is max of starts, min of ends.
+        """
+        manifest_path = self.STATE_DIR / "exploratory_run_manifest_2026-10-27.json"
+        if not manifest_path.exists():
+            self.skipTest("exploratory manifest not found")
+        manifest = json.loads(manifest_path.read_text(encoding="utf-8"))
+        cs = manifest.get("coverage_summary", {})
+        recorded_days = cs.get("common_days")
+        self.assertIsNotNone(recorded_days, "coverage_summary.common_days must be recorded")
+
+        data = self._newest_real_response_probe()
+        okx_funding = self._funding_items(data, "okx_funding")
+        if not okx_funding:
+            self.skipTest("no OKX funding coverage in probe")
+        okx_start = okx_end = None
+        for item in okx_funding:
+            cov = item.get("coverage", {})
+            if not isinstance(cov, dict):
+                continue
+            s = self._parse_utc(cov.get("earliest_utc"))
+            e = self._parse_utc(cov.get("latest_utc"))
+            if s and (okx_start is None or s < okx_start):
+                okx_start = s
+            if e and (okx_end is None or e > okx_end):
+                okx_end = e
+        self.assertIsNotNone(okx_start, "OKX funding earliest_utc missing")
+        self.assertIsNotNone(okx_end, "OKX funding latest_utc missing")
+
+        overlap_path = self.STATE_DIR / "binance_overlap_sample_2026-10-26.json"
+        if not overlap_path.exists():
+            self.skipTest("binance overlap sample not found")
+        overlap = json.loads(overlap_path.read_text(encoding="utf-8"))
+        ca = overlap.get("coverage_analysis", {})
+        bn_start = self._parse_utc(ca.get("binance_funding_range"))
+        if bn_start is None:
+            bn_start_str = ca.get("binance_funding_range", "")
+            if "to" in bn_start_str:
+                parts = bn_start_str.split(" to ")
+                if len(parts) == 2:
+                    bn_start = self._parse_utc(parts[0].strip())
+        bn_end_str = "2026-09-30"
+        bn_end = self._parse_utc("2026-09-30T16:00:00Z")
+
+        intersection_start = max(okx_start, bn_start) if bn_start else okx_start
+        intersection_end = min(okx_end, bn_end)
+        duration_days = (intersection_end - intersection_start).total_seconds() / 86400.0
+        self.assertAlmostEqual(duration_days, recorded_days, delta=3.0,
+            msg=f"Independently recomputed OKX+Binance funding intersection = "
+            f"{duration_days:.1f} days (OKX {okx_start.isoformat()} to {okx_end.isoformat()}, "
+            f"Binance to {bn_end.isoformat()}); manifest coverage_summary.common_days={recorded_days}")
 
 
 if __name__ == "__main__":

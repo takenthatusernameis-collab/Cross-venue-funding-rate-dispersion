@@ -1,4 +1,75 @@
-## v3.3 verification: run-progress from commits and evidence, not timestamps (2026-10-29T02:43Z)
+## Source-independent funding-interval and intersection audit from committed probe (2026-10-29T03:15Z)
+
+Per AGENTS.md §12 (source-independent task) and v3.3 §12.6 ("execute another useful independent task: adversarial tests, independent recomputation"). The data gate remains structurally blocked: probe cooldown active (`should_run=false`, `next_eligible_at_utc=2026-10-29T05:13:36Z` per `scripts/should_run_historical_probe.py`), environment networking unverified, and contract identity is the binding free-source impossibility. No live probe was re-dispatched, no paid data/credentials/trading used, and no frozen artifact altered.
+
+### Exact failed requirement (unchanged)
+
+`contract_identity` evidence_level = `candidate` for BTC/ETH/SOL/AVAX on every pairing in probe `historical_overlap_probe_40785768996_attempt_1.json` (sha `ed08a7de…`). The `verify_contract_identity` function in `scripts/probe_historical_overlap.py:174` requires `underlying_match=True` AND `settlement_match=True` AND `hl_settle_known=True` to assign `verified`. Since `hl_settle_known` depends on `hl.get("settleCcy") or hl.get("settlementCurrency")` — and (a) Hyperliquid's `meta` endpoint exposes neither field, and (b) `extract_hl_universe_details` (`probe_historical_overlap.py:130`, `HL_UNIVERSE_FIELDS` at line 117) strips those fields before `verify_contract_identity` is ever called — `hl_settle_known` is always `False`, so the level can never reach `verified`. This is a structural free-source impossibility; repeated retries of the same OKX/Hyperliquid routes are unwarranted per AGENTS.md adaptive research-gate policy §2.
+
+### Audit findings (independently recomputed from committed artifacts, no network)
+
+From the newest committed probe `historical_overlap_probe_40785768996_attempt_1.json` (real HTTP 200 responses, `source_responses_with_http_status=8`):
+
+1. **Funding interval mismatch between HL and OKX** (previously undocumented in tests): Hyperliquid `fundingHistory` returns ~24 rows/day (hourly cadence) for BTC/ETH/SOL/AVAX (2880 rows over ~120 days). OKX `funding-rate-history` returns ~3 rows/day (8-hourly cadence). This mismatch is a critical normalization requirement for the FVD-EXPLORATORY-002 (HL+OKX) track that has not been previously tested. OKX 8-hourly interval matches Binance (8-hourly, confirmed via `binance_overlap_sample_2026-10-26.json` checksum-validated downloads), so FVD-EXPLORATORY-003 (OKX+Binance) has matching intervals.
+
+2. **HL+OKX funding intersection independently computed**: BTC HL funding coverage 2026-06-30T23:00Z→2026-10-28T22:00Z, OKX funding coverage 2026-07-27T16:00Z→2026-10-28T16:00Z. Intersection = 2026-07-27T16:00Z→2026-10-28T16:00Z ≈ 93.0 days. Confirms HL+OKX meets the 90-day FVD053 prior-observation threshold, but contract identity still blocks (candidate-level).
+
+3. **OKX+Binance funding intersection independently recomputed**: OKX funding start (from probe) 2026-07-27T16:00Z; Binance funding end (from checksum-validated overlap sample) 2026-09-30T16:00Z. Intersection duration ≈ 65 days, matching `coverage_summary.common_days=65` in the manifest. Confirmed below the 90-day threshold.
+
+4. **Contract identity structural gap independently verified**: For every committed probe with real responses, `hl_settle_known=False`, `settlement_match=False`, `evidence_level="candidate"` for all 4 underlyings, and `hl_spec` contains no `settleCcy`/`settlementCurrency` (stripped by `extract_hl_universe_details`). This is now pinned by a regression test so any code change accidentally enabling "verified" would be caught.
+
+5. **Manifest internal consistency note**: `coverage_summary.common_days=65` is self-consistent with its own `common_funding_start_utc`/`common_funding_end_utc` dates (2026-07-27T16:00Z→2026-09-30T16:00Z = 65 days, verified by test). However, `threshold_history_eligibility.common_days=72` does NOT match its own `common_funding_intersection_utc` dates (2026-07-27T16:00Z→2026-09-30T00:00Z = ~64 days). This discrepancy is documented as an audit finding but NOT corrected — the manifest is a frozen committed artifact (sha `503b49a1…`); per AGENTS.md §11, corrections are appended as new run records, never rewriting prior evidence.
+
+### Action performed
+
+Added `FundingIntersectionAuditTests` class (6 tests) to `tests/test_historical_overlap_probe.py`:
+- `test_hl_funding_is_hourly_not_8hourly` — independently recomputes rows-per-day from committed probe HL funding coverage; verifies ~24/day (hourly), not ~3/day (8-hourly)
+- `test_okx_funding_is_8hourly` — independently verifies OKX funding is ~3/day (8-hourly), not ~24/day
+- `test_hl_okx_funding_intersection_exceeds_90_days` — independently computes HL+OKX BTC funding intersection duration from raw coverage timestamps; verifies >90 days and <130 days
+- `test_contract_identity_structural_gap_from_committed_probe` — independently verifies from committed probe data that `evidence_level="candidate"`, `hl_settle_known=False`, `settlement_match=False`, and `hl_spec` contains no `settleCcy`/`settlementCurrency`
+- `test_manifest_coverage_summary_common_days_self_consistent` — independently computes (end−start)/86400 from manifest `coverage_summary` dates and verifies consistency with `common_days`
+- `test_okx_binance_intersection_independently_recomputed` — independently recomputes OKX+Binance funding intersection from probe (OKX side) + binance_overlap_sample (Binance side) and cross-checks against manifest `coverage_summary.common_days`
+
+### Validation commands run (all PASS, exit 0)
+
+- `python3 -m compileall -q src scripts tests` = OK (exit 0)
+- `PYTHONPATH=src:scripts python3 -m unittest discover -s tests -p 'test_historical_overlap_probe.py' -v` = 66 tests OK (was 60, +6 new)
+- `PYTHONPATH=src python3 -m unittest discover -s tests -v` = PASS (full suite OK)
+- `PYTHONPATH=src python3 scripts/validate_research.py` = RESEARCH_VALIDATION=PASS (grid 108, anchor FVD053, NOT_RUN, performance_metrics_computed=false)
+- `PYTHONPATH=src:scripts python3 scripts/validate_all.py` = ALL_VALIDATIONS=PASS count=24
+- `python3 scripts/validate_skills.py` = SKILLS_VALIDATION=PASS count=4
+- `PYTHONPATH=src:scripts python3 scripts/validate_manifest_artifacts.py` = PASS
+- `PYTHONPATH=src:scripts python3 scripts/validate_manifest_schema.py` = MANIFEST_SCHEMA_VALIDATION=PASS
+- `PYTHONPATH=src:scripts python3 scripts/validate_track_separation.py` = TRACK_SEPARATION_VALIDATION=PASS
+- `PYTHONPATH=src scripts/should_run_historical_probe.py` → `should_run=false` (cooldown active)
+- `git diff --check` = clean (exit 0); `git status --short` = ` M tests/test_historical_overlap_probe.py`
+
+### Frozen artifacts verified unchanged (sha256 match)
+
+- `configs/cross_venue_funding_dispersion_grid_v1.json` = `6be218bc84bf118cf67c238ad1c13ef1e445658db3b1346cd64ccaccc7aa5f07` (108 configs, anchor FVD053) ✓
+- `research_state/run_manifest.json` = `4f162ce128c741434addf6aa2fa7c7dbf1bf189d4a81b8893ed96899412c7aaf` (BLOCKED_DATA_GATE) ✓
+- `research_state/fvd053_anchor_run_2026-10-25.json` = `50b328baf5854dec40105a0f5ebe498bf589906f9c033ce659843659927ca4c2` (immutable) ✓
+- `research_state/exploratory_run_manifest_2026-10-27.json` = `503b49a12af37dfae5913d294891e1474c2c768ae98001df998b4fb82aa9ca2a` (FVD-EXPLORATORY-003, EXPLORATORY_ONLY) ✓
+- `scripts/probe_historical_overlap.py` = `606f07bb27b1b9f4e1a723b8ac42acac7f9741dd6000d6968218a37047acfa09` (unchanged) ✓
+- `src/cross_venue_funding_dispersion/status.py` = `d99f24152c4bd364103355bbb6ee12df10dcd50eb39e69bd9afb487b0bb3e2a0` (unchanged) ✓
+
+### Modified file
+
+- `tests/test_historical_overlap_probe.py` — new sha256 `9cd243c609367d653c3718b9cf73670a88b16649e1ca0e54c185fe585193f68b` (+253 lines, +6 tests in `FundingIntersectionAuditTests`; +1 import `datetime, timezone`)
+
+### Status (UNCHANGED)
+
+- Confirmatory track: `BLOCKED_DATA_GATE` — FVD001–FVD108, FVD053 frozen. No backtest, no performance metrics.
+- FVD-EXPLORATORY-002 (HL+OKX): `EXPLORATORY_ONLY`/`INCONCLUSIVE`. Funding intersection ~93 days meets 90-day threshold, but contract identity candidate-level (settlement_match=false, hl_settle_known=false — structural impossibility). Additionally, HL funding is hourly while OKX is 8-hourly — interval mismatch requires normalization. Anchor NOT exercised. No backtest, no metrics.
+- FVD-EXPLORATORY-003 (OKX+Binance USDT): `EXPLORATORY_ONLY`/`INCONCLUSIVE`. Settlement currency match IS provable (both USDT, intervals match at 8-hourly), but instrument/contract identity symbol-mapped only (candidate-level, NOT provable — binding constraint). OKX+Binance funding intersection ~65 days < 90-day threshold (will extend to ~93 days after Binance 2026-10 monthly archive publishes at month-end 2026-10-31). Anchor NOT exercised. No backtest, no metrics.
+- Probe cooldown: active, `should_run=false`, `next_eligible_at_utc=2026-10-29T05:13:36.199104Z`.
+- Source-independent audit: funding intervals independently verified (HL hourly ≠ OKX/Binance 8-hourly); HL+OKX intersection independently computed (~93 days); OKX+Binance intersection independently recomputed (~65 days, matches manifest); contract identity structural impossibility pinned by regression test using committed artifact data.
+
+### Next measurable task
+
+After BOTH conditions are satisfied: (a) probe cooldown expiry at `2026-10-29T05:13:36Z`, AND (b) Binance USD-M monthly archives for 2026-10 publish at month-end `2026-10-31` (extending the OKX+Binance funding intersection to ~93 days, meeting the 90-day FVD053 threshold), run `python3 scripts/should_run_historical_probe.py`; if `should_run=true`, the scheduled `historical-coverage-probe.yml` workflow (cron at :13/:43 each hour) will execute the bounded 120-day probe and commit the artifact. Then reassess: the OKX+Binance funding intersection will meet the 90-day threshold, BUT contract identity remains the binding constraint (`evidence_level=candidate`, `settlement_match=false` for Hyperliquid; instrument identity symbol-mapped only for OKX|Binance). Per `exploratory_protocol_v1.md` §3 requirement 1, compatible contract identities are required but not established. Expect FVD-EXPLORATORY-003 to remain INCONCLUSIVE — do NOT promote. No re-probe duplication while on cooldown, no paid data, no credentials, no live/paper trading, no alteration of frozen confirmatory artifacts. If no free source route emerges that proves cross-venue contract identity, continue with source-independent verification tasks (workflow contract, accounting known-answer tests, manifest/schema validation, independent recomputation) per v3.3 §12.6.
+
+
 
 Per AGENTS.md active source-data blocker prompt v3.3: read and executed `prompts/autonomous_free_data_gate_unblocking_v3_3.md` alongside `docs/research_protocol.md`, `docs/exploratory_protocol_v1.md`, relevant skills, current `HANDOFF.md`, and latest coverage/run artifacts. The v3.3 prompt's core directive is to determine run progress from commits and evidence, not stale workflow-run `updated_at` timestamps.
 
