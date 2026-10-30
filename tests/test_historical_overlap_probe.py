@@ -1578,6 +1578,146 @@ class FundingIntersectionAuditTests(unittest.TestCase):
             f"{duration_days:.1f} days (OKX {okx_start.isoformat()} to {okx_end.isoformat()}, "
             f"Binance to {bn_end.isoformat()}); manifest coverage_summary.common_days={recorded_days}")
 
+    def test_okx_funding_settlements_matches_manifest(self):
+        """Verify the OKX funding row count in the newest committed probe
+        matches manifest coverage_summary.okx_funding_settlements (286).
+        """
+        manifest_path = self.STATE_DIR / "exploratory_run_manifest_2026-10-27.json"
+        if not manifest_path.exists():
+            self.skipTest("exploratory manifest not found")
+        manifest = json.loads(manifest_path.read_text(encoding="utf-8"))
+        cs = manifest.get("coverage_summary", {})
+        manifest_settlements = cs.get("okx_funding_settlements")
+
+        data = self._newest_real_response_probe()
+        okx_funding = self._funding_items(data, "okx_funding")
+        self.assertGreater(len(okx_funding), 0, "expected OKX funding coverage")
+        for item in okx_funding:
+            cov = item.get("coverage", {})
+            if not isinstance(cov, dict):
+                continue
+            row_count = cov.get("row_count")
+            self.assertEqual(
+                row_count, manifest_settlements,
+                f"OKX {item.get('instId')}: row_count={row_count} but "
+                f"manifest okx_funding_settlements={manifest_settlements}",
+            )
+
+    def test_okx_funding_retained_days_matches_manifest(self):
+        """Independently compute OKX funding retained duration from the
+        committed probe coverage timestamps and verify it matches manifest
+        coverage_summary.okx_funding_retained_days (95 days).
+        """
+        manifest_path = self.STATE_DIR / "exploratory_run_manifest_2026-10-27.json"
+        if not manifest_path.exists():
+            self.skipTest("exploratory manifest not found")
+        manifest = json.loads(manifest_path.read_text(encoding="utf-8"))
+        cs = manifest.get("coverage_summary", {})
+        manifest_retained_days = cs.get("okx_funding_retained_days")
+        self.assertIsNotNone(manifest_retained_days,
+            "coverage_summary.okx_funding_retained_days must be recorded")
+
+        data = self._newest_real_response_probe()
+        okx_funding = self._funding_items(data, "okx_funding")
+        if not okx_funding:
+            self.skipTest("no OKX funding coverage in probe")
+        okx_start = okx_end = None
+        for item in okx_funding:
+            cov = item.get("coverage", {})
+            if not isinstance(cov, dict):
+                continue
+            s = self._parse_utc(cov.get("earliest_utc"))
+            e = self._parse_utc(cov.get("latest_utc"))
+            if s and (okx_start is None or s < okx_start):
+                okx_start = s
+            if e and (okx_end is None or e > okx_end):
+                okx_end = e
+        self.assertIsNotNone(okx_start, "OKX funding earliest_utc missing")
+        self.assertIsNotNone(okx_end, "OKX funding latest_utc missing")
+        computed_days = (okx_end - okx_start).total_seconds() / 86400.0
+        self.assertAlmostEqual(computed_days, manifest_retained_days, delta=1.0,
+            msg=f"OKX funding retained={computed_days:.1f} days "
+            f"({okx_start.isoformat()} to {okx_end.isoformat()}); "
+            f"manifest okx_funding_retained_days={manifest_retained_days}")
+
+    def test_okx_plus_binance_intersection_below_90_day_threshold(self):
+        """Independently recompute the OKX+Binance funding intersection
+        from probe coverage (OKX) and checksum-validated Binance overlap
+        sample, then assert it is below the FVD053 90-day prior-observation
+        threshold. The Binance funding end date is derived from the overlap
+        sample's binance_overlap_funding_range end (2026-09-30).
+        """
+        data = self._newest_real_response_probe()
+        okx_funding = self._funding_items(data, "okx_funding")
+        if not okx_funding:
+            self.skipTest("no OKX funding coverage in probe")
+        okx_start = okx_end = None
+        for item in okx_funding:
+            cov = item.get("coverage", {})
+            if not isinstance(cov, dict):
+                continue
+            s = self._parse_utc(cov.get("earliest_utc"))
+            e = self._parse_utc(cov.get("latest_utc"))
+            if s and (okx_start is None or s < okx_start):
+                okx_start = s
+            if e and (okx_end is None or e > okx_end):
+                okx_end = e
+        self.assertIsNotNone(okx_start, "OKX funding earliest_utc missing")
+        self.assertIsNotNone(okx_end, "OKX funding latest_utc missing")
+
+        overlap_path = self.STATE_DIR / "binance_overlap_sample_2026-10-26.json"
+        if not overlap_path.exists():
+            self.skipTest("binance overlap sample not found")
+        overlap = json.loads(overlap_path.read_text(encoding="utf-8"))
+        ca = overlap.get("coverage_analysis", {})
+        bn_overlap_range = ca.get("binance_overlap_funding_range", "")
+        bn_start_str = bn_end_str = None
+        if "to" in bn_overlap_range:
+            parts = bn_overlap_range.split(" to ")
+            if len(parts) == 2:
+                bn_start_str = parts[0].strip()
+                bn_end_str = parts[1].strip()
+        bn_end = self._parse_utc(f"{bn_end_str}T16:00:00Z")
+        bn_start = self._parse_utc(f"{bn_start_str}T00:00:00Z")
+        if bn_end is None or bn_start is None:
+            self.skipTest("cannot parse binance overlap funding range")
+
+        intersection_start = max(okx_start, bn_start)
+        intersection_end = min(okx_end, bn_end)
+        duration_days = (intersection_end - intersection_start).total_seconds() / 86400.0
+        self.assertLess(duration_days, 90,
+            f"OKX+Binance funding intersection={duration_days:.1f} days "
+            f"(OKX {okx_start.isoformat()} to {okx_end.isoformat()}, "
+            f"Binance to {bn_end.isoformat()}), expected <90 (FVD053 threshold)")
+
+    def test_manifest_common_days_internal_consistency(self):
+        """Verify coverage_summary.common_days equals
+        threshold_history_eligibility.prior_daily_observations_available
+        in the FVD-EXPLORATORY-003 manifest.
+        Documents that coverage_summary.common_days (65) is the authoritative
+        value, while threshold_history_eligibility.common_days (72) is a stale
+        field that does NOT match prior_daily_observations_available (65).
+        """
+        manifest_path = self.STATE_DIR / "exploratory_run_manifest_2026-10-27.json"
+        if not manifest_path.exists():
+            self.skipTest("exploratory manifest not found")
+        manifest = json.loads(manifest_path.read_text(encoding="utf-8"))
+        cs_common_days = manifest.get("coverage_summary", {}).get("common_days")
+        the = manifest.get("threshold_history_eligibility", {})
+        the_prior = the.get("prior_daily_observations_available")
+        the_common_days = the.get("common_days")
+        self.assertIsNotNone(cs_common_days, "coverage_summary.common_days missing")
+        self.assertIsNotNone(the_prior, "prior_daily_observations_available missing")
+        self.assertIsNotNone(the_common_days, "threshold_history_eligibility.common_days missing")
+        self.assertEqual(cs_common_days, the_prior,
+            f"coverage_summary.common_days ({cs_common_days}) must equal "
+            f"threshold_history_eligibility.prior_daily_observations_available "
+            f"({the_prior})")
+        self.assertNotEqual(the_common_days, cs_common_days,
+            "threshold_history_eligibility.common_days is expected to be a stale "
+            "field (72) that does NOT match the authoritative coverage_summary "
+            "common_days (65); if they now match, this test needs review")
+
 
 class CrossProbeDeterminismTests(unittest.TestCase):
     """Source-independent deterministic-resume validation across committed probes.
