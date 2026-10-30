@@ -66,6 +66,28 @@ def validate_manifest_artifacts(manifest_paths, root):
                 errors.append(f"{mf}: sha256 mismatch: {rel}")
             else:
                 pass
+        ref_probe = data.get("reference_probe")
+        ref_sha = data.get("reference_probe_sha256")
+        if ref_probe is not None:
+            if not isinstance(ref_probe, str):
+                errors.append(f"{mf}: reference_probe must be a string")
+            else:
+                candidates = [
+                    Path(root) / ref_probe,
+                    Path(root) / "research_state" / ref_probe,
+                ]
+                ref_path = next((c for c in candidates if c.is_file()), None)
+                if ref_path is None:
+                    errors.append(f"{mf}: reference_probe file missing: {ref_probe}")
+                elif ref_sha is not None:
+                    if not isinstance(ref_sha, str) or len(ref_sha) != 64:
+                        errors.append(f"{mf}: reference_probe_sha256 must be 64-hex: {ref_probe}")
+                    else:
+                        actual_ref = sha256_file(ref_path)
+                        if actual_ref != ref_sha:
+                            errors.append(f"{mf}: reference_probe_sha256 mismatch: {ref_probe}")
+        elif ref_sha is not None:
+            errors.append(f"{mf}: reference_probe_sha256 present without reference_probe")
     return errors
 
 

@@ -8,9 +8,9 @@ from validate_manifest_artifacts import validate_manifest_artifacts
 
 
 class TestManifestArtifacts(unittest.TestCase):
-    def _make(self, tmp, artifacts):
+    def _make(self, tmp, artifacts, **extra):
         m = Path(tmp) / "m.json"
-        m.write_text(json.dumps({"output_artifacts": artifacts}))
+        m.write_text(json.dumps({"output_artifacts": artifacts, **extra}))
         return m
 
     def test_empty_artifacts_pass(self):
@@ -89,6 +89,47 @@ class TestManifestArtifacts(unittest.TestCase):
             m.write_text("{bad")
             errs = validate_manifest_artifacts([m], d)
             self.assertTrue(len(errs) > 0)
+
+    def test_reference_probe_hash_matches_file(self):
+        with tempfile.TemporaryDirectory() as d:
+            p = Path(d) / "research_state" / "probe.json"
+            p.parent.mkdir(parents=True)
+            p.write_text("{}")
+            digest = hashlib.sha256(p.read_bytes()).hexdigest()
+            m = self._make(d, [], reference_probe="probe.json", reference_probe_sha256=digest)
+            self.assertEqual(validate_manifest_artifacts([m], d), [])
+
+    def test_reference_probe_missing_file_fails(self):
+        with tempfile.TemporaryDirectory() as d:
+            m = self._make(d, [], reference_probe="missing.json", reference_probe_sha256="a" * 64)
+            errs = validate_manifest_artifacts([m], d)
+            self.assertTrue(any("reference_probe file missing" in e for e in errs))
+
+    def test_reference_probe_hash_mismatch_fails(self):
+        with tempfile.TemporaryDirectory() as d:
+            p = Path(d) / "research_state" / "probe.json"
+            p.parent.mkdir(parents=True)
+            p.write_text("{}")
+            m = self._make(d, [], reference_probe="probe.json", reference_probe_sha256="0" * 64)
+            errs = validate_manifest_artifacts([m], d)
+            self.assertTrue(any("reference_probe_sha256 mismatch" in e for e in errs))
+
+    def test_reference_probe_sha_without_probe_fails(self):
+        with tempfile.TemporaryDirectory() as d:
+            m = self._make(d, [], reference_probe_sha256="a" * 64)
+            errs = validate_manifest_artifacts([m], d)
+            self.assertTrue(any("reference_probe_sha256 present without reference_probe" in e for e in errs))
+
+    def test_no_reference_probe_passes(self):
+        with tempfile.TemporaryDirectory() as d:
+            m = self._make(d, [])
+            self.assertEqual(validate_manifest_artifacts([m], d), [])
+
+    def test_committed_exploratory_003_reference_probe_validated(self):
+        root = Path(__file__).resolve().parents[1]
+        manifest = root / "research_state" / "exploratory_run_manifest_2026-10-27.json"
+        errs = validate_manifest_artifacts([manifest], root)
+        self.assertEqual(errs, [], f"reference_probe validation failed for FVD-EXPLORATORY-003: {errs}")
 
 
 if __name__ == "__main__":
