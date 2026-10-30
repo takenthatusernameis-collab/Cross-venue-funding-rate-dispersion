@@ -1998,5 +1998,246 @@ class ProbeMainTests(unittest.TestCase):
             self.assertFalse(data["performance_metrics_computed"])
 
 
+class CoverageMatrixSchemaTests(unittest.TestCase):
+    """Source-independent schema validation of the coverage matrix in committed
+    probe artifacts.
+
+    Validates that every committed probe JSON (matching the *_attempt_*.json
+    pattern) conforms to the expected schema: required top-level fields, route
+    entry metadata, stop-reason enum membership, HTTP status presence, response
+    hash well-formedness, coverage dict structure, and contract-identity
+    per-underlying schema. No network access; reads only committed artifacts.
+    """
+
+    STATE_DIR = ROOT / "research_state"
+
+    EXPECTED_TOP_LEVEL_FIELDS = {
+        "schema_version", "run_type", "status", "observed_at_utc",
+        "window_start_utc", "window_end_utc", "lookback_days_requested",
+        "candidate_assets_intersection", "candidate_asset_count",
+        "contract_identity", "routes", "source_responses_with_http_status",
+        "historical_coverage_gate", "original_confirmatory_gate",
+        "backtest_completed", "performance_metrics_computed", "limitations",
+    }
+
+    EXPECTED_STOP_REASONS = {
+        "max_pages_reached", "window_reached_or_page_not_full",
+        "window_start_reached",
+        "cursor_missing_or_nonprogressing", "cursor_stalled",
+        "no_rows_or_request_failed", "page_not_full",
+    }
+
+    EXPECTED_COVERAGE_FIELDS = {
+        "row_count", "timestamp_count", "unique_timestamp_count",
+        "duplicate_timestamps", "earliest_utc", "latest_utc",
+        "hourly_gap_count", "maximum_missing_hours_in_gap",
+    }
+
+    EXPECTED_ROUTE_METADATA_FIELDS = {
+        "url", "method", "request_sha256", "http_status",
+        "response_bytes_read", "response_sha256", "response_prefix_sha256",
+        "response_hash_complete", "response_shape", "latency_ms", "error",
+    }
+
+    EXPECTED_CONTRACT_IDENTITY_FIELDS = {
+        "evidence_level", "underlying_match", "settlement_match",
+        "hl_settle_known", "hl_settle_ccy", "okx_settle_ccy",
+        "hl_spec", "okx_spec", "limitations",
+    }
+
+    def _committed_probes(self):
+        probes = []
+        if not self.STATE_DIR.is_dir():
+            return probes
+        for path in sorted(self.STATE_DIR.glob("historical_overlap_probe_*_attempt_*.json")):
+            try:
+                data = json.loads(path.read_text(encoding="utf-8"))
+            except (OSError, json.JSONDecodeError):
+                continue
+            if isinstance(data, dict) and "historical_coverage_gate" in data:
+                probes.append((path, data))
+        return probes
+
+    def _is_hex_sha256(self, value):
+        return (
+            isinstance(value, str)
+            and len(value) == 64
+            and all(c in "0123456789abcdef" for c in value.lower())
+        )
+
+    def test_top_level_schema_fields_present(self):
+        """Every committed probe must contain all required top-level fields.
+        Probes predating the collect_contract_identity integration are exempt
+        from the contract_identity field check."""
+        CORE_TOP_LEVEL_FIELDS = self.EXPECTED_TOP_LEVEL_FIELDS - {"contract_identity"}
+        for path, data in self._committed_probes():
+            missing = CORE_TOP_LEVEL_FIELDS - set(data.keys())
+            self.assertEqual(missing, set(),
+                             f"{path.name}: missing top-level fields: {missing}")
+
+    def test_real_response_probes_have_http_status_for_all_routes(self):
+        """Every route entry in a real-response probe (source_responses_with_http_status > 0)
+        must carry request_json metadata with http_status — either at the entry top
+        level (non-paginated routes like meta/candles/binance) or inside each page
+        (paginated routes like fundingHistory/candles pagination)."""
+        for path, data in self._committed_probes():
+            if data.get("source_responses_with_http_status", 0) == 0:
+                continue
+            routes = data.get("routes", {})
+            for route_key, route_value in routes.items():
+                items = route_value if isinstance(route_value, list) else [route_value]
+                for item in items:
+                    if not isinstance(item, dict):
+                        continue
+                    if "pages" in item:
+                        for page in item["pages"]:
+                            if isinstance(page, dict):
+                                self.assertIn("http_status", page,
+                                              f"{path.name}.{route_key}: page missing http_status")
+                    else:
+                        self.assertIn("http_status", item,
+                                      f"{path.name}.{route_key}: missing http_status in non-paginated route entry")
+
+    def test_response_hash_well_formed_when_complete(self):
+        """When response_hash_complete is True, response_sha256 must be a 64-char hex digest."""
+        for path, data in self._committed_probes():
+            routes = data.get("routes", {})
+            all_entries = []
+            for route_key, route_value in routes.items():
+                items = route_value if isinstance(route_value, list) else [route_value]
+                for item in items:
+                    if isinstance(item, dict):
+                        all_entries.append((route_key, item))
+                    if isinstance(item, dict) and isinstance(item.get("pages"), list):
+                        for page in item["pages"]:
+                            if isinstance(page, dict):
+                                all_entries.append((route_key, page))
+            for route_key, entry in all_entries:
+                if entry.get("response_hash_complete") is True:
+                    sha = entry.get("response_sha256")
+                    self.assertIsNotNone(sha,
+                                         f"{path.name}.{route_key}: response_hash_complete=True but sha256 is None")
+                    self.assertTrue(self._is_hex_sha256(sha),
+                                    f"{path.name}.{route_key}: response_sha256 not valid 64-char hex: {sha}")
+                if entry.get("response_hash_complete") is False:
+                    prefix = entry.get("response_prefix_sha256")
+                    if prefix is not None:
+                        self.assertTrue(self._is_hex_sha256(prefix),
+                                        f"{path.name}.{route_key}: response_prefix_sha256 not valid 64-char hex: {prefix}")
+
+    def test_stop_reasons_from_expected_enum(self):
+        """Every stop_reason field in committed probes must be from the documented enum."""
+        for path, data in self._committed_probes():
+            routes = data.get("routes", {})
+            for route_key, route_value in routes.items():
+                items = route_value if isinstance(route_value, list) else [route_value]
+                for item in items:
+                    if isinstance(item, dict) and "stop_reason" in item:
+                        self.assertIn(item["stop_reason"], self.EXPECTED_STOP_REASONS,
+                                      f"{path.name}.{route_key}: unexpected stop_reason '{item['stop_reason']}'")
+
+    def test_coverage_dict_has_required_fields(self):
+        """Every coverage dict must contain all required summary fields."""
+        for path, data in self._committed_probes():
+            routes = data.get("routes", {})
+            for route_key, route_value in routes.items():
+                items = route_value if isinstance(route_value, list) else [route_value]
+                for item in items:
+                    if not isinstance(item, dict):
+                        continue
+                    coverage = item.get("coverage")
+                    if isinstance(coverage, dict):
+                        missing = self.EXPECTED_COVERAGE_FIELDS - set(coverage.keys())
+                        self.assertEqual(missing, set(),
+                                         f"{path.name}.{route_key}: coverage missing fields: {missing}")
+
+    def test_contract_identity_per_underlying_schema(self):
+        """Every per-underlying contract_identity entry in probes that have it
+        must contain required fields and have a valid evidence_level. Probes
+        predating collect_contract_identity integration are skipped."""
+        valid_levels = {"verified", "candidate", "unverified"}
+        checked = 0
+        for path, data in self._committed_probes():
+            ci = data.get("contract_identity")
+            if not isinstance(ci, dict):
+                continue
+            per = ci.get("per_underlying", {})
+            if not per:
+                continue
+            for base, info in per.items():
+                self.assertIsInstance(info, dict,
+                                      f"{path.name}: per_underlying[{base}] is not a dict")
+                missing = self.EXPECTED_CONTRACT_IDENTITY_FIELDS - set(info.keys())
+                self.assertEqual(missing, set(),
+                                 f"{path.name}.contract_identity[{base}]: missing fields: {missing}")
+                self.assertIn(info["evidence_level"], valid_levels,
+                              f"{path.name}.contract_identity[{base}]: invalid evidence_level '{info['evidence_level']}'")
+                checked += 1
+        self.assertGreater(checked, 0, "expected at least one probe with contract_identity per_underlying")
+
+    def test_gate_and_lockdown_top_level_invariants(self):
+        """Top-level gate and lockdown invariants: status must be SOURCE_PROBE_COMPLETED
+        or NETWORK_UNAVAILABLE_FROM_THIS_HOST; coverage gate must never be PASS;
+        confirmatory gate must remain BLOCKED_DATA_GATE; no backtest or metrics."""
+        valid_statuses = {"SOURCE_PROBE_COMPLETED",
+                          "NETWORK_UNAVAILABLE_FROM_THIS_HOST"}
+        for path, data in self._committed_probes():
+            self.assertIn(data["status"], valid_statuses,
+                          f"{path.name}: unexpected status '{data['status']}'")
+            self.assertNotEqual(data["historical_coverage_gate"], "PASS",
+                                f"{path.name}: historical_coverage_gate must never be PASS")
+            self.assertEqual(data["historical_coverage_gate"],
+                             "NOT_PASSED_BY_COVERAGE_PROBE",
+                             f"{path.name}: historical_coverage_gate must be NOT_PASSED_BY_COVERAGE_PROBE")
+            self.assertEqual(data["original_confirmatory_gate"], "BLOCKED_DATA_GATE",
+                             f"{path.name}: original_confirmatory_gate must remain BLOCKED_DATA_GATE")
+            self.assertFalse(data["backtest_completed"],
+                             f"{path.name}: backtest_completed must be False")
+            self.assertFalse(data["performance_metrics_computed"],
+                             f"{path.name}: performance_metrics_computed must be False")
+
+    def test_funding_routes_have_nonempty_rate_counts(self):
+        """Funding routes must report settled_rate_nonempty_count or
+        realized_rate_nonempty_count, depending on venue, as a non-negative integer."""
+        for path, data in self._committed_probes():
+            routes = data.get("routes", {})
+            for route_key in ("hyperliquid_funding", "okx_funding"):
+                items = routes.get(route_key, [])
+                if not isinstance(items, list) or not items:
+                    continue
+                for item in items:
+                    if not isinstance(item, dict):
+                        continue
+                    if route_key == "hyperliquid_funding":
+                        self.assertIn("settled_rate_nonempty_count", item,
+                                      f"{path.name}: hyperliquid_funding missing settled_rate_nonempty_count")
+                        self.assertIsInstance(item["settled_rate_nonempty_count"], int,
+                                              f"{path.name}: settled_rate_nonempty_count must be int")
+                        self.assertGreaterEqual(item["settled_rate_nonempty_count"], 0,
+                                                  f"{path.name}: settled_rate_nonempty_count must be non-negative")
+                    if route_key == "okx_funding":
+                        self.assertIn("realized_rate_nonempty_count", item,
+                                      f"{path.name}: okx_funding missing realized_rate_nonempty_count")
+                        self.assertIsInstance(item["realized_rate_nonempty_count"], int,
+                                              f"{path.name}: realized_rate_nonempty_count must be int")
+                        self.assertGreaterEqual(item["realized_rate_nonempty_count"], 0,
+                                                  f"{path.name}: realized_rate_nonempty_count must be non-negative")
+
+    def test_metadata_routes_have_source_and_field(self):
+        """Every route entry (including paginated and metadata-only routes)
+        must carry source and field identifiers."""
+        for path, data in self._committed_probes():
+            routes = data.get("routes", {})
+            for route_key, route_value in routes.items():
+                items = route_value if isinstance(route_value, list) else [route_value]
+                for item in items:
+                    if not isinstance(item, dict):
+                        continue
+                    self.assertIn("source", item,
+                                  f"{path.name}.{route_key}: missing source")
+                    self.assertIn("field", item,
+                                  f"{path.name}.{route_key}: missing field")
+
+
 if __name__ == "__main__":
     unittest.main()

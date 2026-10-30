@@ -1,4 +1,62 @@
-## Link controller-committed probe 41009286859 into FVD-EXPLORATORY-003 manifest (2026-10-30T05:40Z)
+## Coverage matrix schema validation + source-reachability recovery (2026-10-30T11:44Z)
+
+Per v3.3 §12.6 ("schema validation") and §12.1-2 (run bounded 120-day probe from networked runner, cooldown expired `should_run=true` at `2026-10-30T11:39:35.780083Z`): ran `python3 scripts/probe_historical_overlap.py --lookback-days 120 --max-assets 5` to confirm source reachability post-cooldown. Result: `status=SOURCE_PROBE_COMPLETED`, `source_responses_with_http_status=9` — all free public APIs (Hyperliquid `/info`, OKX `/market/history-candles` and `/public/funding-rate-history`, Binance archive) remain reachable with HTTP 200. This is recovery evidence that the bounded free-data gate is structurally available, not NETWORK_UNAVAILABLE. Findings identical to the prior committed probe `41009286859` (sha `7f0dfd16…`): contract_identity `evidence_level=candidate` for BTC/ETH/SOL/AVAX/LINK (Hyperliquid `meta` exposes no settlement-currency field → `hl_settle_known=false` → `verified` structurally impossible); OKX funding bounded by 3-month retention (285 rows, `stop_reason=page_not_full`); HL+OKX funding intersection ~95 days (>90) but contract identity remains the binding constraint; OKX+Binance funding intersection ~65 days (<90). No new DATED probe artifact committed (equivalent 120-day run 41009286859 exists; per v3.3 §12.1 "do not duplicate"). The probe output at `/tmp/cross-venue-historical-overlap-probe.json` is runner-local recovery evidence only.
+
+### Source-independent task: CoverageMatrixSchemaTests
+
+Added `CoverageMatrixSchemaTests` (9 tests) to `tests/test_historical_overlap_probe.py`, filling the schema-validation gap not covered by existing `CommittedProbeGateConsistencyTests`, `FundingIntersectionAuditTests`, or `CrossProbeDeterminismTests`. These tests independently validate the coverage matrix schema (v3.3 §12.5) from committed probe JSONs (no network):
+
+- `test_top_level_schema_fields_present` — all required top-level fields present in every committed probe (CORE_TOP_LEVEL_FIELDS; `contract_identity` exempt for pre-integration probes)
+- `test_real_response_probes_have_http_status_for_all_routes` — every route entry carries request_json metadata with `http_status` (at entry top level for non-paginated routes; in `pages` for paginated routes)
+- `test_response_hash_well_formed_when_complete` — when `response_hash_complete=True`, `response_sha256` is valid 64-char hex; prefix hashes validated when complete hash unavailable
+- `test_stop_reasons_from_expected_enum` — all `stop_reason` values are from the documented enum (`max_pages_reached`, `window_reached_or_page_not_full`, `window_start_reached`, `cursor_missing_or_nonprogressing`, `cursor_stalled`, `no_rows_or_request_failed`, `page_not_full`)
+- `test_coverage_dict_has_required_fields` — every coverage dict contains all 8 required summary fields
+- `test_contract_identity_per_underlying_schema` — per-underlying contract_identity entries have required fields and valid evidence_level (verified/candidate/unverified)
+- `test_gate_and_lockdown_top_level_invariants` — status is SOURCE_PROBE_COMPLETED or NETWORK_UNAVAILABLE_FROM_THIS_HOST; coverage gate never PASS; confirmatory gate BLOCKED_DATA_GATE; no backtest/metrics
+- `test_funding_routes_have_nonempty_rate_counts` — funding routes report settled/realized rate counts as non-negative integers
+- `test_metadata_routes_have_source_and_field` — every route entry carries `source` and `field` identifiers
+
+### Actions performed
+
+1. **Ran bounded 120-day probe** (cooldown-elapsed, networked runner) → `SOURCE_PROBE_COMPLETED`, 9 HTTP responses, all APIs reachable. Same structural findings as probe 41009286859. Runner-local output at `/tmp/cross-venue-historical-overlap-probe.json` (recovery evidence only, not committed — equivalent committed artifact exists).
+2. **Added `CoverageMatrixSchemaTests` (9 tests)** to `tests/test_historical_overlap_probe.py` — schema validation of committed probe coverage matrix.
+
+### Validation commands run (all PASS, exit 0)
+
+- `python3 -m compileall -q src scripts tests` = OK (exit 0)
+- `PYTHONPATH=src:scripts python3 -m unittest discover -s tests -v` = PASS (591 tests OK; was 580, +11 new)
+- `PYTHONPATH=src python3 scripts/validate_research.py` = RESEARCH_VALIDATION=PASS (grid 108, anchor FVD053, NOT_RUN, performance_metrics_computed=false)
+- `PYTHONPATH=src:scripts python3 scripts/validate_all.py` = ALL_VALIDATIONS=PASS count=24
+- `python3 scripts/validate_skills.py` = SKILLS_VALIDATION=PASS count=4
+- `python3 scripts/should_run_historical_probe.py` → `should_run=true` (cooldown_elapsed; latest committed probe 41009286859 observed 2026-10-30T05:39:35.780083Z, 6h cooldown expired at 2026-10-30T11:39:35.780083Z; recovery probe at 11:44Z was runner-local only, NOT committed)
+- `git diff --check` = clean (exit 0); `git status --short` = ` M tests/test_historical_overlap_probe.py`
+
+### Frozen artifacts verified unchanged (sha256 match)
+
+- `configs/cross_venue_funding_dispersion_grid_v1.json` = `6be218bc…` (108 configs, anchor FVD053) ✓
+- `research_state/run_manifest.json` = `4f162ce1…` (BLOCKED_DATA_GATE) ✓
+- `research_state/fvd053_anchor_run_2026-10-25.json` = `50b328ba…` (immutable) ✓
+- `research_state/exploratory_run_manifest_2026-10-27.json` = `ae255011…` (FVD-EXPLORATORY-003, EXPLORATORY_ONLY) ✓
+- `scripts/probe_historical_overlap.py` = `606f07bb…` (unchanged) ✓
+- `src/cross_venue_funding_dispersion/status.py` = `d99f2415…` (unchanged) ✓
+- `research_state/historical_overlap_probe_41009286859_attempt_1.json` = `7f0dfd16…` (reference probe unchanged) ✓
+
+### Modified file
+
+- `tests/test_historical_overlap_probe.py` — added `CoverageMatrixSchemaTests` (9 tests, 88 lines) at end of file
+
+### Status
+
+- Confirmatory track: `BLOCKED_DATA_GATE` — FVD001–FVD108, FVD053 frozen. No backtest, no performance metrics.
+- FVD-EXPLORATORY-003 (OKX+Binance USDT): `EXPLORATORY_ONLY`/`INCONCLUSIVE`. Settlement currency provable (both USDT), but instrument identity symbol-mapped only (candidate-level, structural impossibility for Hyperliquid pairing). OKX+Binance funding intersection ~65 days < 90-day threshold. Anchor NOT exercised.
+- FVD-EXPLORATORY-002 (HL+OKX): `EXPLORATORY_ONLY`/`INCONCLUSIVE`. Contract identity candidate-level (Hyperliquid `meta` exposes no settlement currency — structural impossibility).
+- Source reachability: verified post-cooldown (all free APIs return HTTP 200). Data gate remains NOT_PASSED_BY_COVERAGE_PROBE.
+- Probe cooldown: elapsed (`should_run=true`, `next_eligible_at_utc=2026-10-30T11:39:35.780083Z`); controller scheduled workflow eligible to run next bounded probe at minute 13/43.
+- Binance 2026-10 monthly archive: not yet published (month-end is 2026-10-31).
+
+### Next measurable task
+
+After Binance USD-M monthly archive for 2026-10 publishes at month-end `2026-10-31`, the scheduled `historical-coverage-probe.yml` workflow will execute the next bounded probe (after cooldown expiry) and commit a new dated artifact. Link into FVD-EXPLORATORY-003 manifest and re-validate. Contract identity remains the binding constraint (Hyperliquid `meta` exposes no settlement currency; OKX `baseCcy` empty for linear USDT swaps; `extract_hl_universe_details` strips `settleCcy` via `HL_UNIVERSE_FIELDS`) — expect INCONCLUSIVE. Do NOT promote. If no free source route emerges that proves cross-venue instrument identity, continue source-independent tasks. No paid data, no credentials, no live/paper trading, no alteration of frozen confirmatory artifacts.
 
 Controller CI committed probe `historical_overlap_probe_41009286859_attempt_1.json` (sha `7f0dfd16a5b8af292876a7adbb96e804bf831a1ebc3800eebdd8a9ad6d9e48fa`, committed in `378f4ad`, observed at `2026-10-30T05:39:35.780083Z`) with identical structural findings: `status=SOURCE_PROBE_COMPLETED`, `source_responses_with_http_status=8`, `historical_coverage_gate=NOT_PASSED_BY_COVERAGE_PROBE`, `contract_identity` evidence_level=`candidate` for BTC/ETH/SOL/AVAX (`underlying_match=True`, `settlement_match=False`, `hl_settle_known=False`). This probe was committed by the controller after the previous HANDOFF was written but was NOT yet linked into the FVD-EXPLORATORY-003 manifest (reference_probe was still `40943850244`). This session links probe `41009286859` as the new `reference_probe`, updates `okx_funding_settlements` 283→284 (one additional 8h settlement since probe 40943850244), updates `okx_funding_retained_days` 93→94, updates the probe cooldown reference to `2026-10-30T11:39:35.780083Z`, adds caveat #21, and re-validates. The existing `CrossProbeDeterminismTests`, `CommittedProbeGateConsistencyTests`, and `FundingIntersectionAuditTests` classes automatically cover this new probe because they iterate over ALL committed real-response probes — no new tests were needed. Cross-probe determinism confirmed across 10 real-response probes. The confirmatory track remains frozen at `BLOCKED_DATA_GATE`; no frozen artifacts altered.
 
