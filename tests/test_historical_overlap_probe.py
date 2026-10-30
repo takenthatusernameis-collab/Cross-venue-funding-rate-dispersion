@@ -855,6 +855,238 @@ class HyperliquidFundingPaginationTests(unittest.TestCase):
         self.assertEqual(result["pages_received"], 2)
 
 
+class HyperliquidCandleTests(unittest.TestCase):
+    """Offline known-answer tests for probe_hl_candles.
+
+    probe_hl_candles() makes a single request to Hyperliquid /info with the
+    candleSnapshot payload and computes a coverage summary. Unlike
+    probe_hl_funding, it does not paginate. These tests verify response
+    handling, coverage computation, gap detection, and metadata field
+    construction — filling the gap where probe_okx_candles and probe_hl_funding
+    each had dedicated test classes but probe_hl_candles had none.
+    """
+
+    def _make_meta(self, url):
+        return {
+            "url": url, "method": "POST",
+            "request_sha256": None, "http_status": 200,
+            "response_bytes_read": 100, "response_sha256": "fake",
+            "response_prefix_sha256": None, "response_hash_complete": True,
+            "response_shape": "json", "latency_ms": 10.0, "error": None,
+        }
+
+    @staticmethod
+    def _candle(ts_ms):
+        return [ts_ms, ts_ms + 60000, "100", "101", "99", "100", "10"]
+
+    def test_returns_metadata_with_source_and_window_fields(self):
+        """probe_hl_candles sets source, field, coin, window, and history_limit."""
+        start_ms = 1_700_000_000_000
+        end_ms = 1_700_086_400_000
+        rows = [self._candle(t) for t in range(start_ms, end_ms, 3_600_000)][:5]
+        with patch.object(probe, "request_json",
+                          return_value=(self._make_meta(probe.HYPERLIQUID), rows)):
+            result = probe.probe_hl_candles("BTC", start_ms, end_ms)
+        self.assertEqual(result["source"], "Hyperliquid")
+        self.assertEqual(result["field"], "1h candles")
+        self.assertEqual(result["coin"], "BTC")
+        self.assertEqual(result["history_limit_documented"], "most recent 5000 candles")
+        self.assertIsNotNone(result["window_start_utc"])
+        self.assertIsNotNone(result["window_end_utc"])
+
+    def test_coverage_computed_from_candle_rows(self):
+        """Coverage summary reflects row count, unique counts, and time range."""
+        start_ms = 1_000
+        end_ms = 1_000_000
+        times = [200_000, 200_000, 500_000, 800_000]
+        rows = [self._candle(t) for t in times]
+        with patch.object(probe, "request_json",
+                          return_value=(self._make_meta(probe.HYPERLIQUID), rows)):
+            result = probe.probe_hl_candles("ETH", start_ms, end_ms)
+        cov = result["coverage"]
+        self.assertEqual(cov["row_count"], 4)
+        self.assertEqual(cov["timestamp_count"], 4)
+        self.assertEqual(cov["unique_timestamp_count"], 3)
+        self.assertEqual(cov["duplicate_timestamps"], 1)
+
+    def test_non_list_response_yields_empty_coverage(self):
+        """When the API returns a non-list payload, coverage is empty and no error."""
+        start_ms = 1_000
+        end_ms = 1_000_000
+        with patch.object(probe, "request_json",
+                          return_value=(self._make_meta(probe.HYPERLIQUID), {"unexpected": True})):
+            result = probe.probe_hl_candles("SOL", start_ms, end_ms)
+        self.assertEqual(result["coverage"]["row_count"], 0)
+        self.assertEqual(result["coverage"]["unique_timestamp_count"], 0)
+
+    def test_none_response_yields_empty_coverage(self):
+        """When request_json returns None for parsed payload, coverage is empty."""
+        start_ms = 1_000
+        end_ms = 1_000_000
+        with patch.object(probe, "request_json",
+                          return_value=(self._make_meta(probe.HYPERLIQUID), None)):
+            result = probe.probe_hl_candles("AVAX", start_ms, end_ms)
+        self.assertEqual(result["coverage"]["row_count"], 0)
+
+    def test_empty_list_response_yields_empty_coverage(self):
+        """Empty candle list -> zero row_count and no gaps."""
+        start_ms = 1_000
+        end_ms = 1_000_000
+        with patch.object(probe, "request_json",
+                          return_value=(self._make_meta(probe.HYPERLIQUID), [])):
+            result = probe.probe_hl_candles("BTC", start_ms, end_ms)
+        self.assertEqual(result["coverage"]["row_count"], 0)
+        self.assertEqual(result["coverage"]["unique_timestamp_count"], 0)
+        self.assertEqual(result["coverage"]["hourly_gap_count"], 0)
+
+    def test_request_uses_candle_snapshot_nested_payload(self):
+        """The request payload must use candleSnapshot with nested req (not top-level coin)."""
+        captured = {}
+        def fake_request(url, payload=None, timeout=probe.TIMEOUT_SECONDS, opener=None):
+            captured["payload"] = payload
+            return self._make_meta(url), []
+        start_ms = 1_000
+        end_ms = 1_000_000
+        with patch.object(probe, "request_json", side_effect=fake_request):
+            probe.probe_hl_candles("BTC", start_ms, end_ms)
+        self.assertEqual(captured["payload"]["type"], "candleSnapshot")
+        self.assertEqual(captured["payload"]["req"], {
+            "coin": "BTC", "interval": "1h",
+            "startTime": start_ms, "endTime": end_ms,
+        })
+
+    def test_hourly_gap_detection_in_candle_rows(self):
+        """Gaps between consecutive hourly timestamps are detected.
+
+        Timestamps are in ms with 3_600_000 per hour. Gap from hour 1 to hour 7
+        spans 6 intervals, so 5 missing hours (6 - 1 = 5)."""
+        start_ms = 0
+        end_ms = 28_800_000
+        times = [0, 3_600_000, 25_200_000]
+        rows = [self._candle(t) for t in times]
+        with patch.object(probe, "request_json",
+                          return_value=(self._make_meta(probe.HYPERLIQUID), rows)):
+            result = probe.probe_hl_candles("BTC", start_ms, end_ms)
+        cov = result["coverage"]
+        self.assertEqual(cov["hourly_gap_count"], 1)
+        self.assertEqual(cov["maximum_missing_hours_in_gap"], 5)
+
+
+class ExtractHlUniverseDetailsTests(unittest.TestCase):
+    """Tests for extract_hl_universe_details — the metadata field-extraction
+    function that strips settlement-currency fields, which is the structural
+    reason hl_settle_known is always False in verify_contract_identity.
+
+    HL_UNIVERSE_FIELDS = (name, szDecimals, maxLeverage, marginTableId,
+                          displaySymbol, contractType, id)
+    settleCcy / settlementCurrency are NOT in this tuple, so they are
+    stripped before verify_contract_identity ever sees the HL details.
+    """
+
+    def test_strips_settlement_currency_fields(self):
+        """settleCcy and settlementCurrency must NOT appear in extracted details,
+        even if present in the raw meta universe entry. This is the code-level
+        root cause of the structural data-gate impossibility."""
+        meta = {"universe": [{
+            "name": "BTC",
+            "settleCcy": "USDC",
+            "settlementCurrency": "USDC",
+            "szDecimals": 6,
+            "maxLeverage": 40,
+        }]}
+        details = probe.extract_hl_universe_details(meta)
+        self.assertNotIn("settleCcy", details["BTC"])
+        self.assertNotIn("settlementCurrency", details["BTC"])
+
+    def test_includes_only_designated_hl_universe_fields(self):
+        """Only HL_UNIVERSE_FIELDS are retained; other fields are dropped."""
+        meta = {"universe": [{
+            "name": "ETH",
+            "szDecimals": 4,
+            "maxLeverage": 25,
+            "marginTableId": 55,
+            "displaySymbol": "$ETH",
+            "contractType": "Perpetual",
+            "id": 1,
+            "unwantedField": "should_not_appear",
+            "settleCcy": "USDC",
+        }]}
+        details = probe.extract_hl_universe_details(meta)
+        for field in probe.HL_UNIVERSE_FIELDS:
+            self.assertIn(field, details["ETH"])
+        self.assertNotIn("unwantedField", details["ETH"])
+        self.assertNotIn("settleCcy", details["ETH"])
+
+    def test_duplicate_names_first_wins(self):
+        """First occurrence of a name wins; subsequent duplicates are skipped."""
+        meta = {"universe": [
+            {"name": "BTC", "szDecimals": 6, "extra1": "first"},
+            {"name": "BTC", "szDecimals": 8, "extra1": "second"},
+        ]}
+        details = probe.extract_hl_universe_details(meta)
+        self.assertEqual(details["BTC"]["szDecimals"], 6)
+
+    def test_skips_entries_without_name(self):
+        """Entries missing 'name' or with name=None are skipped."""
+        meta = {"universe": [
+            {"name": "BTC", "szDecimals": 6},
+            {"other": "no_name_field"},
+            {"name": None, "szDecimals": 4},
+            {"name": "ETH", "szDecimals": 4},
+        ]}
+        details = probe.extract_hl_universe_details(meta)
+        self.assertIn("BTC", details)
+        self.assertIn("ETH", details)
+        self.assertEqual(len(details), 2)
+
+    def test_empty_or_malformed_input_returns_empty(self):
+        """Non-dict, missing universe, or non-list universe yields empty dict."""
+        self.assertEqual(probe.extract_hl_universe_details({}), {})
+        self.assertEqual(probe.extract_hl_universe_details(None), {})
+        self.assertEqual(probe.extract_hl_universe_details("string"), {})
+        self.assertEqual(probe.extract_hl_universe_details({"universe": None}), {})
+        self.assertEqual(probe.extract_hl_universe_details({"universe": "not_list"}), {})
+
+    def test_collect_contract_identity_cannot_reach_verified_for_stripped_settle(self):
+        """End-to-end proof of the structural data-gate impossibility: even if
+        Hyperliquid meta exposes settleCcy in the raw universe,
+        extract_hl_universe_details strips it, so collect_contract_identity ->
+        verify_contract_identity sees hl_settle=None and assigns 'candidate',
+        never 'verified', for any underlying match.
+
+        This is independent of whether the live API actually returns the field.
+        """
+        hl_meta = {"universe": [{
+            "name": "BTC",
+            "settleCcy": "USDC",
+            "szDecimals": 6,
+        }]}
+        okx_meta = {"code": "0", "data": [
+            {"instId": "BTC-USDT-SWAP", "baseCcy": "BTC", "settleCcy": "USDT",
+             "ctType": "linear", "state": "live"},
+        ]}
+        result = probe.collect_contract_identity(hl_meta, okx_meta, ("BTC",))
+        self.assertEqual(result["per_underlying"]["BTC"]["evidence_level"], "candidate")
+        self.assertFalse(result["per_underlying"]["BTC"]["hl_settle_known"])
+        self.assertFalse(result["per_underlying"]["BTC"]["settlement_match"])
+
+
+class OkxUrlTests(unittest.TestCase):
+    """Tests for okx_url — OKX URL builder with query parameter encoding."""
+
+    def test_okx_url_encodes_params(self):
+        url = probe.okx_url("/market/history-candles",
+                            {"instId": "BTC-USDT-SWAP", "bar": "1H", "limit": "300"})
+        self.assertTrue(url.startswith(probe.OKX + "/market/history-candles?"))
+        self.assertIn("instId=BTC-USDT-SWAP", url)
+        self.assertIn("bar=1H", url)
+        self.assertIn("limit=300", url)
+
+    def test_okx_url_handles_empty_params(self):
+        url = probe.okx_url("/public/instruments", {})
+        self.assertEqual(url, probe.OKX + "/public/instruments?")
+
+
 class UnwrapOkxTests(unittest.TestCase):
     """Tests for unwrap_okx — OKX paginated response unwrapping.
 
