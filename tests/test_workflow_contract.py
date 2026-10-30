@@ -4,6 +4,23 @@ from pathlib import Path
 ROOT=Path(__file__).resolve().parents[1]
 
 
+def _extract_yaml_step_shell(yaml_text: str, step_name: str) -> str:
+    lines=yaml_text.splitlines()
+    step=next(i for i,line in enumerate(lines) if f"- name: {step_name}" in line)
+    run=next(i for i in range(step,len(lines)) if lines[i].strip()=="run: |")
+    base_indent=len(lines[run])-len(lines[run].lstrip())+2
+    script=[]
+    for line in lines[run+1:]:
+        if line.strip():
+            indent=len(line)-len(line.lstrip())
+            if indent < base_indent:
+                break
+            script.append(line[base_indent:] if indent >= base_indent else "")
+        else:
+            script.append("")
+    return "\n".join(script)
+
+
 class WorkflowContractTests(unittest.TestCase):
     def test_kilo_loop_has_safety_and_recovery_controls(self):
         text=(ROOT/".github/workflows/main.yml").read_text(encoding="utf-8")
@@ -109,6 +126,28 @@ class WorkflowContractTests(unittest.TestCase):
         self.assertIn("contents: read",text)
         self.assertNotIn("contents: write",text)
         self.assertIn("python3 scripts/validate_research.py",text)
+
+    def test_coverage_probe_step_shell_parses_with_bash(self):
+        text=(ROOT/".github/workflows/main.yml").read_text(encoding="utf-8")
+        script=_extract_yaml_step_shell(
+            text,"Run and checkpoint bounded historical coverage before Kilo setup"
+        )
+        result=subprocess.run(["bash","-n"],input=script,text=True,capture_output=True,check=False)
+        self.assertEqual(result.returncode,0,result.stderr)
+
+    def test_bash_join_produces_real_newlines(self):
+        """Regression guard for v3.2: joining shell lines with a literal
+        backslash-n instead of a real newline would make bash -n parse a
+        malformed one-liner."""
+        yaml_text=(
+            '- name: test_step\n'
+            '  run: |\n'
+            '    echo first_line\n'
+            '    echo second_line\n'
+        )
+        script=_extract_yaml_step_shell(yaml_text,"test_step")
+        lines=script.split("\n")
+        self.assertEqual(lines,["echo first_line","echo second_line"])
 
 
 if __name__=="__main__":
