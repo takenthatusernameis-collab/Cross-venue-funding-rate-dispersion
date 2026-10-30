@@ -1774,5 +1774,229 @@ class CrossProbeDeterminismTests(unittest.TestCase):
             )
 
 
+class UtcIsoMsTests(unittest.TestCase):
+    """Tests for utc_iso_ms — the millisecond-to-UTC-ISO converter used throughout
+    the probe for window_start_utc, window_end_utc, earliest_utc, latest_utc.
+
+    Preserves the Z-suffix convention and exact ms→s→datetime semantics;
+    None passes through.
+    """
+
+    def test_none_passes_through(self):
+        self.assertIsNone(probe.utc_iso_ms(None))
+
+    def test_zero_is_unix_epoch_in_utc(self):
+        self.assertEqual(probe.utc_iso_ms(0), "1970-01-01T00:00:00Z")
+
+    def test_positive_ms_round_trips_to_iso_z(self):
+        result = probe.utc_iso_ms(1_700_000_000_000)
+        self.assertTrue(result.endswith("Z"),
+                        "utc_iso_ms must produce a Z-suffixed UTC ISO string")
+        self.assertEqual(result, "2023-11-14T22:13:20Z")
+
+    def test_negative_ms_before_epoch(self):
+        self.assertEqual(probe.utc_iso_ms(-3_600_000), "1969-12-31T23:00:00Z")
+
+
+class ExtractOkxInstrumentDetailsTests(unittest.TestCase):
+    """Tests for extract_okx_instrument_details — the function that extracts the
+    OKX_INSTRUMENT_SPEC_FIELDS subset from OKX linear USDT swap metadata.
+
+    Used by collect_contract_identity to feed verify_contract_identity.
+    Only directly tested through test_non_linear_okx_contracts_excluded_from_verification.
+    """
+
+    FULL_INSTRUMENT = {
+        "instId": "BTC-USDT-SWAP",
+        "baseCcy": "BTC",
+        "quoteCcy": "USDT",
+        "settleCcy": "USDT",
+        "ctType": "linear",
+        "state": "live",
+        "ctVal": "0.001",
+        "ctValCcy": "BTC",
+        "ctMult": "1",
+        "uly": "BTC-USDT",
+        "instIdCode": "BTC-USDT-SWAP",
+        "instFamily": "BTC-USDT",
+        "instCategory": "1",
+        "listTime": "1573557408000",
+        "lever": "75",
+        "tickSz": "0.1",
+        "lotSz": "1",
+        "minSz": "1",
+        "unwantedField": "should_not_appear",
+    }
+
+    def test_extracts_only_designated_fields(self):
+        payload = {"code": "0", "data": [dict(self.FULL_INSTRUMENT)]}
+        details = probe.extract_okx_instrument_details(payload)
+        self.assertIn("BTC", details)
+        for field in probe.OKX_INSTRUMENT_SPEC_FIELDS:
+            self.assertIn(field, details["BTC"],
+                          f"OKX_INSTRUMENT_SPEC_FIELDS field {field} must be retained")
+        self.assertNotIn("unwantedField", details["BTC"])
+
+    def test_filters_to_linear_usdt_only(self):
+        payload = {"code": "0", "data": [
+            dict(self.FULL_INSTRUMENT),
+            {"instId": "ETH-USD-SWAP", "baseCcy": "ETH", "quoteCcy": "USD",
+             "settleCcy": "USD", "ctType": "inverse", "state": "live"},
+            {"instId": "SOL-USDT-SWAP", "baseCcy": "SOL", "quoteCcy": "USDT",
+             "settleCcy": "USDT", "ctType": "linear", "state": "suspend"},
+        ]}
+        details = probe.extract_okx_instrument_details(payload)
+        self.assertEqual(list(details.keys()), ["BTC"],
+                         "only the live linear USDT BTC contract should be extracted")
+
+    def test_empty_and_malformed_payload_returns_empty(self):
+        self.assertEqual(probe.extract_okx_instrument_details({}), {})
+        self.assertEqual(probe.extract_okx_instrument_details({"code": "1", "data": []}), {})
+        self.assertEqual(probe.extract_okx_instrument_details({"code": "0"}), {})
+        self.assertEqual(probe.extract_okx_instrument_details(None), {})
+        self.assertEqual(probe.extract_okx_instrument_details("string"), {})
+
+    def test_first_occurrence_wins_for_duplicate_base(self):
+        first = dict(self.FULL_INSTRUMENT, ctVal="0.001")
+        second = dict(self.FULL_INSTRUMENT, ctVal="0.01")
+        payload = {"code": "0", "data": [first, second]}
+        details = probe.extract_okx_instrument_details(payload)
+        self.assertEqual(details["BTC"]["ctVal"], "0.001",
+                         "first occurrence of a base must win")
+
+
+class SummarizeRowsEdgeCaseTests(unittest.TestCase):
+    """Edge cases for summarize_rows — dict rows with timestamp_field=None."""
+
+    def test_dict_rows_without_timestamp_field_yield_zero_timestamps(self):
+        """When timestamp_field is None and rows are dicts, no timestamps
+        can be extracted (row[0] only works on list/tuple rows). The summary
+        must reflect zero timestamp_count rather than crashing."""
+        summary = probe.summarize_rows([{"foo": 1}, {"foo": 2}])
+        self.assertEqual(summary["row_count"], 2)
+        self.assertEqual(summary["timestamp_count"], 0)
+        self.assertEqual(summary["unique_timestamp_count"], 0)
+        self.assertEqual(summary["duplicate_timestamps"], 0)
+
+    def test_non_list_non_dict_rows_are_skipped(self):
+        """String and None entries within the rows list must be skipped, not crash."""
+        summary = probe.summarize_rows([[1000, 1], "junk", None, [2000, 1]], timestamp_field=0)
+        self.assertEqual(summary["row_count"], 4)
+        self.assertEqual(summary["timestamp_count"], 2)
+
+
+class RunProbeAssetSelectionTests(unittest.TestCase):
+    """Tests for run_probe's instrument selection logic — partial intersection,
+    PRIORITY_BASES fallback, and zero-asset edge case. These verify the probe's
+    candidate_asset_intersection construction from mocked metadata responses.
+    """
+
+    def _meta(self, sha="meta"):
+        return {
+            "url": "https://api.hyperliquid.xyz/info", "method": "POST",
+            "request_sha256": None, "http_status": 200,
+            "response_bytes_read": 100, "response_sha256": sha,
+            "response_prefix_sha256": None, "response_hash_complete": True,
+            "response_shape": "json", "latency_ms": 10.0, "error": None,
+        }
+
+    def _make_fake_request(self, hl_bases, okx_bases):
+        hl_meta = {"universe": [{"name": b} for b in hl_bases]}
+        okx_meta_payload = {"code": "0", "data": [
+            {"instId": f"{b}-USDT-SWAP", "baseCcy": b, "quoteCcy": "USDT",
+             "settleCcy": "USDT", "ctType": "linear", "state": "live",
+             "uly": f"{b}-USDT", "ctVal": "1", "ctMult": "1", "listTime": "1"}
+            for b in okx_bases
+        ]}
+
+        def fake_request(url, payload=None, timeout=probe.TIMEOUT_SECONDS, opener=None):
+            if payload is not None and payload.get("type") == "meta":
+                return self._meta("hl_meta"), hl_meta
+            if "instruments" in url:
+                return self._meta("okx_meta"), okx_meta_payload
+            return self._meta("other"), None
+
+        return fake_request
+
+    def test_partial_intersection_falls_back_to_priority_bases(self):
+        """When only 2 of TARGET_FIVE are available, PRIORITY_BASES fills up to max_assets.
+
+        TARGET_FIVE = BTC, ETH, SOL, AVAX, LINK. If only BTC and ETH exist on
+        both venues, PRIORITY_BASES fills from HYPE, ARB, OP (earlier in the
+        priority list) up to max_assets=4.
+        """
+        hl_bases = ("BTC", "ETH", "HYPE", "ARB", "OP")
+        okx_bases = ("BTC", "ETH", "HYPE", "ARB", "OP")
+        fake_request = self._make_fake_request(hl_bases, okx_bases)
+        with patch.object(probe, "request_json", side_effect=fake_request):
+            report = probe.run_probe(120, 4)
+        self.assertEqual(report["candidate_asset_count"], 4)
+        intersection = report["candidate_assets_intersection"]
+        self.assertEqual(intersection, ["BTC", "ETH", "HYPE", "ARB"])
+
+    def test_truncation_to_max_assets(self):
+        """run_probe must truncate the intersection to max_assets."""
+        hl_bases = ("BTC", "ETH", "SOL", "AVAX", "LINK")
+        okx_bases = ("BTC", "ETH", "SOL", "AVAX", "LINK")
+        fake_request = self._make_fake_request(hl_bases, okx_bases)
+        with patch.object(probe, "request_json", side_effect=fake_request):
+            report = probe.run_probe(120, 3)
+        self.assertEqual(report["candidate_asset_count"], 3)
+        self.assertEqual(len(report["candidate_assets_intersection"]), 3)
+        self.assertEqual(report["candidate_assets_intersection"], ["BTC", "ETH", "SOL"])
+
+    def test_zero_common_assets_yields_empty_intersection(self):
+        """No common base between HL and OKX -> empty intersection, count 0."""
+        hl_bases = ("BTC", "ETH")
+        okx_bases = ("SOL", "AVAX")
+        fake_request = self._make_fake_request(hl_bases, okx_bases)
+        with patch.object(probe, "request_json", side_effect=fake_request):
+            report = probe.run_probe(120, 4)
+        self.assertEqual(report["candidate_asset_count"], 0)
+        self.assertEqual(report["candidate_assets_intersection"], [])
+        ci = report["contract_identity"]
+        self.assertEqual(ci["target_underlyings"], [])
+        self.assertEqual(ci["per_underlying"], {})
+
+    def test_all_five_targets_available_no_fallback_needed(self):
+        """When all TARGET_FIVE bases are available, no PRIORITY_BASES fallback occurs."""
+        hl_bases = ("BTC", "ETH", "SOL", "AVAX", "LINK")
+        okx_bases = ("BTC", "ETH", "SOL", "AVAX", "LINK")
+        fake_request = self._make_fake_request(hl_bases, okx_bases)
+        with patch.object(probe, "request_json", side_effect=fake_request):
+            report = probe.run_probe(120, 4)
+        self.assertEqual(report["candidate_asset_count"], 4)
+        self.assertEqual(report["candidate_assets_intersection"], ["BTC", "ETH", "SOL", "AVAX"])
+
+
+class ProbeMainTests(unittest.TestCase):
+    """Tests for the CLI main() entry point of probe_historical_overlap.py.
+
+    Verifies output file creation, JSON output format, and return code. Uses
+    mocks to avoid network; all source-independent.
+    """
+
+    def test_main_writes_valid_json_and_returns_zero(self):
+        import tempfile, json as _json
+        with tempfile.TemporaryDirectory() as tmp:
+            outfile = Path(tmp) / "probe_output.json"
+            with patch.object(probe, "request_json", return_value=(
+                {"url": "x", "method": "POST", "request_sha256": None, "http_status": None,
+                 "response_bytes_read": None, "response_sha256": None,
+                 "response_prefix_sha256": None, "response_hash_complete": False,
+                 "response_shape": None, "latency_ms": 0.0, "error": "URLError: no network"},
+                None
+            )):
+                rc = probe.main(["--lookback-days", "120", "--max-assets", "1", "--output", str(outfile)])
+            self.assertEqual(rc, 0)
+            self.assertTrue(outfile.exists())
+            data = _json.loads(outfile.read_text(encoding="utf-8"))
+            self.assertEqual(data["status"], "NETWORK_UNAVAILABLE_FROM_THIS_HOST")
+            self.assertEqual(data["historical_coverage_gate"], "NOT_PASSED_BY_COVERAGE_PROBE")
+            self.assertEqual(data["original_confirmatory_gate"], "BLOCKED_DATA_GATE")
+            self.assertFalse(data["backtest_completed"])
+            self.assertFalse(data["performance_metrics_computed"])
+
+
 if __name__ == "__main__":
     unittest.main()

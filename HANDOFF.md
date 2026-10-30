@@ -1,4 +1,61 @@
-## Add source-independent tests for probe_hl_candles + extract_hl_universe_details + okx_url (2026-10-30T00:45Z)
+## Added source-independent tests for utc_iso_ms, extract_okx_instrument_details, summarize_rows, run_probe asset selection, probe main (2026-10-30T00:55Z)
+
+Per active prompt v3.3 §12.6/§12.7 ("execute another useful independent task: known-answer tests, adversarial tests, result/schema validation, independent recomputation") and AGENTS.md adaptive research-gate policy §5 ("do not merely write another blocker memo; complete the next bounded, no-cost exploratory task"): the data gate remains structurally blocked (probe cooldown active `should_run=false`, `next_eligible_at_utc=2026-10-30T02:25:02.942165Z`; Binance 2026-10 monthly archive pending month-end `2026-10-31`; contract identity evidence_level=candidate structural impossibility). No network probe re-dispatched, no paid data/credentials, no live/paper trading, no frozen artifact altered.
+
+### Exact failed requirement (unchanged)
+
+`contract_identity` evidence_level = `candidate` for BTC/ETH/SOL/AVAX on every pairing in probe `historical_overlap_probe_40943850244_attempt_1.json` (sha `edaa31e0fa2937f0c66c66f82cb4934dabf9f6e6bf6b0a5c3e8f1d367ac65335`). `scripts/probe_historical_overlap.py:174` `verify_contract_identity` requires `underlying_match=True` AND `settlement_match=True` AND `hl_settle_known=True` to assign `verified`. `hl_settle_known` depends on `hl.get("settleCcy") or hl.get("settlementCurrency")` — and (a) Hyperliquid's `meta` endpoint exposes neither field, and (b) `extract_hl_universe_details` (`probe_historical_overlap.py:130`, `HL_UNIVERSE_FIELDS` at line 117) strips those fields before `verify_contract_identity` is ever called — so `hl_settle_known` is always `False`, making `verified` structurally impossible.
+
+### Actions performed
+
+Added 15 source-independent tests to `tests/test_historical_overlap_probe.py` covering 5 previously untested functions:
+
+- **`UtcIsoMsTests` (4 tests)** — `utc_iso_ms`: `None` passthrough, zero→epoch, positive ms→Z-suffix ISO, negative ms→before-epoch.
+- **`ExtractOkxInstrumentDetailsTests` (4 tests)** — `extract_okx_instrument_details`: extracts only `OKX_INSTRUMENT_SPEC_FIELDS`, filters to live linear USDT swaps, empty/malformed payloads, first-occurrence-wins for duplicate base.
+- **`SummarizeRowsEdgeCaseTests` (2 tests)** — `_meta_payload_to_universe`/`summarize_rows`: dict rows with `timestamp_field=None` (zero timestamps, no crash), non-list/non-dict rows skipped.
+- **`RunProbeAssetSelectionTests` (4 tests)** — `run_probe` asset selection: partial intersection→PRIORITY_BASES fallback, truncation to max_assets, zero common assets→empty, all five targets available (no fallback).
+- **`ProbeMainTests` (1 test)** — `main()` writes valid JSON to `--output`, returns 0, preserves status/coverage/gate flags.
+
+### Validation commands run (all PASS, exit 0)
+
+- `python3 -m compileall -q src scripts tests` = OK (exit 0)
+- `PYTHONPATH=src:scripts python3 -m unittest discover -s tests -v` = PASS (580 tests OK; was 565, +15 new)
+- `PYTHONPATH=src python3 scripts/validate_research.py` = RESEARCH_VALIDATION=PASS (grid 108, anchor FVD053, NOT_RUN, performance_metrics_computed=false)
+- `PYTHONPATH=src:scripts python3 scripts/validate_all.py` = ALL_VALIDATIONS=PASS count=24
+- `python3 scripts/validate_skills.py` = SKILLS_VALIDATION=PASS count=4
+- `PYTHONPATH=src python3 scripts/should_run_historical_probe.py` → `should_run=false` (cooldown active, next_eligible_at_utc=2026-10-30T02:25:02.942165Z)
+- `git diff --check` = clean (exit 0); `git status --short` = ` M tests/test_historical_overlap_probe.py`
+
+### Frozen artifacts verified unchanged (sha256 match)
+
+- `configs/cross_venue_funding_dispersion_grid_v1.json` = `6be218bc84bf118cf67c238ad1c13ef1e445658db3b1346cd64ccaccc7aa5f07` (108 configs, anchor FVD053)
+- `research_state/run_manifest.json` = `4f162ce128c741434addf6aa2fa7c7dbf1bf189d4a81b8893ed96899412c7aaf` (BLOCKED_DATA_GATE)
+- `research_state/fvd053_anchor_run_2026-10-25.json` = `50b328baf5854dec40105a0f5ebe498bf589906f9c033ce659843659927ca4c2`
+- `research_state/exploratory_run_manifest_2026-10-27.json` = `6d831a7615def367e525032c8dd6f962178a29c6e591eff4c89a2d8536e634c9` (FVD-EXPLORATORY-003)
+- `scripts/probe_historical_overlap.py` = `606f07bb27b1b9f4e1a723b8ac42acac7f9741dd6000d6968218a37047acfa09` (unchanged)
+- `src/cross_venue_funding_dispersion/status.py` = `d99f24152c4bd364103355bbb6ee12df10dcd50eb39e69bd9afb487b0bb3e2a0` (unchanged)
+- `research_state/historical_overlap_probe_40943850244_attempt_1.json` = `edaa31e0fa2937f0c66c66f82cb4934dabf9f6e6bf6b0a5c3e8f1d367ac65335` (unchanged)
+
+### Modified file
+
+- `tests/test_historical_overlap_probe.py` — new sha256 `1b4c8a60657369a9004acd3787ca1fdfad9e5c34dd866bec98565c17a7f39f90` (+224 lines, +15 tests in 5 new test classes)
+
+### Status
+
+- Confirmatory track: `BLOCKED_DATA_GATE` — FVD001–FVD108, FVD053 frozen. No backtest, no performance metrics.
+- FVD-EXPLORATORY-003 (OKX+Binance USDT): `EXPLORATORY_ONLY`/`INCONCLUSIVE`. Contract identity binding constraint (evidence_level=candidate, hl_settle_known=false — structural free-source impossibility). No backtest, no metrics.
+- FVD-EXPLORATORY-002 (HL+OKX): `EXPLORATORY_ONLY`/`INCONCLUSIVE`. Contract identity candidate-level (Hyperliquid `meta` exposes no settlement currency).
+- Probe cooldown: active, `should_run=false`, `next_eligible_at_utc=2026-10-30T02:25:02.942165Z`.
+- Binance 2026-10 monthly archive: not yet published (month-end is 2026-10-31).
+
+### Next measurable task
+
+1. Check probe cooldown: after `2026-10-30T02:25:02Z`, run `python3 scripts/should_run_historical_probe.py`; if `should_run=true`, scheduled workflow executes bounded 120-day probe and commits new artifact.
+2. After Binance 2026-10 monthly archive publishes at month-end `2026-10-31`, link new probe into FVD-EXPLORATORY-003 manifest and re-validate.
+3. Contract identity remains binding regardless of duration — expect FVD-EXPLORATORY-003 to remain INCONCLUSIVE. Do NOT promote.
+4. Continue source-independent verification tasks (red-team audit, workflow contract, known-answer tests, manifest/schema validation) per v3.3 §12.6. No paid data, no credentials, no live/paper trading, no alteration of frozen confirmatory artifacts.
+
+
 
 Per v3.3 §12 step 6 ("execute another useful independent task in the existing codebase: source-independent accounting checks, adversarial tests, result/schema validation, independent recomputation or deterministic resume validation") and AGENTS.md adaptive research-gate policy §5 ("do not merely write another blocker memo; complete the next bounded, no-cost exploratory task"): the data gate remains structurally blocked — probe `40943850244` confirms `historical_coverage_gate=NOT_PASSED_BY_COVERAGE_PROBE`, `original_confirmatory_gate=BLOCKED_DATA_GATE`, `contract_identity` evidence_level=`candidate` for BTC/ETH/SOL/AVAX (Hyperliquid `meta` exposes no settlement-currency field → `hl_settle_known=false` → `evidence_level` can never reach `verified`; structural free-source impossibility). Probe cooldown active (`should_run=false`, `next_eligible_at_utc=2026-10-30T02:25:02.942165Z`); Binance USD-M monthly archive for 2026-10 not yet published (month-end `2026-10-31`). No network probe re-dispatched, no paid data/credentials, no live/paper trading, no frozen artifact altered.
 
