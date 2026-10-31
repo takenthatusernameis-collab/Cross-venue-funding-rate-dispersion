@@ -103,6 +103,16 @@ class ManifestSchemaTests(unittest.TestCase):
         with self.assertRaises(SystemExit):
             validate_contract(bad, CONFIRMATORY, allow_extra=False)
 
+    def test_reference_probe_sha256_must_be_64_hex(self):
+        bad = dict(BASE_MANIFEST, reference_probe_sha256="not-a-sha256")
+        with self.assertRaises(SystemExit):
+            validate_contract(bad, EXPLORATORY, allow_extra=True)
+
+    def test_parent_exploratory_manifest_sha256_must_be_64_hex(self):
+        bad = dict(BASE_MANIFEST, parent_exploratory_manifest_sha256="not-a-sha256")
+        with self.assertRaises(SystemExit):
+            validate_contract(bad, EXPLORATORY, allow_extra=True)
+
     def test_hash_map_value_must_be_64_hex(self):
         bad = dict(BASE_MANIFEST, source_code_hashes={"foo": "not-a-sha256"})
         with self.assertRaises(SystemExit):

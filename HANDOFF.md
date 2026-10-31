@@ -1,3 +1,66 @@
+## Parent-exploratory-manifest sha256 field validation (2026-10-31T02:40Z)
+
+Per v3.3 §12.6 ("result/schema validation"): found and fixed a gap where `validate_manifest_artifacts.py` validated `output_artifacts` and `reference_probe`/`reference_probe_sha256` hashes, but did NOT validate the exploratory manifest's `parent_exploratory_manifest` / `parent_exploratory_manifest_sha256` fields. FVD-EXPLORATORY-003 has these fields but no automated test enforced their consistency. The data gate remains structurally blocked (probe cooldown active `should_run=false`, next_eligible 2026-10-31T03:44:51Z; Binance 2026-10 monthly archive not yet published; contract identity candidate-level). No network probe re-dispatched, no paid data/credentials, no live/paper trading, no frozen artifact altered.
+
+### Actions performed
+
+1. **Added `parent_exploratory_manifest` / `parent_exploratory_manifest_sha256` validation to `scripts/validate_manifest_artifacts.py`**: for every manifest that has a `parent_exploratory_manifest` field, verifies the referenced file exists (resolving both direct path and `research_state/` prefix forms), verifies `parent_exploratory_manifest_sha256` matches the actual file hash, and fails closed if the sha is present without the path or if the file is missing. This mirrors the existing `reference_probe` validation pattern and is a source-independent result/schema validation.
+
+2. **Added 5 tests to `tests/test_manifest_artifacts.py`**:
+   - `test_parent_manifest_hash_matches_file` — valid parent_manifest + matching sha256 passes
+   - `test_parent_manifest_missing_file_fails` — missing file fails
+   - `test_parent_manifest_hash_mismatch_fails` — wrong sha256 fails
+   - `test_parent_manifest_sha_without_path_fails` — sha without parent path fails
+   - `test_committed_exploratory_003_parent_manifest_validated` — integration test: committed FVD-EXPLORATORY-003 manifest's parent manifest consistency is valid (verifies parent sha256 `08bbecf1...` matches actual `exploratory_run_manifest_2026-10-25.json`)
+
+### Validation commands run (all PASS, exit 0)
+
+- `python3 -m compileall -q src scripts tests` = OK (exit 0)
+- `PYTHONPATH=src:scripts python3 -m unittest discover -s tests -v` = PASS (607 tests OK; was 602, +5 new)
+- `PYTHONPATH=src:scripts python3 -m unittest tests.test_manifest_artifacts -v` = 22 tests OK (17 prior + 5 new)
+- `PYTHONPATH=src:scripts python3 scripts/validate_all.py` = ALL_VALIDATIONS=PASS count=24
+- `PYTHONPATH=src:scripts python3 scripts/validate_manifest_artifacts.py` = MANIFEST_ARTIFACTS_VALIDATION=PASS (all parent manifest hashes match)
+- `PYTHONPATH=src:scripts python3 scripts/validate_manifest_schema.py` = MANIFEST_SCHEMA_VALIDATION=PASS
+- `PYTHONPATH=src:scripts python3 scripts/validate_track_separation.py` = TRACK_SEPARATION_VALIDATION=PASS
+- `PYTHONPATH=src:scripts python3 scripts/validate_research_state_artifacts.py` = RESEARCH_STATE_ARTIFACTS_VALIDATION=PASS files=47
+- `PYTHONPATH=src:scripts python3 scripts/validate_blocked_manifest_claims.py` = BLOCKED_MANIFEST_CLAIMS_VALIDATION=PASS
+- `PYTHONPATH=src:scripts python3 scripts/validate_no_performance_claims.py` = NO_PERFORMANCE_CLAIMS_VALIDATION=PASS
+- `PYTHONPATH=src python3 scripts/validate_research.py` = RESEARCH_VALIDATION=PASS (grid 108, anchor FVD053, NOT_RUN, performance_metrics_computed=false)
+- `PYTHONPATH=src:scripts python3 scripts/validate_controller_progress.py` = CONTROLLER_PROGRESS_VALIDATION=PASS
+- `PYTHONPATH=src python3 scripts/validate_skills.py` = SKILLS_VALIDATION=PASS count=4
+- `PYTHONPATH=src python3 scripts/should_run_historical_probe.py` → `should_run=false` (cooldown active, `next_eligible_at_utc=2026-10-31T03:44:51.381114Z`)
+- `git diff --check` = clean (exit 0); `git status --short` = ` M scripts/validate_manifest_artifacts.py` ` M tests/test_manifest_artifacts.py`
+
+### Frozen artifacts verified unchanged (sha256 match)
+
+- `configs/cross_venue_funding_dispersion_grid_v1.json` = `6be218bc84bf118cf67c238ad1c13ef1e445658db3b1346cd64ccaccc7aa5f07` (108 configs, anchor FVD053) ✓
+- `research_state/run_manifest.json` = `4f162ce128c741434addf6aa2fa7c7dbf1bf189d4a81b8893ed96899412c7aaf` (BLOCKED_DATA_GATE) ✓
+- `research_state/fvd053_anchor_run_2026-10-25.json` = `50b328baf5854dec40105a0f5ebe498bf589906f9c033ce659843659927ca4c2` (immutable) ✓
+- `research_state/exploratory_run_manifest_2026-10-25.json` = `08bbecf10f80f46b3d56e62e5c82ce44915840b25612307c0d7026f7a9905f1f` (FVD-EXPLORATORY-002, parent of FVD-EXPLORATORY-003, unchanged) ✓
+- `research_state/exploratory_run_manifest_2026-10-27.json` = `eb62c2d60563ebb4c6603e10a33b4a921db9639d794d9074b8e787a76801f224` (FVD-EXPLORATORY-003, unchanged — no frozen fields modified) ✓
+- `scripts/probe_historical_overlap.py` = `606f07bb27b1b9f4e1a723b8ac42acac7f9741dd6000d6968218a37047acfa09` (unchanged) ✓
+- `src/cross_venue_funding_dispersion/status.py` = `d99f24152c4bd364103355bbb6ee12df10dcd50eb39e69bd9afb487b0bb3e2a0` (unchanged) ✓
+- `research_state/historical_overlap_probe_41131062906_attempt_1.json` = latest probe (linked as reference_probe in FVD-EXPLORATORY-003) ✓
+
+### Modified files (uncommitted, working tree)
+
+- `scripts/validate_manifest_artifacts.py` — added parent_exploratory_manifest / parent_exploratory_manifest_sha256 consistency validation (mirrors existing reference_probe validation pattern)
+- `tests/test_manifest_artifacts.py` — added 5 tests covering parent manifest hash validation + integration test on committed FVD-EXPLORATORY-003 manifest
+
+### Status
+
+- Confirmatory track: `BLOCKED_DATA_GATE` — FVD001–FVD108, FVD053 frozen. No backtest, no performance metrics. The `>=3-year historical point-in-time market-cap rank` gate remains structurally blocked across all tested free sources.
+- FVD-EXPLORATORY-003 (OKX+Binance USDT): `EXPLORATORY_ONLY`/`INCONCLUSIVE`. Contract identity candidate-level (Hyperliquid `meta` exposes no settleCcy; OKX baseCcy empty for linear USDT swaps — structural impossibility). OKX+Binance funding intersection ~65 days < 90-day threshold. Anchor NOT exercised. No backtest, no metrics.
+- FVD-EXPLORATORY-002 (HL+OKX): `EXPLORATORY_ONLY`/`INCONCLUSIVE`. Funding intersection ~95 days exceeds threshold, but contract identity candidate-level (structural impossibility). Anchor exercised as coverage run only (no metrics).
+- Probe cooldown: active, `should_run=false`, `next_eligible_at_utc=2026-10-31T03:44:51.381114Z`.
+- Cross-probe determinism: verified across 12 real-response probes (40248932339 through 41131062906) — identical contract identity evidence_level=candidate, identical funding intervals, identical gate/lockdown flags.
+- Binance 2026-10 monthly archive: not yet published (month-end UTC 2026-10-31T23:59:59Z). Binance 2026-09 archives verified available (control check matches `binance_monthly_archive_availability_2026-10-27.json`).
+
+### Next measurable task
+
+Schedule wakeup at 2026-10-31T04:30Z (after probe cooldown expiry at 03:44:51Z and controller scheduled workflow runs at 04:13Z). Check git log for a new controller-committed probe; if new probe exists, verify gate/lockdown consistency, link into FVD-EXPLORATORY-003 manifest (update reference_probe / reference_probe_sha256 / output_artifacts + okx_funding_settlements / okx_funding_retained_days counts); re-run validate_manifest_artifacts.py (now also validates parent_exploratory_manifest_sha256) and full test suite (607 tests). Expected structural finding: identical to probe 41131062906 (contract identity candidate-level, NOT_PASSED_BY_COVERAGE_PROBE, BLOCKED_DATA_GATE preserved). After Binance publishes the 2026-10 monthly archive (post-UTC month-end 2026-10-31T23:59:59Z), reassess the OKX+Binance funding intersection duration — but contract identity remains the binding constraint regardless. Do NOT promote. No paid data, no credentials, no live/paper trading, no alteration of frozen confirmatory artifacts.
+
+---
 ## Source-independent verification: Binance+Hyperliquid duration vs contract identity (2026-10-31T02:12Z)
 
 Per v3.3 §12.6 ("execute another useful independent task in the existing codebase: source-independent accounting checks, adversarial tests, result/schema validation, independent recomputation") and AGENTS.md adaptive research-gate policy §5 ("do not merely write another blocker memo"): the data gate remains structurally blocked (probe cooldown active `should_run=false`, `next_eligible_at_utc=2026-10-31T03:44:51.381114Z`; Binance 2026-10 monthly archive 404 — month-end UTC 2026-10-31T23:59:59Z not yet passed; contract identity structural impossibility). No network probe re-dispatched (cooldown active), no paid data/credentials, no live/paper trading, no frozen artifact altered.

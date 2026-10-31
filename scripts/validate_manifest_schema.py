@@ -32,7 +32,7 @@ REQUIRED_KEYS = (
     "backtest_completed", "performance_metrics_computed",
     "historical_point_in_time_market_cap_gate", "output_artifacts", "caveats",
 )
-SHA256_KEYS = ("grid_config_sha256", "source_manifest_sha256", "sha256")
+SHA256_KEYS = ("grid_config_sha256", "source_manifest_sha256", "sha256", "reference_probe_sha256", "parent_exploratory_manifest_sha256")
 HASH_MAP_KEYS = ("source_code_hashes", "config_hashes")
 
 

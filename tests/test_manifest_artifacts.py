@@ -131,6 +131,42 @@ class TestManifestArtifacts(unittest.TestCase):
         errs = validate_manifest_artifacts([manifest], root)
         self.assertEqual(errs, [], f"reference_probe validation failed for FVD-EXPLORATORY-003: {errs}")
 
+    def test_parent_manifest_hash_matches_file(self):
+        with tempfile.TemporaryDirectory() as d:
+            p = Path(d) / "research_state" / "parent.json"
+            p.parent.mkdir(parents=True)
+            p.write_text("{}")
+            digest = hashlib.sha256(p.read_bytes()).hexdigest()
+            m = self._make(d, [], parent_exploratory_manifest="parent.json", parent_exploratory_manifest_sha256=digest)
+            self.assertEqual(validate_manifest_artifacts([m], d), [])
+
+    def test_parent_manifest_missing_file_fails(self):
+        with tempfile.TemporaryDirectory() as d:
+            m = self._make(d, [], parent_exploratory_manifest="missing.json", parent_exploratory_manifest_sha256="a" * 64)
+            errs = validate_manifest_artifacts([m], d)
+            self.assertTrue(any("parent_exploratory_manifest file missing" in e for e in errs))
+
+    def test_parent_manifest_hash_mismatch_fails(self):
+        with tempfile.TemporaryDirectory() as d:
+            p = Path(d) / "research_state" / "parent.json"
+            p.parent.mkdir(parents=True)
+            p.write_text("{}")
+            m = self._make(d, [], parent_exploratory_manifest="parent.json", parent_exploratory_manifest_sha256="0" * 64)
+            errs = validate_manifest_artifacts([m], d)
+            self.assertTrue(any("parent_exploratory_manifest_sha256 mismatch" in e for e in errs))
+
+    def test_parent_manifest_sha_without_path_fails(self):
+        with tempfile.TemporaryDirectory() as d:
+            m = self._make(d, [], parent_exploratory_manifest_sha256="a" * 64)
+            errs = validate_manifest_artifacts([m], d)
+            self.assertTrue(any("parent_exploratory_manifest_sha256 present without parent_exploratory_manifest" in e for e in errs))
+
+    def test_committed_exploratory_003_parent_manifest_validated(self):
+        root = Path(__file__).resolve().parents[1]
+        manifest = root / "research_state" / "exploratory_run_manifest_2026-10-27.json"
+        errs = validate_manifest_artifacts([manifest], root)
+        self.assertEqual(errs, [], f"parent manifest validation failed for FVD-EXPLORATORY-003: {errs}")
+
 
 if __name__ == "__main__":
     unittest.main()

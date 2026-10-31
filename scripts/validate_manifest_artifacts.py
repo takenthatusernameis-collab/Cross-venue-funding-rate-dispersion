@@ -88,6 +88,28 @@ def validate_manifest_artifacts(manifest_paths, root):
                             errors.append(f"{mf}: reference_probe_sha256 mismatch: {ref_probe}")
         elif ref_sha is not None:
             errors.append(f"{mf}: reference_probe_sha256 present without reference_probe")
+        parent = data.get("parent_exploratory_manifest")
+        parent_sha = data.get("parent_exploratory_manifest_sha256")
+        if parent is not None:
+            if not isinstance(parent, str):
+                errors.append(f"{mf}: parent_exploratory_manifest must be a string")
+            else:
+                candidates = [
+                    Path(root) / parent,
+                    Path(root) / "research_state" / parent,
+                ]
+                parent_path = next((c for c in candidates if c.is_file()), None)
+                if parent_path is None:
+                    errors.append(f"{mf}: parent_exploratory_manifest file missing: {parent}")
+                elif parent_sha is not None:
+                    if not isinstance(parent_sha, str) or len(parent_sha) != 64:
+                        errors.append(f"{mf}: parent_exploratory_manifest_sha256 must be 64-hex: {parent}")
+                    else:
+                        actual_parent = sha256_file(parent_path)
+                        if actual_parent != parent_sha:
+                            errors.append(f"{mf}: parent_exploratory_manifest_sha256 mismatch: {parent}")
+        elif parent_sha is not None:
+            errors.append(f"{mf}: parent_exploratory_manifest_sha256 present without parent_exploratory_manifest")
     return errors
 
 
