@@ -1,3 +1,65 @@
+## Source-independent verification: Binance+Hyperliquid duration vs contract identity (2026-10-31T02:12Z)
+
+Per v3.3 §12.6 ("execute another useful independent task in the existing codebase: source-independent accounting checks, adversarial tests, result/schema validation, independent recomputation") and AGENTS.md adaptive research-gate policy §5 ("do not merely write another blocker memo"): the data gate remains structurally blocked (probe cooldown active `should_run=false`, `next_eligible_at_utc=2026-10-31T03:44:51.381114Z`; Binance 2026-10 monthly archive 404 — month-end UTC 2026-10-31T23:59:59Z not yet passed; contract identity structural impossibility). No network probe re-dispatched (cooldown active), no paid data/credentials, no live/paper trading, no frozen artifact altered.
+
+### Actions performed
+
+1. **Added 1 source-independent red-team test** to `FundingIntersectionAuditTests` in `tests/test_historical_overlap_probe.py`:
+   - `test_binance_hyperliquid_intersection_meets_duration_but_contract_identity_still_candidate` — independently recomputes the Binance+Hyperliquid funding intersection duration from the checksum-validated Binance overlap sample's `coverage_analysis` string ranges (Binance 2026-07-01 to 2026-09-30, HL 2026-06-28 to 2026-10-26) and verifies it meets the 90-day FVD053 threshold (~91 days). Then independently verifies from the newest committed probe (41131062906) that contract identity remains `candidate`-level with `hl_settle_known=False` and `settlement_match=False` for all 4 underlyings. This demonstrates that even when duration IS met for a venue pair (Binance+HL), contract identity remains the binding structural constraint — not duration. No network access; uses only committed artifacts.
+
+2. **Verified Binance 2026-10 monthly archive availability**: confirmed 2026-09 archives available (HTTP 200, control check matches `binance_monthly_archive_availability_2026-10-27.json`), 2026-10 archives return 404 (month-end UTC 2026-10-31T23:59:59Z not yet passed at time of check 2026-10-31T02:12Z). Binance archive end remains 2026-09-30, bounding the OKX+Binance funding intersection at ~65 days (below 90-day threshold).
+
+### Validation commands run (all PASS, exit 0)
+
+- `python3 -m compileall -q src scripts tests` = OK (exit 0)
+- `PYTHONPATH=src:scripts python3 -m unittest discover -s tests -v` = PASS (602 tests OK; was 601, +1 new)
+- `PYTHONPATH=src:scripts python3 -m unittest tests.test_historical_overlap_probe.FundingIntersectionAuditTests -v` = 11 tests OK (10 prior + 1 new)
+- `PYTHONPATH=src python3 scripts/validate_research.py` = RESEARCH_VALIDATION=PASS (grid 108, anchor FVD053, NOT_RUN, performance_metrics_computed=false)
+- `PYTHONPATH=src:scripts python3 scripts/validate_all.py` = ALL_VALIDATIONS=PASS count=24
+- `PYTHONPATH=src:scripts python3 scripts/validate_manifest_artifacts.py` = MANIFEST_ARTIFACTS_VALIDATION=PASS (47 artifacts, all hashes match)
+- `PYTHONPATH=src:scripts python3 scripts/validate_manifest_schema.py` = MANIFEST_SCHEMA_VALIDATION=PASS
+- `PYTHONPATH=src:scripts python3 scripts/validate_track_separation.py` = TRACK_SEPARATION_VALIDATION=PASS
+- `PYTHONPATH=src python3 scripts/validate_research_state_artifacts.py` = RESEARCH_STATE_ARTIFACTS_VALIDATION=PASS files=47
+- `PYTHONPATH=src:scripts python3 scripts/validate_controller_progress.py` = CONTROLLER_PROGRESS_VALIDATION=PASS
+- `PYTHONPATH=src python3 scripts/validate_skills.py` = SKILLS_VALIDATION=PASS count=4
+- `PYTHONPATH=src python3 scripts/should_run_historical_probe.py` → `should_run=false` (cooldown active, `next_eligible_at_utc=2026-10-31T03:44:51.381114Z`)
+- `git diff --check` = clean (exit 0); `git status --short` = ` M tests/test_historical_overlap_probe.py`
+
+### Frozen artifacts verified unchanged (sha256 match)
+
+- `configs/cross_venue_funding_dispersion_grid_v1.json` = `6be218bc84bf118cf67c238ad1c13ef1e445658db3b1346cd64ccaccc7aa5f07` (108 configs, anchor FVD053) ✓
+- `research_state/run_manifest.json` = `4f162ce128c741434addf6aa2fa7c7dbf1bf189d4a81b8893ed96899412c7aaf` (BLOCKED_DATA_GATE) ✓
+- `research_state/fvd053_anchor_run_2026-10-25.json` = `50b328baf5854dec40105a0f5ebe498bf589906f9c033ce659843659927ca4c2` (immutable) ✓
+- `research_state/exploratory_run_manifest_2026-10-27.json` = `eb62c2d60563ebb4c6603e10a33b4a921db9639d794d9074b8e787a76801f224` (FVD-EXPLORATORY-003, unchanged) ✓
+- `research_state/exploratory_run_manifest_2026-10-25.json` = `08bbecf10f80f46b3d56e62e5c82ce44915840b25612307c0d7026f7a9905f1f` (FVD-EXPLORATORY-002, unchanged) ✓
+- `scripts/probe_historical_overlap.py` = `606f07bb27b1b9f4e1a723b8ac42acac7f9741dd6000d6968218a37047acfa09` (unchanged) ✓
+- `src/cross_venue_funding_dispersion/status.py` = `d99f24152c4bd364103355bbb6ee12df10dcd50eb39e69bd9afb487b0bb3e2a0` (unchanged) ✓
+- `research_state/historical_overlap_probe_41131062906_attempt_1.json` = latest probe (already linked as reference_probe in FVD-EXPLORATORY-003) ✓
+
+### Modified file (uncommitted, working tree)
+
+- `tests/test_historical_overlap_probe.py` — added `test_binance_hyperliquid_intersection_meets_duration_but_contract_identity_still_candidate` to `FundingIntersectionAuditTests` class (60 lines appended between `test_okx_plus_binance_intersection_below_90_day_threshold` and `test_manifest_common_days_internal_consistency`)
+
+### Status
+
+- Confirmatory track: `BLOCKED_DATA_GATE` — FVD001–FVD108, FVD053 frozen. No backtest, no performance metrics. The `>=3-year historical point-in-time market-cap rank` gate remains structurally blocked across all tested free sources.
+- FVD-EXPLORATORY-003 (OKX+Binance USDT): `EXPLORATORY_ONLY`/`INCONCLUSIVE`. Two binding constraints: (1) contract identity candidate-level only (Hyperliquid `meta` exposes no settleCcy; OKX `baseCcy` empty for linear USDT swaps); (2) OKX+Binance funding intersection ~65 days < 90-day threshold (bounded by OKX 3-month retention + Binance archive end 2026-09-30). Anchor NOT exercised.
+- FVD-EXPLORATORY-002 (HL+OKX): `EXPLORATORY_ONLY`/`INCONCLUSIVE`. Funding intersection ~95 days exceeds threshold, but contract identity candidate-level (structural impossibility). Anchor exercised as coverage run only (no metrics).
+- Binance+Hyperliquid pair: duration ~91 days meets 90-day threshold (independently verified from overlap sample), but contract identity remains candidate-level — confirming contract identity (not duration) is the binding structural constraint for all venue pairs.
+- Probe cooldown: active, `should_run=false`, `next_eligible_at_utc=2026-10-31T03:44:51.381114Z`.
+- Cross-probe determinism: verified across 12 real-response probes (40248932339 through 41131062906) — identical `evidence_level=candidate`, identical funding intervals, identical gate/lockdown flags.
+- Binance 2026-10 monthly archive: 404 (not yet published; month-end UTC 2026-10-31T23:59:59Z). 2026-09 archives verified available (control check matches `binance_monthly_archive_availability_2026-10-27.json`).
+- Git remote HEAD: `f6ddbb4` — matches local; no new probe committed since 41131062906.
+
+### Next measurable task
+
+After probe cooldown expiry at `2026-10-31T03:44:51.381114Z`, the controller's scheduled `historical-coverage-probe.yml` workflow (minute 13/43) will check cooldown, run the next bounded 120-day probe if eligible, and commit a new dated artifact. At that point: verify whether a new probe was committed, link it into FVD-EXPLORATORY-003 manifest if so (update `reference_probe`/`reference_probe_sha256`/`output_artifacts` + `okx_funding_settlements` count); re-run `validate_manifest_artifacts.py` and full test suite (602 tests). Expected structural finding: identical to probe 41131062906 (contract identity candidate-level, NOT_PASSED_BY_COVERAGE_PROBE, BLOCKED_DATA_GATE preserved). After Binance publishes the 2026-10 monthly archive (post-UTC month-end 2026-10-31T23:59:59Z), reassess the OKX+Binance funding intersection duration — but contract identity remains the binding constraint regardless. Do NOT promote. No paid data, no credentials, no live/paper trading, no alteration of frozen confirmatory artifacts.
+
+### Scheduled wakeups
+
+- 2026-10-31T04:15:00Z: check if controller committed a new probe after cooldown expiry; re-check Binance 2026-10 archive availability.
+
+---
 ## Source-independent cross-validation tests for FVD-EXPLORATORY-003 manifest (2026-10-30T22:14Z)
 
 Per v3.3 §12 ("complete the next bounded, no-cost exploratory task") and AGENTS.md adaptive research-gate policy §5 ("do not merely write another blocker memo"): the data gate remains structurally blocked (probe cooldown active `should_run=false`, `next_eligible_at_utc=2026-10-31T03:44:51.381114Z`; Binance 2026-10 monthly archive not yet published; contract identity structural impossibility). No network probe re-dispatched, no paid data/credentials, no live/paper trading, no frozen artifact altered.

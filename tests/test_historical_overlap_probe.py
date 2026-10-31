@@ -1690,6 +1690,66 @@ class FundingIntersectionAuditTests(unittest.TestCase):
             f"(OKX {okx_start.isoformat()} to {okx_end.isoformat()}, "
             f"Binance to {bn_end.isoformat()}), expected <90 (FVD053 threshold)")
 
+    def test_binance_hyperliquid_intersection_meets_duration_but_contract_identity_still_candidate(self):
+        """Independently verify that the Binance+Hyperliquid funding intersection
+        duration meets the 90-day FVD053 threshold (~91 days per the overlap
+        sample), but demonstrate that contract identity remains candidate-level
+        in the newest probe — i.e., duration is NOT the binding constraint for
+        this pair; settlement-currency verification is.
+
+        This is a source-independent red-team check: it uses only the overlap
+        sample's coverage_analysis string ranges and the probe's contract_identity
+        block. No network access.
+        """
+        overlap_path = self.STATE_DIR / "binance_overlap_sample_2026-10-26.json"
+        if not overlap_path.exists():
+            self.skipTest("binance overlap sample not found")
+        overlap = json.loads(overlap_path.read_text(encoding="utf-8"))
+        ca = overlap.get("coverage_analysis", {})
+
+        bn_range_str = ca.get("binance_overlap_funding_range", "")
+        hl_range_str = ca.get("hyperliquid_funding_range", "")
+        recorded_meets = ca.get("binance_hyperliquid_meets_threshold", False)
+
+        bn_parts = bn_range_str.split(" to ")
+        hl_parts = hl_range_str.split(" to ")
+        if len(bn_parts) != 2 or len(hl_parts) != 2:
+            self.skipTest("cannot parse binance/hyperliquid funding ranges from overlap sample")
+
+        bn_start = self._parse_utc(bn_parts[0].strip() + "T00:00:00Z")
+        bn_end = self._parse_utc(bn_parts[1].strip() + "T16:00:00Z")
+        hl_start = self._parse_utc(hl_parts[0].strip() + "T00:00:00Z")
+        hl_end = self._parse_utc(hl_parts[1].strip() + "T23:00:00Z")
+        if None in (bn_start, bn_end, hl_start, hl_end):
+            self.skipTest("cannot parse funding range dates from overlap sample")
+
+        intersection_start = max(bn_start, hl_start)
+        intersection_end = min(bn_end, hl_end)
+        computed_days = (intersection_end - intersection_start).total_seconds() / 86400.0
+
+        self.assertGreaterEqual(computed_days, 90,
+            f"Binance+Hyperliquid intersection={computed_days:.1f} days "
+            f"(Binance {bn_start.isoformat()} to {bn_end.isoformat()}, "
+            f"HL {hl_start.isoformat()} to {hl_end.isoformat()})")
+        self.assertTrue(recorded_meets,
+            "overlap sample should record binance_hyperliquid_meets_threshold=True")
+
+        data = self._newest_real_response_probe()
+        ci = data.get("contract_identity", {})
+        per_underlying = ci.get("per_underlying", {})
+        self.assertGreater(len(per_underlying), 0,
+            "probe must contain contract_identity.per_underlying entries")
+        for base, info in per_underlying.items():
+            self.assertEqual(info.get("evidence_level"), "candidate",
+                f"{base}: evidence_level must be 'candidate' — contract identity "
+                f"not verified even though Binance+HL duration meets threshold; "
+                f"hl_settle_known={info.get('hl_settle_known')}")
+            self.assertFalse(info.get("hl_settle_known", True),
+                f"{base}: hl_settle_known must be False (Hyperliquid meta "
+                f"does not expose settleCcy — structural impossibility)")
+            self.assertFalse(info.get("settlement_match", True),
+                f"{base}: settlement_match must be False when hl_settle_known is False")
+
     def test_manifest_common_days_internal_consistency(self):
         """Verify coverage_summary.common_days equals
         threshold_history_eligibility.prior_daily_observations_available
