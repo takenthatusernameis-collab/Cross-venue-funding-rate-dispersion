@@ -231,6 +231,181 @@ class ParserCliImportTests(unittest.TestCase):
         self.assertTrue(hasattr(p, "Path"))
 
 
+def _funding_csv(timestamps_ms, interval=8, rate="0.00010000"):
+    lines = ["calc_time,funding_interval_hours,last_funding_rate"]
+    lines.extend("%d,%s,%s" % (ms, interval, rate) for ms in timestamps_ms)
+    return "\n".join(lines) + "\n"
+
+
+def _monthly_funding_ms(year, month, days, start_hour=0):
+    import calendar
+    from datetime import datetime, timedelta, timezone
+    base = datetime(year, month, 1, tzinfo=timezone.utc)
+    end = base + timedelta(days=days - 1, hours=start_hour)
+    stamps = []
+    cursor = base
+    while cursor <= end:
+        stamps.append(int(cursor.timestamp() * 1000))
+        cursor += timedelta(hours=8)
+    return stamps
+
+
+class FundingContinuityTests(unittest.TestCase):
+    """Multi-month continuity must fail closed on real gaps, not on source jitter."""
+
+    def _record(self, month, stamps, symbol="BTCUSDT"):
+        url, zipb, mapping = _mapping(
+            symbol=symbol, field="fundingRate", month=month, csv_text=_funding_csv(stamps)
+        )
+        return verify.verify_object(symbol, "fundingRate", month, opener=FakeOpener(mapping))
+
+    def test_consecutive_months_are_contiguous(self):
+        aug = _monthly_funding_ms(2026, 8, 2)          # 2026-08-01 00:00 .. 2026-08-01 16:00
+        sep = [aug[-1] + 8 * 3600 * 1000, aug[-1] + 16 * 3600 * 1000]
+        out = verify.funding_continuity([self._record("2026-08", aug), self._record("2026-09", sep)])
+        self.assertTrue(out["all_symbols_contiguous"])
+        info = out["by_symbol"]["BTCUSDT"]
+        self.assertEqual(info["gaps"], [])
+        self.assertEqual(info["rows"], 6)
+        self.assertEqual(info["duplicate_timestamps"], 0)
+
+    def test_missing_settlement_across_month_seam_is_a_gap(self):
+        aug = _monthly_funding_ms(2026, 8, 2)
+        sep = [aug[-1] + 24 * 3600 * 1000]              # skips the next 8h settlement
+        out = verify.funding_continuity([self._record("2026-08", aug), self._record("2026-09", sep)])
+        self.assertFalse(out["all_symbols_contiguous"])
+        self.assertEqual(len(out["by_symbol"]["BTCUSDT"]["gaps"]), 1)
+        self.assertAlmostEqual(out["by_symbol"]["BTCUSDT"]["gaps"][0]["hours"], 24.0)
+
+    def test_sub_second_source_jitter_is_not_a_gap(self):
+        aug = _monthly_funding_ms(2026, 8, 2)
+        jittered = [aug[0] + 1, aug[1] + 4, aug[2] + 2]
+        out = verify.funding_continuity([self._record("2026-08", jittered)])
+        self.assertTrue(out["all_symbols_contiguous"])
+
+    def test_failed_month_fails_continuity_closed(self):
+        good = self._record("2026-08", _monthly_funding_ms(2026, 8, 2))
+        bad = verify.verify_object("BTCUSDT", "fundingRate", "2026-09", opener=FakeOpener({}))
+        out = verify.funding_continuity([good, bad])
+        self.assertFalse(out["all_symbols_contiguous"])
+        self.assertFalse(out["by_symbol"]["BTCUSDT"]["contiguous"])
+
+    def test_build_multi_month_artifact_keeps_gate_flags_and_per_month_summary(self):
+        aug = _monthly_funding_ms(2026, 8, 2)
+        records = [
+            self._record("2026-08", aug),
+            self._record("2026-09", [aug[-1] + 8 * 3600 * 1000]),
+        ]
+        artifact = verify.build_multi_month_artifact(
+            ["2026-08", "2026-09"], ["BTCUSDT"], ["fundingRate"], records,
+            accessed_at_utc="2026-11-17T00:00:00Z",
+        )
+        self.assertEqual(artifact["artifact_type"], "binance_multi_month_content_verification")
+        self.assertEqual(artifact["months"], ["2026-08", "2026-09"])
+        self.assertEqual(sorted(artifact["per_month_summary"]), ["2026-08", "2026-09"])
+        self.assertTrue(artifact["funding_continuity"]["all_symbols_contiguous"])
+        self.assertEqual(artifact["status"], "EXPLORATORY_ONLY")
+        self.assertEqual(artifact["original_confirmatory_gate"], "BLOCKED_DATA_GATE")
+        self.assertFalse(artifact["backtest_completed"])
+        self.assertFalse(artifact["performance_metrics_computed"])
+
+    def test_main_months_flag_fails_closed_on_gap(self):
+        aug = _monthly_funding_ms(2026, 8, 2)
+        sep = [aug[-1] + 32 * 3600 * 1000]
+        mapping = {}
+        for month, stamps in (("2026-08", aug), ("2026-09", sep)):
+            _url, _zipb, month_map = _mapping(month=month, csv_text=_funding_csv(stamps))
+            mapping.update(month_map)
+        original = verify.urlopen
+        verify.urlopen = FakeOpener(mapping)
+        with tempfile.TemporaryDirectory() as tmp:
+            out = Path(tmp) / "out.json"
+            try:
+                code = verify.main(["--months", "2026-08", "2026-09", "--symbols", "BTCUSDT",
+                                    "--fields", "fundingRate", "--output", str(out)])
+            finally:
+                verify.urlopen = original
+            self.assertEqual(code, 1)
+            data = json.loads(out.read_text(encoding="utf-8"))
+            self.assertTrue(data["coverage_summary"]["content_proven"])
+            self.assertFalse(data["funding_continuity"]["all_symbols_contiguous"])
+
+    def test_main_requires_month_or_months(self):
+        with self.assertRaises(SystemExit):
+            verify.main(["--symbols", "BTCUSDT", "--output", "/tmp/unused.json"])
+
+
+class CommittedBinanceOverlapContentTests(unittest.TestCase):
+    """Source-independent audit of the committed multi-month overlap artifact."""
+
+    STATE = ROOT / "research_state"
+    NAME = "binance_overlap_content_2026-08_to_2026-10_2026-11-17.json"
+
+    def _artifact(self):
+        path = self.STATE / self.NAME
+        self.assertTrue(path.is_file(), "multi-month overlap content artifact missing")
+        return json.loads(path.read_text(encoding="utf-8"))
+
+    def _manifest(self):
+        return json.loads(
+            (self.STATE / "exploratory_run_manifest_2026-10-27.json").read_text(encoding="utf-8")
+        )
+
+    def test_all_overlap_months_fully_checksum_verified(self):
+        artifact = self._artifact()
+        summary = artifact["coverage_summary"]
+        self.assertEqual(artifact["months"], ["2026-08", "2026-09", "2026-10"])
+        self.assertTrue(summary["content_proven"])
+        self.assertEqual(summary["objects_requested"], 24)
+        self.assertEqual(summary["objects_checksum_verified"], 24)
+        self.assertEqual(summary["objects_failed"], 0)
+        self.assertEqual(summary["funding_interval_hours_observed"], [8.0])
+        for obj in artifact["objects"]:
+            self.assertTrue(obj["checksum_match"], obj)
+            self.assertIsNone(obj["error"], obj)
+            self.assertEqual(obj["expected_sha256"], obj["actual_sha256"])
+
+    def test_funding_series_is_contiguous_with_no_seam_gaps(self):
+        artifact = self._artifact()
+        continuity = artifact["funding_continuity"]
+        self.assertTrue(continuity["all_symbols_contiguous"])
+        symbols = {"BTCUSDT", "ETHUSDT", "SOLUSDT", "AVAXUSDT"}
+        self.assertEqual(set(continuity["by_symbol"]), symbols)
+        for symbol, info in continuity["by_symbol"].items():
+            self.assertEqual(info["gaps"], [], symbol)
+            self.assertEqual(info["duplicate_timestamps"], 0, symbol)
+            self.assertEqual(info["rows"], 276, symbol)
+
+    def test_union_spans_the_manifest_intersection(self):
+        artifact = self._artifact()
+        manifest = self._manifest()
+        common = manifest["coverage_summary"]
+        continuity = artifact["funding_continuity"]["by_symbol"]
+        for info in continuity.values():
+            self.assertLessEqual(info["first_utc"], common["common_funding_start_utc"])
+            self.assertEqual(info["last_utc"], common["common_funding_end_utc"])
+        self.assertTrue(common["binance_overlap_content_proven"])
+        self.assertEqual(common["binance_overlap_continuity_gaps"], 0)
+
+    def test_overlap_artifact_listed_with_matching_hash(self):
+        import hashlib
+        path = self.STATE / self.NAME
+        manifest = self._manifest()
+        recorded = {
+            a["path"]: a["sha256"] for a in manifest["output_artifacts"]
+            if a.get("path", "").endswith(self.NAME)
+        }
+        self.assertTrue(recorded, "multi-month artifact must be listed in output_artifacts")
+        actual = hashlib.sha256(path.read_bytes()).hexdigest()
+        self.assertEqual(recorded["research_state/" + self.NAME], actual)
+
+    def test_overlap_artifact_claims_no_performance(self):
+        artifact = self._artifact()
+        self.assertFalse(artifact["backtest_completed"])
+        self.assertFalse(artifact["performance_metrics_computed"])
+        self.assertEqual(artifact["original_confirmatory_gate"], "BLOCKED_DATA_GATE")
+
+
 class CommittedBinanceContentEvidenceTests(unittest.TestCase):
     """Source-independent audit of the committed 2026-10 content artifact.
 

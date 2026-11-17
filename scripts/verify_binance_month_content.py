@@ -38,6 +38,10 @@ ARCHIVE_BASE = "https://data.binance.vision"
 TIMEOUT_SECONDS = 30
 MAX_CHECKSUM_BYTES = 4096
 MAX_ZIP_BYTES = 8_000_000
+# Binance funding archives carry sub-second `calc_time` jitter, so consecutive
+# 8h settlements can differ from exactly 28800s. Only a deviation above this
+# tolerance is treated as a real gap.
+MAX_SETTLEMENT_JITTER_SECONDS = 1.0
 FIELDS = {
     "fundingRate": {
         "url": "data/futures/um/monthly/fundingRate/{symbol}/{symbol}-fundingRate-{month}.zip",
@@ -111,6 +115,7 @@ def verify_object(symbol: str, field: str, month: str, opener=None) -> dict:
         "first_utc": None,
         "last_utc": None,
         "funding_interval_hours": None,
+        "funding_timestamps_utc": None,
         "error": None,
     }
     try:
@@ -139,6 +144,7 @@ def verify_object(symbol: str, field: str, month: str, opener=None) -> dict:
             record["first_utc"] = rows[0]["timestamp_utc"]
             record["last_utc"] = rows[-1]["timestamp_utc"]
             record["funding_interval_hours"] = sorted({r["funding_interval_hours"] for r in rows})
+            record["funding_timestamps_utc"] = [r["timestamp_utc"] for r in rows]
         else:
             rows = parser.parse_klines_csv(text, symbol=symbol)
             record["rows"] = len(rows)
@@ -156,6 +162,70 @@ def verify_month(month: str, symbols, fields, opener=None) -> list[dict]:
         for field in fields:
             records.append(verify_object(symbol, field, month, opener=opener))
     return records
+
+
+def verify_months(months, symbols, fields, opener=None) -> list[dict]:
+    records = []
+    for month in months:
+        records.extend(verify_month(month, symbols, fields, opener=opener))
+    return records
+
+
+def _parse_utc(value: str):
+    text = value[:-1] if value.endswith("Z") else value
+    return datetime.fromisoformat(text)
+
+
+def funding_continuity(records: list[dict]) -> dict:
+    """Per-symbol 8h settlement continuity across the verified funding objects.
+
+    Month archives overlap in nothing but share a boundary: a continuous series
+    must step exactly 8h from the last settlement of one month to the first of
+    the next. Any gap, duplicate or non-8h step fails closed (`contiguous=False`)
+    so a multi-month "covered" claim cannot rest on an unverified seam.
+    """
+    by_symbol: dict[str, list[str]] = {}
+    for record in records:
+        if FIELDS[record["field"]]["kind"] != "funding":
+            continue
+        if not (record["checksum_match"] and record["error"] is None):
+            by_symbol.setdefault(record["symbol"], []).append(None)
+            continue
+        by_symbol.setdefault(record["symbol"], []).extend(record["funding_timestamps_utc"] or [])
+
+    result = {}
+    all_contiguous = True
+    for symbol, stamps in sorted(by_symbol.items()):
+        if any(s is None for s in stamps):
+            result[symbol] = {
+                "contiguous": False,
+                "reason": "at least one month object failed verification",
+            }
+            all_contiguous = False
+            continue
+        unique = sorted({s for s in stamps})
+        duplicates = len(stamps) - len(unique)
+        gaps = []
+        for prev, nxt in zip(unique, unique[1:]):
+            seconds = (_parse_utc(nxt) - _parse_utc(prev)).total_seconds()
+            if abs(seconds - 8 * 3600) > MAX_SETTLEMENT_JITTER_SECONDS:
+                gaps.append({
+                    "from_utc": prev,
+                    "to_utc": nxt,
+                    "hours": seconds / 3600.0,
+                    "deviation_seconds": seconds - 8 * 3600,
+                })
+        contiguous = duplicates == 0 and not gaps
+        all_contiguous = all_contiguous and contiguous
+        result[symbol] = {
+            "contiguous": contiguous,
+            "rows": len(unique),
+            "first_utc": unique[0] if unique else None,
+            "last_utc": unique[-1] if unique else None,
+            "duplicate_timestamps": duplicates,
+            "gaps": gaps,
+        }
+    return {"all_symbols_contiguous": all_contiguous, "by_symbol": result}
 
 
 def summarize(records: list[dict]) -> dict:
@@ -201,20 +271,52 @@ def build_artifact(month: str, symbols, fields, records, accessed_at_utc=None) -
     }
 
 
+def build_multi_month_artifact(months, symbols, fields, records, accessed_at_utc=None) -> dict:
+    summary = summarize(records)
+    continuity = funding_continuity(records)
+    per_month = {}
+    for month in months:
+        per_month[month] = summarize([r for r in records if r["month"] == month])
+    artifact = build_artifact(months[0], symbols, fields, records, accessed_at_utc=accessed_at_utc)
+    artifact["months"] = list(months)
+    artifact["per_month_summary"] = per_month
+    artifact["funding_continuity"] = continuity
+    artifact["artifact_type"] = "binance_multi_month_content_verification"
+    artifact["purpose"] = (
+        "Checksum-verified content check of Binance USD-M monthly funding and 1h kline "
+        "archives across consecutive months, with an explicit 8h settlement-continuity audit "
+        "across month seams. No strategy outcome or performance metric."
+    )
+    return artifact
+
+
 def main(argv=None) -> int:
     ap = argparse.ArgumentParser(description="Checksum-verified Binance monthly archive content probe")
-    ap.add_argument("--month", required=True, help="archive month, e.g. 2026-10")
+    group = ap.add_mutually_exclusive_group(required=True)
+    group.add_argument("--month", help="single archive month, e.g. 2026-10")
+    group.add_argument("--months", nargs="+", help="consecutive archive months, e.g. 2026-08 2026-09 2026-10")
     ap.add_argument("--symbols", nargs="+", default=DEFAULT_SYMBOLS)
     ap.add_argument("--fields", nargs="+", default=list(FIELDS), choices=list(FIELDS))
     ap.add_argument("--output", required=True)
     args = ap.parse_args(argv)
 
-    records = verify_month(args.month, args.symbols, args.fields)
-    artifact = build_artifact(args.month, args.symbols, args.fields, records)
+    if args.month:
+        records = verify_month(args.month, args.symbols, args.fields)
+        artifact = build_artifact(args.month, args.symbols, args.fields, records)
+        ok = artifact["coverage_summary"]["content_proven"]
+    else:
+        records = verify_months(args.months, args.symbols, args.fields)
+        artifact = build_multi_month_artifact(args.months, args.symbols, args.fields, records)
+        ok = (
+            artifact["coverage_summary"]["content_proven"]
+            and artifact["funding_continuity"]["all_symbols_contiguous"]
+        )
     Path(args.output).write_text(json.dumps(artifact, indent=2, sort_keys=True) + "\n", encoding="utf-8")
-    summary = artifact["coverage_summary"]
-    print(json.dumps(summary, indent=2, sort_keys=True))
-    return 0 if summary["content_proven"] else 1
+    payload = {"coverage_summary": artifact["coverage_summary"]}
+    if "funding_continuity" in artifact:
+        payload["funding_continuity"] = artifact["funding_continuity"]
+    print(json.dumps(payload, indent=2, sort_keys=True))
+    return 0 if ok else 1
 
 
 if __name__ == "__main__":
