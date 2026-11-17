@@ -1592,8 +1592,13 @@ class FundingIntersectionAuditTests(unittest.TestCase):
             f"coverage_summary.common_days={recorded_days}")
 
     def test_okx_funding_settlements_matches_manifest(self):
-        """Verify the OKX funding row count in the newest committed probe
-        matches manifest coverage_summary.okx_funding_settlements (286).
+        """Verify the OKX funding row counts in the newest committed probe
+        match manifest coverage_summary.okx_funding_settlements per symbol.
+
+        OKX's rolling ~3-month retention boundary can fall mid-settlement, so
+        per-symbol counts may differ (e.g. BTC 278 vs ETH/SOL/AVAX 277). The
+        scalar ``okx_funding_settlements`` is the conservative minimum across
+        symbols; ``okx_funding_settlements_by_symbol`` records each count.
         """
         manifest_path = self.STATE_DIR / "exploratory_run_manifest_2026-10-27.json"
         if not manifest_path.exists():
@@ -1601,19 +1606,42 @@ class FundingIntersectionAuditTests(unittest.TestCase):
         manifest = json.loads(manifest_path.read_text(encoding="utf-8"))
         cs = manifest.get("coverage_summary", {})
         manifest_settlements = cs.get("okx_funding_settlements")
+        by_symbol = cs.get("okx_funding_settlements_by_symbol")
 
         data = self._newest_real_response_probe()
         okx_funding = self._funding_items(data, "okx_funding")
         self.assertGreater(len(okx_funding), 0, "expected OKX funding coverage")
+        probe_counts = {}
         for item in okx_funding:
             cov = item.get("coverage", {})
             if not isinstance(cov, dict):
                 continue
-            row_count = cov.get("row_count")
-            self.assertEqual(
-                row_count, manifest_settlements,
-                f"OKX {item.get('instId')}: row_count={row_count} but "
-                f"manifest okx_funding_settlements={manifest_settlements}",
+            inst_id = item.get("instId", "")
+            base = inst_id.split("-")[0]
+            probe_counts[base] = cov.get("row_count")
+        if not probe_counts:
+            self.skipTest("no OKX funding row counts in probe")
+
+        self.assertIsNotNone(manifest_settlements,
+            "coverage_summary.okx_funding_settlements must be recorded")
+        self.assertEqual(
+            manifest_settlements, min(probe_counts.values()),
+            f"manifest okx_funding_settlements={manifest_settlements} must equal "
+            f"the conservative per-symbol minimum {min(probe_counts.values())} "
+            f"(probe counts: {probe_counts})",
+        )
+        if isinstance(by_symbol, dict):
+            for base, count in probe_counts.items():
+                self.assertEqual(
+                    by_symbol.get(base), count,
+                    f"coverage_summary.okx_funding_settlements_by_symbol[{base}]="
+                    f"{by_symbol.get(base)} but probe row_count={count}",
+                )
+        else:
+            self.assertTrue(
+                len(set(probe_counts.values())) == 1,
+                f"per-symbol OKX funding counts differ ({probe_counts}); the "
+                f"manifest must record okx_funding_settlements_by_symbol",
             )
 
     def test_okx_funding_retained_days_matches_manifest(self):

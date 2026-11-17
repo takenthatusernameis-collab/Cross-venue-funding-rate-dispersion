@@ -1,3 +1,64 @@
+## Linked probe 44141530737; OKX per-symbol funding counts diverge (278 BTC / 277 ETH-SOL-AVAX); intersection stays 75d <90 (2026-11-17T18:05Z)
+
+Per `prompts/autonomous_free_data_gate_unblocking_v3_3.md` (inspect newest committed probe, distinguish stale workflow metadata from checkpoint progress by reading commit history) and AGENTS.md adaptive research-gate policy v1 §5 (complete the next bounded, no-cost task): the controller committed probe `historical_overlap_probe_44141530737_attempt_1.json` in `1dfea78` (observed_at_utc `2026-11-17T17:51:54.116308Z`, sha256 `4b8691a976fc0e9392b3e12737f1f26d06ff6d96fe5c805605fd7dc6b43fc143`) immediately before this session. Highest-priority measurable action: link it into FVD-EXPLORATORY-003, recompute coverage honestly, and harden the row-count test that had assumed identical per-symbol counts. No network probe re-dispatched (cooldown active), no paid data, no credentials, no live/paper trading, no frozen artifact altered.
+
+### Verified findings
+
+- Probe status `SOURCE_PROBE_COMPLETED`, 8/8 source responses HTTP 200, `historical_coverage_gate=NOT_PASSED_BY_COVERAGE_PROBE`, `original_confirmatory_gate=BLOCKED_DATA_GATE`, `backtest_completed=false`, `performance_metrics_computed=false`.
+- Hyperliquid candles/funding 2026-07-20→2026-11-17 (2881/2880 rows, 0 gaps, full 120-day lookback); OKX candles 2026-07-20→2026-11-17 (2880 rows, 0 gaps); OKX funding-rate-history now **278 rows for BTC (earliest 2026-08-17T08:00Z)** and **277 rows for ETH/SOL/AVAX (earliest 2026-08-17T16:00Z)**, all ending 2026-11-17T16:00Z, `stop_reason=page_not_full`. The rolling ~3-month retention boundary crossed one BTC settlement, so a single scalar row count is no longer accurate — this is the first probe with materially divergent per-symbol counts.
+- `contract_identity` unchanged: `evidence_level=candidate` for all four underlyings (`hl_settle_known=false`, `settlement_match=false`); binding constraint unchanged.
+- Binance archive bound unchanged at 2026-10-31 (this probe again requested only fixed 2024-01 CHECKSUM objects; the bound comes from the committed `binance_monthly_archive_availability_2026-11-17.json`, not from this probe). OKX+Binance funding intersection remains **75 days** (2026-08-17T08:00Z→2026-10-31T16:00Z, floor of 75.33), still below the 90-day FVD053 prior-observation minimum.
+- `scripts/should_run_historical_probe.py` → `should_run=false` (age 54s, `next_eligible_at_utc=2026-11-17T23:51:54.116308Z`).
+
+### Actions performed
+
+1. **Linked probe `44141530737`** into `research_state/exploratory_run_manifest_2026-10-27.json`: `reference_probe`/`reference_probe_sha256` → new probe; added it to `output_artifacts` (#25).
+2. **Corrected coverage honestly instead of preserving a false equality:** `okx_funding_settlements` 275→**277** (conservative minimum across the four symbols) and added `okx_funding_settlements_by_symbol` `{BTC:278, ETH:277, SOL:277, AVAX:277}`; `okx_funding_retained_days` 91→**92** (floor of 92.33); `common_funding_start_utc` 2026-08-17T16:00Z→**2026-08-17T08:00Z**; `threshold_history_eligibility.okx_funding_retained_days`→92 and `common_funding_intersection_utc` start→2026-08-17T08:00Z; `eligible_reason`, `data_gate_result`, `last_updated_utc`, `next_step` updated; caveat #29 added. `coverage_summary.common_days` stays **75** and `prior_daily_observations_available` stays 75. Frozen fields unchanged: `status=EXPLORATORY_ONLY`, `confirmatory_status_preserved=BLOCKED_DATA_GATE`, `historical_point_in_time_market_cap_gate=BLOCKED`, `backtest_completed=false`, `performance_metrics_computed=false`, `anchor_exercised=false`, `anchor=FVD053`, `source_code_hashes`, `config_hashes`, `parent_exploratory_manifest_sha256`. The documented-stale `threshold_history_eligibility.common_days=72` is left unchanged (an existing test asserts it differs).
+3. **Hardened `test_okx_funding_settlements_matches_manifest`** (tests/test_historical_overlap_probe.py:1594): it previously required every symbol's `row_count` to equal one scalar, which is now false. It now asserts the scalar equals the per-symbol minimum AND each per-symbol count matches `okx_funding_settlements_by_symbol`; if counts diverge without that map, it fails closed. This is a strengthening (more precise provenance), not a relaxation.
+
+### Validation commands run (all PASS, exit 0)
+
+- `python3 -m compileall -q src scripts tests` = OK
+- `PYTHONPATH=src python3 -m unittest discover -s tests` = PASS (635 tests OK)
+- `PYTHONPATH=src python3 scripts/validate_research.py` = RESEARCH_VALIDATION=PASS (grid 108, anchor FVD053, NOT_RUN, performance_metrics_computed=false)
+- `PYTHONPATH=src:scripts python3 scripts/validate_all.py` = ALL_VALIDATIONS=PASS count=24
+- `PYTHONPATH=src:scripts python3 scripts/validate_manifest_artifacts.py` = MANIFEST_ARTIFACTS_VALIDATION=PASS
+- `PYTHONPATH=src:scripts python3 scripts/validate_manifest_schema.py` = MANIFEST_SCHEMA_VALIDATION=PASS confirmatory=strict exploratory=contract
+- `PYTHONPATH=src:scripts python3 scripts/validate_track_separation.py` = TRACK_SEPARATION_VALIDATION=PASS
+- `PYTHONPATH=src:scripts python3 scripts/validate_research_state_artifacts.py` = RESEARCH_STATE_ARTIFACTS_VALIDATION=PASS files=104
+- `PYTHONPATH=src:scripts python3 scripts/validate_blocked_manifest_claims.py` = BLOCKED_MANIFEST_CLAIMS_VALIDATION=PASS
+- `PYTHONPATH=src:scripts python3 scripts/validate_no_performance_claims.py` = NO_PERFORMANCE_CLAIMS_VALIDATION=PASS
+- `PYTHONPATH=src:scripts python3 scripts/validate_controller_progress.py` = CONTROLLER_PROGRESS_VALIDATION=PASS
+- `PYTHONPATH=src python3 scripts/validate_skills.py` = SKILLS_VALIDATION=PASS count=4
+- `PYTHONPATH=src python3 scripts/should_run_historical_probe.py` → `should_run=false` (cooldown, `next_eligible_at_utc=2026-11-17T23:51:54.116308Z`)
+- `git diff --check` = clean; `git status --short` = `M research_state/exploratory_run_manifest_2026-10-27.json`, `M tests/test_historical_overlap_probe.py`
+
+### Frozen artifacts verified unchanged (sha256)
+
+- `configs/cross_venue_funding_dispersion_grid_v1.json` = `6be218bc84bf118cf67c238ad1c13ef1e445658db3b1346cd64ccaccc7aa5f07` (108 configs, anchor FVD053) ✓
+- `research_state/run_manifest.json` = `4f162ce128c741434addf6aa2fa7c7dbf1bf189d4a81b8893ed96899412c7aaf` (BLOCKED_DATA_GATE) ✓
+- `research_state/fvd053_anchor_run_2026-10-25.json` = `50b328baf5854dec40105a0f5ebe498bf589906f9c033ce659843659927ca4c2` (immutable) ✓
+- `research_state/exploratory_run_manifest_2026-10-25.json` = `08bbecf10f80f46b3d56e62e5c82ce44915840b25612307c0d7026f7a9905f1f` (FVD-EXPLORATORY-002, unchanged) ✓
+
+### Changed files (uncommitted, working tree)
+
+- `research_state/exploratory_run_manifest_2026-10-27.json` — sha256 `85f16b42ce5227169d1df4fbd8588d450317ae6bc6143ced892f648a39febbc0` (FVD-EXPLORATORY-003 updated as above)
+- `tests/test_historical_overlap_probe.py` — per-symbol OKX settlement-count audit
+- `HANDOFF.md` — this section
+
+### Status
+
+- Confirmatory track: `BLOCKED_DATA_GATE` — FVD001–FVD108, FVD053 frozen. No backtest, no performance metrics. `>=3-year historical point-in-time market-cap rank` gate remains structurally blocked.
+- FVD-EXPLORATORY-003 (OKX+Binance USDT): `EXPLORATORY_ONLY`/`INCONCLUSIVE`. Contract/instrument identity `candidate` (binding). Funding intersection 75 days (2026-08-17→2026-10-31), structurally capped <90 days by OKX ~3-month retention + Binance ~1-month archive lag. Anchor NOT exercised.
+- FVD-EXPLORATORY-002 (HL+OKX): `EXPLORATORY_ONLY`/`INCONCLUSIVE` (~91-day intersection meets duration; contract identity candidate-level).
+- Probe cooldown active; next eligible `2026-11-17T23:51:54.116308Z`.
+
+### Next measurable task
+
+After `2026-11-17T23:51:54.116308Z`, verify whether the scheduled `historical-coverage-probe.yml` committed a new probe; if so, link it, recompute OKX per-symbol counts/retained days and the 75-day intersection against the unchanged 2026-10-31 Binance bound, and re-run `validate_manifest_artifacts.py` plus the full 635-test suite. Separately, a bounded source-independent task remains available: extend `scripts/verify_binance_month_content.py` to 2026-07/08/09 so the whole 75-day overlap is row-verified, not just its final month. Expected structural result unchanged (`NOT_PASSED_BY_COVERAGE_PROBE`, `BLOCKED_DATA_GATE`); do NOT promote. No paid data, credentials, live/paper trading, or frozen-artifact edits.
+
+---
+
 ## Binance 2026-10 archive CONTENT checksum-verified (372 funding rows, 8h); OKX+Binance 75d still <90 (2026-11-17T08:45Z)
 
 Per `prompts/autonomous_free_data_gate_unblocking_v3_3.md` §12.6/§5.1 (a successful checksum-object response is not data coverage; only actual row content proves it) and AGENTS.md adaptive research-gate policy v1 §5 ("complete the next bounded, no-cost exploratory task"): probe `44048419492` was already linked and `scripts/should_run_historical_probe.py` reports `should_run=false` (cooldown, `next_eligible_at_utc=2026-11-17T14:38:37.136775Z`), so no probe was re-dispatched. The remaining unproven assumption behind the 75-day intersection was that the 2026-10 Binance monthly archive contains usable rows — previously only its `.CHECKSUM` object existence (HTTP 200) had been checked. This session downloaded, checksum-verified and parsed that content. No paid data, no credentials, no live/paper trading, no frozen confirmatory artifact altered.
