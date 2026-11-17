@@ -1,3 +1,66 @@
+## Linked probe 44048419492; Binance 2026-10 archive now public (HTTP 200) → OKX+Binance intersection 44→75 days, still <90 (2026-11-17T08:41Z)
+
+Per `prompts/autonomous_free_data_gate_unblocking_v3_3.md` (controller-side probe + verify newest committed artifact) and AGENTS.md adaptive research-gate policy v1 §5 (complete the next bounded no-cost task): the controller committed probe `historical_overlap_probe_44048419492_attempt_1.json` (commit `a35cd8e`, observed_at_utc `2026-11-17T08:38:37.136775Z`, sha256 `a12b44e1b06e20605cc6ce2166e299b937df714ded17863fdb4117af19cea565`) immediately before this session. Highest-priority action: link it into FVD-EXPLORATORY-003 and recheck the Binance archive bound, which this session verified directly. No paid data, no credentials, no live/paper trading, no frozen confirmatory artifact altered, no network probe re-dispatched outside cooldown.
+
+### Verified findings
+
+- New probe: `SOURCE_PROBE_COMPLETED`, 8 HTTP 200 source responses, `historical_coverage_gate=NOT_PASSED_BY_COVERAGE_PROBE`, `original_confirmatory_gate=BLOCKED_DATA_GATE`. Hyperliquid candles 2026-07-20→2026-11-17 (2881 rows, 1h, 0 gaps, 6 pages); HL funding 2026-07-20→2026-11-17 (2880 rows, hourly, 0 gaps, full 120-day lookback); OKX candles 2026-07-20→2026-11-17 (2880 rows, 1h, 0 gaps, 10 pages); OKX funding-rate-history **2026-08-17→2026-11-17 (275 rows, 8h, page_not_full, retained_days=91)** — the rolling ~3-month window advanced again (was 2026-08-10 / 295 rows / 98 days).
+- `contract_identity` unchanged: `evidence_level=candidate` for BTC/ETH/SOL/AVAX (`underlying_match=true`, `settlement_match=false`, `hl_settle_known=false`). Contract identity remains the binding structural constraint.
+- **New data evidence:** a bounded, unauthenticated `data.binance.vision` check found the 2026-10 monthly CHECKSUM objects now return HTTP 200 for klines and fundingRate on BTCUSDT/ETHUSDT/SOLUSDT/AVAXUSDT (16 available, 8 absent); 2026-11 objects remain 404 (month incomplete). The prior 2026-10-27 artifact recorded 2026-10 as 404. Only CHECKSUM objects were fetched — archive bytes were **not** downloaded or checksum-validated, so this proves object availability, not row content/coverage.
+- Consequence: Binance archive bound moves 2026-09-30 → 2026-10-31; the OKX+Binance funding intersection recomputes to **75 days** (2026-08-17 → 2026-10-31), still below the 90-day FVD053 prior-observation minimum. Structural note now recorded: OKX retains only ~3 months of funding while Binance monthly archives publish with roughly a one-month lag, so this pair's overlap is capped near two months and **cannot reach 90 days by waiting**; duration is unreachable independently of the contract-identity blocker.
+- `scripts/should_run_historical_probe.py` → `should_run=false`, age 194s of 21600s, `next_eligible_at_utc=2026-11-17T14:38:37.136775Z`.
+
+### Actions performed
+
+1. **Linked probe `44048419492`** into `research_state/exploratory_run_manifest_2026-10-27.json`: `reference_probe`/`reference_probe_sha256` → new probe; added it to `output_artifacts`; `okx_funding_settlements` 295→275; `okx_funding_retained_days` 98→91; `common_funding_start_utc` 2026-08-10→2026-08-17; added caveat #25 (probe 43991531527) and #26 (probe 44048419492, incl. the caveat that this probe re-requested only fixed 2024-01 Binance objects).
+2. **New artifact `research_state/binance_monthly_archive_availability_2026-11-17.json`** (sha256 `6e99e7b05fd857f29e3f5be1692ede64901859ccffa0ea73819bf225c4cebce4`): 24 bounded checks (4 symbols × 2 fields × 2026-09/10/11), exact URLs, HTTP statuses, response lengths and response sha256s, `archive_end_utc=2026-10-31T00:00:00Z`, `coverage_proven=false`. Linked into `output_artifacts` of FVD-EXPLORATORY-003.
+3. **Manifest coverage corrected to the new verified bound:** `common_days` 44→75, `common_funding_end_utc` 2026-10-31T16:00Z, `binance_archive_end_utc` 2026-10-31T00:00Z, `binance_archive_years` 6.83, threshold-eligibility intersection end 2026-10-31, `prior_daily_observations_available` 75, `eligible_reason`/`data_gate_result`/`conclusion`/`next_step`/`anchor_result` updated, caveat #27 added. Frozen fields unchanged: `status=EXPLORATORY_ONLY`, `confirmatory_status_preserved=BLOCKED_DATA_GATE`, `historical_point_in_time_market_cap_gate=BLOCKED`, `backtest_completed=false`, `performance_metrics_computed=false`, `anchor_exercised=false`, `anchor=FVD053`, source/config hashes, parent manifest sha.
+4. **Tests hardened (not relaxed):** `test_okx_binance_intersection_independently_recomputed` now derives the Binance bound from the newest availability artifact (`_newest_binance_archive_availability`) and asserts `coverage_summary.binance_archive_end_utc` matches it instead of hardcoding 2026-09-30; `test_okx_plus_binance_intersection_below_90_day_threshold` additionally checks the availability-bound intersection is still <90 days.
+
+### Validation commands run (all PASS, exit 0)
+
+- `python3 -m compileall -q src scripts tests` = OK
+- `PYTHONPATH=src:scripts python3 -m unittest discover -s tests` = PASS (613 tests OK)
+- `PYTHONPATH=src:scripts python3 -m unittest tests.test_historical_overlap_probe.FundingIntersectionAuditTests -v` = 11 tests OK
+- `PYTHONPATH=src python3 scripts/validate_research.py` = RESEARCH_VALIDATION=PASS (grid 108, anchor FVD053, NOT_RUN, performance_metrics_computed=false)
+- `PYTHONPATH=src:scripts python3 scripts/validate_all.py` = ALL_VALIDATIONS=PASS count=24
+- `PYTHONPATH=src:scripts python3 scripts/validate_manifest_artifacts.py` = MANIFEST_ARTIFACTS_VALIDATION=PASS
+- `PYTHONPATH=src:scripts python3 scripts/validate_manifest_schema.py` = MANIFEST_SCHEMA_VALIDATION=PASS
+- `PYTHONPATH=src:scripts python3 scripts/validate_track_separation.py` = TRACK_SEPARATION_VALIDATION=PASS
+- `PYTHONPATH=src:scripts python3 scripts/validate_research_state_artifacts.py` = RESEARCH_STATE_ARTIFACTS_VALIDATION=PASS files=102
+- `PYTHONPATH=src:scripts python3 scripts/validate_blocked_manifest_claims.py` = BLOCKED_MANIFEST_CLAIMS_VALIDATION=PASS
+- `PYTHONPATH=src:scripts python3 scripts/validate_no_performance_claims.py` = NO_PERFORMANCE_CLAIMS_VALIDATION=PASS
+- `PYTHONPATH=src:scripts python3 scripts/validate_controller_progress.py` = CONTROLLER_PROGRESS_VALIDATION=PASS
+- `PYTHONPATH=src python3 scripts/validate_skills.py` = SKILLS_VALIDATION=PASS count=4
+- `git diff --check` = clean
+
+### Frozen artifacts verified unchanged (sha256)
+
+- `configs/cross_venue_funding_dispersion_grid_v1.json` = `6be218bc84bf118cf67c238ad1c13ef1e445658db3b1346cd64ccaccc7aa5f07` (108 configs, anchor FVD053) ✓
+- `research_state/run_manifest.json` = `4f162ce128c741434addf6aa2fa7c7dbf1bf189d4a81b8893ed96899412c7aaf` (BLOCKED_DATA_GATE) ✓
+- `research_state/fvd053_anchor_run_2026-10-25.json` = `50b328baf5854dec40105a0f5ebe498bf589906f9c033ce659843659927ca4c2` (immutable) ✓
+- `research_state/exploratory_run_manifest_2026-10-25.json` = `08bbecf10f80f46b3d56e62e5c82ce44915840b25612307c0d7026f7a9905f1f` (FVD-EXPLORATORY-002, unchanged) ✓
+
+### Changed files (uncommitted, working tree)
+
+- `research_state/exploratory_run_manifest_2026-10-27.json` — new sha256 `20eead9a288f4907aa00f1ba94e719d4ec4d8f82c3ac0048b2ebb12d8e72822f` (FVD-EXPLORATORY-003 updated as above)
+- `research_state/binance_monthly_archive_availability_2026-11-17.json` — new, sha256 `6e99e7b05fd857f29e3f5be1692ede64901859ccffa0ea73819bf225c4cebce4`
+- `tests/test_historical_overlap_probe.py` — artifact-derived Binance bound + availability-bound <90-day assertion
+- `HANDOFF.md` — this section
+
+### Status
+
+- Confirmatory track: `BLOCKED_DATA_GATE` — FVD001–FVD108, FVD053 frozen. No backtest, no performance metrics. `>=3-year historical point-in-time market-cap rank` gate remains structurally blocked.
+- FVD-EXPLORATORY-003 (OKX+Binance USDT): `EXPLORATORY_ONLY`/`INCONCLUSIVE`. Contract/instrument identity candidate-level (binding constraint, unchanged). Funding intersection 75 days (2026-08-17→2026-10-31), structurally capped <90 days by OKX ~3-month retention + Binance ~1-month archive lag. Anchor NOT exercised.
+- FVD-EXPLORATORY-002 (HL+OKX): `EXPLORATORY_ONLY`/`INCONCLUSIVE` (~91-day intersection meets duration, contract identity candidate-level).
+- Probe cooldown active; next eligible `2026-11-17T14:38:37.136775Z`.
+
+### Next measurable task
+
+After the cooldown at `2026-11-17T14:38:37.136775Z`, the scheduled `historical-coverage-probe.yml` runs the next bounded 120-day probe. Then verify the new committed artifact, relink `reference_probe`, recompute the OKX start/retained days/intersection against the 2026-10-31 archive bound, and re-run `validate_manifest_artifacts.py` + the full 613-test suite. Expected structural result: intersection shrinks as OKX's window advances, contract identity stays `candidate`, `NOT_PASSED_BY_COVERAGE_PROBE`, `BLOCKED_DATA_GATE` preserved. If a probe's Binance route again queries only fixed 2024 objects, do not infer archive end from it — reuse this availability artifact or repeat the bounded 2026-10/2026-11 CHECKSUM check. Do NOT promote; no paid data, credentials, live/paper trading, or frozen-artifact edits.
+
+---
+
 ## Threshold-eligibility red-team audit added; OKX+Binance intersection 51d stays blocked (2026-11-17T01:01Z)
 
 Per active prompt `prompts/autonomous_free_data_gate_unblocking_v3_3.md` §12.6 ("execute another useful independent task in the existing codebase: source-independent accounting checks, adversarial tests, result/schema validation, independent recomputation or deterministic resume validation") and AGENTS.md adaptive research-gate policy v1 §5 ("do not merely write another blocker memo; complete the next bounded, no-cost exploratory task"): the data-linked action is genuinely blocked — the newest committed probe is `43991531527` (observed_at_utc `2026-11-17T00:56:01.522983Z`, sha256 `3dae9a6bfbc9656ef4067513d7111f8e046141ba6b9fe1e374ab9e566cc7f0ca`, already linked as `reference_probe` into FVD-EXPLORATORY-003 and committed in `436f0ca`), and `scripts/should_run_historical_probe.py` reports `should_run=false` with `next_eligible_at_utc=2026-11-17T06:56:01.522983Z` (age 264s of 21600s cooldown). No network probe re-dispatched (cooldown active), no paid data/credentials, no live/paper trading, no frozen artifact altered. Highest-priority *actionable* measurable task this session: add a source-independent red-team audit of the FVD-EXPLORATORY-003 threshold-eligibility block.

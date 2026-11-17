@@ -1374,6 +1374,18 @@ class FundingIntersectionAuditTests(unittest.TestCase):
         assert probes, "expected a committed probe with real HTTP responses"
         return probes[-1]
 
+    def _newest_binance_archive_availability(self):
+        """Return the newest committed Binance monthly-archive availability check."""
+        paths = sorted(self.STATE_DIR.glob("binance_monthly_archive_availability_*.json"))
+        for path in reversed(paths):
+            try:
+                data = json.loads(path.read_text(encoding="utf-8"))
+            except (OSError, json.JSONDecodeError):
+                continue
+            if isinstance(data, dict) and data.get("archive_end_utc"):
+                return data
+        return None
+
     def test_hl_funding_is_hourly_not_8hourly(self):
         """Independently verify Hyperliquid fundingHistory returns hourly
         observations (~24 rows/day), NOT 8-hourly settlements (~3/day).
@@ -1521,13 +1533,14 @@ class FundingIntersectionAuditTests(unittest.TestCase):
 
     def test_okx_binance_intersection_independently_recomputed(self):
         """Independently recompute the OKX+Binance funding intersection duration
-        from the newest committed probe (OKX side) and the checksum-verified
-        Binance overlap sample, then cross-check against the manifest's
-        coverage_summary.common_days.
+        from the newest committed probe (OKX side) and the newest committed
+        Binance monthly-archive availability artifact, then cross-check against
+        the manifest's coverage_summary.common_days.
 
-        OKX funding window comes from the probe; Binance funding window comes
-        from the independently downloaded binance_overlap_sample artifact
-        (checksum-validated). The intersection is max of starts, min of ends.
+        OKX funding window comes from the probe; the Binance bound comes from the
+        newest checksum-object availability artifact's archive_end_utc (the
+        overlap sample's funding rows are historical evidence, not the current
+        archive bound). The intersection is max of starts, min of ends.
         """
         manifest_path = self.STATE_DIR / "exploratory_run_manifest_2026-10-27.json"
         if not manifest_path.exists():
@@ -1555,28 +1568,28 @@ class FundingIntersectionAuditTests(unittest.TestCase):
         self.assertIsNotNone(okx_start, "OKX funding earliest_utc missing")
         self.assertIsNotNone(okx_end, "OKX funding latest_utc missing")
 
-        overlap_path = self.STATE_DIR / "binance_overlap_sample_2026-10-26.json"
-        if not overlap_path.exists():
-            self.skipTest("binance overlap sample not found")
-        overlap = json.loads(overlap_path.read_text(encoding="utf-8"))
-        ca = overlap.get("coverage_analysis", {})
-        bn_start = self._parse_utc(ca.get("binance_funding_range"))
-        if bn_start is None:
-            bn_start_str = ca.get("binance_funding_range", "")
-            if "to" in bn_start_str:
-                parts = bn_start_str.split(" to ")
-                if len(parts) == 2:
-                    bn_start = self._parse_utc(parts[0].strip())
-        bn_end_str = "2026-09-30"
-        bn_end = self._parse_utc("2026-09-30T16:00:00Z")
+        availability = self._newest_binance_archive_availability()
+        if availability is None:
+            self.skipTest("binance archive availability artifact not found")
+        bn_end = self._parse_utc(availability.get("archive_end_utc"))
+        if bn_end is None:
+            self.skipTest("archive_end_utc missing from availability artifact")
+        recorded_bn_end = self._parse_utc(cs.get("binance_archive_end_utc"))
+        self.assertEqual(
+            recorded_bn_end, bn_end,
+            f"manifest binance_archive_end_utc={cs.get('binance_archive_end_utc')} "
+            f"must match newest availability artifact archive_end_utc="
+            f"{availability.get('archive_end_utc')}",
+        )
 
-        intersection_start = max(okx_start, bn_start) if bn_start else okx_start
+        intersection_start = okx_start
         intersection_end = min(okx_end, bn_end)
         duration_days = (intersection_end - intersection_start).total_seconds() / 86400.0
         self.assertAlmostEqual(duration_days, recorded_days, delta=3.0,
             msg=f"Independently recomputed OKX+Binance funding intersection = "
             f"{duration_days:.1f} days (OKX {okx_start.isoformat()} to {okx_end.isoformat()}, "
-            f"Binance to {bn_end.isoformat()}); manifest coverage_summary.common_days={recorded_days}")
+            f"Binance archive bound {bn_end.isoformat()}); manifest "
+            f"coverage_summary.common_days={recorded_days}")
 
     def test_okx_funding_settlements_matches_manifest(self):
         """Verify the OKX funding row count in the newest committed probe
@@ -1689,6 +1702,19 @@ class FundingIntersectionAuditTests(unittest.TestCase):
             f"OKX+Binance funding intersection={duration_days:.1f} days "
             f"(OKX {okx_start.isoformat()} to {okx_end.isoformat()}, "
             f"Binance to {bn_end.isoformat()}), expected <90 (FVD053 threshold)")
+
+        availability = self._newest_binance_archive_availability()
+        if availability is not None:
+            bn_avail_end = self._parse_utc(availability.get("archive_end_utc"))
+            if bn_avail_end is not None:
+                avail_end = min(okx_end, bn_avail_end)
+                avail_days = (avail_end - okx_start).total_seconds() / 86400.0
+                self.assertLess(avail_days, 90,
+                    f"Even using the newest Binance archive availability bound "
+                    f"({bn_avail_end.isoformat()}), the OKX+Binance funding intersection "
+                    f"is {avail_days:.1f} days, still <90 (FVD053 threshold). "
+                    f"OKX retains ~3 months while Binance monthly archives publish with "
+                    f"a lag, so this pair cannot reach 90 days by waiting.")
 
     def test_binance_hyperliquid_intersection_meets_duration_but_contract_identity_still_candidate(self):
         """Independently verify that the Binance+Hyperliquid funding intersection
