@@ -1,3 +1,69 @@
+## Binance 2026-10 archive CONTENT checksum-verified (372 funding rows, 8h); OKX+Binance 75d still <90 (2026-11-17T08:45Z)
+
+Per `prompts/autonomous_free_data_gate_unblocking_v3_3.md` §12.6/§5.1 (a successful checksum-object response is not data coverage; only actual row content proves it) and AGENTS.md adaptive research-gate policy v1 §5 ("complete the next bounded, no-cost exploratory task"): probe `44048419492` was already linked and `scripts/should_run_historical_probe.py` reports `should_run=false` (cooldown, `next_eligible_at_utc=2026-11-17T14:38:37.136775Z`), so no probe was re-dispatched. The remaining unproven assumption behind the 75-day intersection was that the 2026-10 Binance monthly archive contains usable rows — previously only its `.CHECKSUM` object existence (HTTP 200) had been checked. This session downloaded, checksum-verified and parsed that content. No paid data, no credentials, no live/paper trading, no frozen confirmatory artifact altered.
+
+### Verified findings (checksum-verified content, not availability)
+
+- All 8 requested objects (BTC/ETH/SOL/AVAX × `fundingRate` + `1h klines`, month 2026-10) matched their official `.CHECKSUM` sha256 and parsed under the strict repo parser (`parse_funding_csv`/`parse_klines_csv`): `objects_checksum_verified=8`, `objects_failed=0`, `content_proven=true`.
+- `fundingRate`: **93 rows per symbol, interval 8.0h, first 2026-10-01T00:00:00.001Z, last 2026-10-31T16:00:00Z**. The last settlement equals the manifest's `coverage_summary.common_funding_end_utc` exactly — the intersection end is now content-backed, not assumed.
+- `1h klines`: **744 rows per symbol, first 2026-10-01T00:00:00Z, last 2026-10-31T23:00:00Z**.
+- Consequence: the Binance 2026-10 bound is proven at row level, but the OKX+Binance funding intersection is unchanged at **75 days (2026-08-17→2026-10-31)**, still below the 90-day FVD053 prior-observation minimum, and contract identity remains `candidate` (binding constraint). No gate passes; no anchor, backtest or metric.
+
+### Actions performed
+
+1. **New bounded tool `scripts/verify_binance_month_content.py`** (stdlib only, no credentials): downloads each `.zip.CHECKSUM` (≤4 KiB) and `.zip` (≤8 MiB), recomputes sha256, fails closed on mismatch/non-8h interval/≠1 CSV member, and parses with the existing strict parser. Writes a compact JSON summary only; archive bytes are never committed.
+2. **New artifact `research_state/binance_month_content_2026-10_2026-11-17.json`** (sha256 `7c925515cf03f8b5fce0235d95112278f5eb9ef81f12f39db882fcb34af471d0`): 8 verified objects with URL, expected/actual sha256, byte size, rows, first/last UTC and interval; `coverage_summary.content_proven=true`; `status=EXPLORATORY_ONLY`, `original_confirmatory_gate=BLOCKED_DATA_GATE`, `backtest_completed=false`, `performance_metrics_computed=false`.
+3. **Linked it into FVD-EXPLORATORY-003** (`exploratory_run_manifest_2026-10-27.json`, new sha256 `cd3310aaf32d645a5d098a352a4df23297112830b5b2b50199ddaf3a4173c5c6`): added to `output_artifacts` (#24), `binance_funding_settlements` → checksum-verified 372 rows, added `binance_content_proven/content_artifact/content_funding_last_utc/content_klines_last_utc`, and corrected `data_gate_result` + `threshold_history_eligibility.eligible_reason` (the "archive bytes not downloaded/validated" caveat is no longer true). Added caveat #28. Unchanged: `status`, `confirmatory_status_preserved`, `historical_point_in_time_market_cap_gate`, `backtest_completed`, `performance_metrics_computed`, `anchor_exercised`, `common_days=75`, `common_funding_start/end_utc`, source/config hashes.
+4. **Fixed a real defect**: `scripts/parse_binance_archive.py` `main()` referenced `Path` without importing it (CLI would raise `NameError`); added `from pathlib import Path`.
+5. **New tests `tests/test_verify_binance_month_content.py` (22)**: checksum parsing, URL patterns, checksum-mismatch/non-8h/multi-member/absent-object fail-closed paths, `content_proven` aggregation, CLI exit codes, the parser import fix, and committed-artifact audits (all objects verified, funding last settlement == manifest `common_funding_end_utc`, artifact hash listed in `output_artifacts`, no performance claim).
+
+### Validation commands run (all PASS, exit 0)
+
+- `python3 -m compileall -q src scripts tests` = OK
+- `PYTHONPATH=src python3 -m unittest discover -s tests` = PASS (635 tests OK; was 613, +22)
+- `PYTHONPATH=src:scripts python3 -m unittest tests.test_verify_binance_month_content` = 22 tests OK
+- `PYTHONPATH=src python3 scripts/validate_research.py` = RESEARCH_VALIDATION=PASS (grid 108, anchor FVD053, NOT_RUN, performance_metrics_computed=false)
+- `PYTHONPATH=src:scripts python3 scripts/validate_all.py` = ALL_VALIDATIONS=PASS count=24
+- `PYTHONPATH=src:scripts python3 scripts/validate_manifest_artifacts.py` = MANIFEST_ARTIFACTS_VALIDATION=PASS
+- `PYTHONPATH=src:scripts python3 scripts/validate_manifest_schema.py` = MANIFEST_SCHEMA_VALIDATION=PASS confirmatory=strict exploratory=contract
+- `PYTHONPATH=src:scripts python3 scripts/validate_track_separation.py` = TRACK_SEPARATION_VALIDATION=PASS
+- `PYTHONPATH=src:scripts python3 scripts/validate_research_state_artifacts.py` = RESEARCH_STATE_ARTIFACTS_VALIDATION=PASS files=103
+- `PYTHONPATH=src:scripts python3 scripts/validate_blocked_manifest_claims.py` = BLOCKED_MANIFEST_CLAIMS_VALIDATION=PASS
+- `PYTHONPATH=src:scripts python3 scripts/validate_no_performance_claims.py` = NO_PERFORMANCE_CLAIMS_VALIDATION=PASS
+- `PYTHONPATH=src:scripts python3 scripts/validate_controller_progress.py` = CONTROLLER_PROGRESS_VALIDATION=PASS
+- `PYTHONPATH=src python3 scripts/validate_skills.py` = SKILLS_VALIDATION=PASS count=4
+- `PYTHONPATH=src python3 scripts/should_run_historical_probe.py` → `should_run=false` (age 255s, cooldown, `next_eligible_at_utc=2026-11-17T14:38:37.136775Z`)
+- `git diff --check` = clean
+
+### Frozen artifacts verified unchanged (sha256)
+
+- `configs/cross_venue_funding_dispersion_grid_v1.json` = `6be218bc84bf118cf67c238ad1c13ef1e445658db3b1346cd64ccaccc7aa5f07` (108 configs, anchor FVD053) ✓
+- `research_state/run_manifest.json` = `4f162ce128c741434addf6aa2fa7c7dbf1bf189d4a81b8893ed96899412c7aaf` (BLOCKED_DATA_GATE) ✓
+- `research_state/fvd053_anchor_run_2026-10-25.json` = `50b328baf5854dec40105a0f5ebe498bf589906f9c033ce659843659927ca4c2` (immutable) ✓
+- `research_state/exploratory_run_manifest_2026-10-25.json` = `08bbecf10f80f46b3d56e62e5c82ce44915840b25612307c0d7026f7a9905f1f` (FVD-EXPLORATORY-002, unchanged) ✓
+
+### Changed files (uncommitted, working tree)
+
+- `research_state/exploratory_run_manifest_2026-10-27.json` — sha256 `cd3310aaf32d645a5d098a352a4df23297112830b5b2b50199ddaf3a4173c5c6`
+- `research_state/binance_month_content_2026-10_2026-11-17.json` — new, sha256 `7c925515cf03f8b5fce0235d95112278f5eb9ef81f12f39db882fcb34af471d0`
+- `scripts/verify_binance_month_content.py` — new bounded content verifier
+- `scripts/parse_binance_archive.py` — `Path` import fix in `main()`
+- `tests/test_verify_binance_month_content.py` — new, 22 tests
+- `HANDOFF.md` — this section
+
+### Status
+
+- Confirmatory track: `BLOCKED_DATA_GATE` — FVD001–FVD108, FVD053 frozen. No backtest, no performance metrics. `>=3-year historical point-in-time market-cap rank` gate remains structurally blocked.
+- FVD-EXPLORATORY-003 (OKX+Binance USDT): `EXPLORATORY_ONLY`/`INCONCLUSIVE`. Contract identity `candidate` (binding). Funding intersection 75 days (2026-08-17→2026-10-31), now that both ends are row-verified; structurally capped <90 days by OKX ~3-month retention + Binance ~1-month archive lag. Anchor NOT exercised.
+- FVD-EXPLORATORY-002 (HL+OKX): `EXPLORATORY_ONLY`/`INCONCLUSIVE` (~91-day intersection, contract identity candidate-level).
+- Probe cooldown active; next eligible `2026-11-17T14:38:37.136775Z`.
+
+### Next measurable task
+
+After the cooldown at `2026-11-17T14:38:37.136775Z`, the scheduled `historical-coverage-probe.yml` runs the next bounded 120-day probe; verify the committed artifact, relink `reference_probe`, recompute the OKX start/retained days/intersection against the content-verified 2026-10 Binance bound, and re-run `validate_manifest_artifacts.py` + the full 635-test suite. Optionally extend `verify_binance_month_content.py` to 2026-07/08/09 (the overlap-sample months) so the entire 75-day intersection is row-verified, not just its final month. Expected structural result: same gates (`NOT_PASSED_BY_COVERAGE_PROBE`, `BLOCKED_DATA_GATE`); do NOT promote. No paid data, credentials, live/paper trading, or frozen-artifact edits.
+
+---
+
 ## Linked probe 44048419492; Binance 2026-10 archive now public (HTTP 200) → OKX+Binance intersection 44→75 days, still <90 (2026-11-17T08:41Z)
 
 Per `prompts/autonomous_free_data_gate_unblocking_v3_3.md` (controller-side probe + verify newest committed artifact) and AGENTS.md adaptive research-gate policy v1 §5 (complete the next bounded no-cost task): the controller committed probe `historical_overlap_probe_44048419492_attempt_1.json` (commit `a35cd8e`, observed_at_utc `2026-11-17T08:38:37.136775Z`, sha256 `a12b44e1b06e20605cc6ce2166e299b937df714ded17863fdb4117af19cea565`) immediately before this session. Highest-priority action: link it into FVD-EXPLORATORY-003 and recheck the Binance archive bound, which this session verified directly. No paid data, no credentials, no live/paper trading, no frozen confirmatory artifact altered, no network probe re-dispatched outside cooldown.

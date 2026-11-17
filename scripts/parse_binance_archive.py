@@ -12,6 +12,7 @@ import csv
 import io
 import sys
 from datetime import datetime, timezone
+from pathlib import Path
 
 FUNDING_SCHEMA_FIELDS = ["calc_time", "funding_interval_hours", "last_funding_rate"]
 KLINES_SCHEMA_FIELDS = [
