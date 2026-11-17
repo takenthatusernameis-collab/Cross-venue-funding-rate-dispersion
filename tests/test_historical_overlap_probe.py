@@ -1779,6 +1779,113 @@ class FundingIntersectionAuditTests(unittest.TestCase):
             "common_days (65); if they now match, this test needs review")
 
 
+class ThresholdEligibilityAuditTests(unittest.TestCase):
+    """Source-independent red-team audit of the FVD-EXPLORATORY-003
+    threshold-history eligibility block.
+
+    The exploratory manifest duplicates several coverage numbers between
+    ``coverage_summary`` and ``threshold_history_eligibility``. Duplicated
+    fields can silently drift when only one block is updated (as already
+    happened for the non-authoritative ``threshold_history_eligibility.common_days``
+    field). This class guards the *authoritative* eligibility logic without
+    modifying the committed artifact:
+
+    - the run must remain fail-closed: ``eligible_for_threshold_computation`` is
+      False while ``prior_daily_observations_available`` is below the
+      90-observation minimum;
+    - ``prior_daily_observations_available`` must equal the authoritative
+      ``coverage_summary.common_days``;
+    - the duplicated OKX retained-days field must agree with
+      ``coverage_summary.okx_funding_retained_days``;
+    - the duplicated common-funding intersection dates must agree (date-level)
+      with ``coverage_summary.common_funding_start_utc`` /
+      ``common_funding_end_utc``.
+
+    No network access. Reads only the committed manifest.
+    """
+
+    STATE_DIR = ROOT / "research_state"
+    MANIFEST = "exploratory_run_manifest_2026-10-27.json"
+
+    @staticmethod
+    def _parse_date(value):
+        if not isinstance(value, str) or not value:
+            return None
+        try:
+            return datetime.fromisoformat(value.replace("Z", "+00:00")).date()
+        except (ValueError, TypeError):
+            return None
+
+    def _manifest(self):
+        path = self.STATE_DIR / self.MANIFEST
+        if not path.exists():
+            self.skipTest("exploratory manifest not found")
+        return json.loads(path.read_text(encoding="utf-8"))
+
+    def test_threshold_gate_remains_fail_closed(self):
+        manifest = self._manifest()
+        the = manifest.get("threshold_history_eligibility", {})
+        available = the.get("prior_daily_observations_available")
+        minimum = the.get("minimum_prior_daily_observations_required")
+        eligible = the.get("eligible_for_threshold_computation")
+        self.assertIsNotNone(available)
+        self.assertIsNotNone(minimum)
+        self.assertIsNotNone(eligible)
+        self.assertLess(
+            available, minimum,
+            f"prior_daily_observations_available ({available}) must remain below "
+            f"the {minimum}-observation minimum for this exploratory run to stay "
+            f"blocked; if it now meets the minimum the eligibility decision needs review",
+        )
+        self.assertFalse(
+            eligible,
+            "eligible_for_threshold_computation must be False while the funding "
+            "intersection is below the 90-observation prior-history minimum",
+        )
+
+    def test_prior_daily_observations_match_authoritative_common_days(self):
+        manifest = self._manifest()
+        cs = manifest.get("coverage_summary", {})
+        the = manifest.get("threshold_history_eligibility", {})
+        self.assertEqual(
+            the.get("prior_daily_observations_available"),
+            cs.get("common_days"),
+            "threshold_history_eligibility.prior_daily_observations_available "
+            "must equal the authoritative coverage_summary.common_days",
+        )
+
+    def test_duplicated_okx_retained_days_agree(self):
+        manifest = self._manifest()
+        cs = manifest.get("coverage_summary", {})
+        the = manifest.get("threshold_history_eligibility", {})
+        self.assertEqual(
+            the.get("okx_funding_retained_days"),
+            cs.get("okx_funding_retained_days"),
+            "threshold_history_eligibility.okx_funding_retained_days must agree "
+            "with coverage_summary.okx_funding_retained_days",
+        )
+
+    def test_common_funding_intersection_dates_agree_with_coverage_summary(self):
+        manifest = self._manifest()
+        cs = manifest.get("coverage_summary", {})
+        the = manifest.get("threshold_history_eligibility", {})
+        the_range = the.get("common_funding_intersection_utc")
+        if not isinstance(the_range, list) or len(the_range) < 2:
+            self.skipTest("threshold_history_eligibility.common_funding_intersection_utc missing")
+        self.assertEqual(
+            self._parse_date(the_range[0]),
+            self._parse_date(cs.get("common_funding_start_utc")),
+            "threshold_history_eligibility intersection start must match "
+            "coverage_summary.common_funding_start_utc (date-level)",
+        )
+        self.assertEqual(
+            self._parse_date(the_range[1]),
+            self._parse_date(cs.get("common_funding_end_utc")),
+            "threshold_history_eligibility intersection end must match "
+            "coverage_summary.common_funding_end_utc (date-level)",
+        )
+
+
 class CrossProbeDeterminismTests(unittest.TestCase):
     """Source-independent deterministic-resume validation across committed probes.
 
