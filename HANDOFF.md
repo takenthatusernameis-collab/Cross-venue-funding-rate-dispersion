@@ -1,3 +1,70 @@
+## Link probe 43991531527 into FVD-EXPLORATORY-003 manifest; OKX+Binance intersection shrank 65→51 days (2026-11-17T01:05Z)
+
+Per active prompt `prompts/autonomous_free_data_gate_unblocking_v3_3.md` (distinguish stale workflow metadata from actual checkpoint progress by inspecting commits; run the highest-priority measurable no-cost task) and AGENTS.md adaptive research-gate policy v1 §5 ("do not merely write another blocker memo; complete the next bounded, no-cost exploratory task"): The controller's scheduled `historical-coverage-probe.yml` workflow committed a new probe `historical_overlap_probe_43991531527_attempt_1.json` (sha256 `3dae9a6bfbc9656ef4067513d7111f8e046141ba6b9fe1e374ab9e566cc7f0ca`, committed in `629b77f`, observed_at_utc `2026-11-17T00:56:01.522983Z`, just before this session). Highest-priority measurable action: link the newest committed probe into the FVD-EXPLORATORY-003 manifest and keep coverage counts current. No network probe re-dispatched (cooldown active, `should_run=false`, `next_eligible_at_utc=2026-11-17T06:56:01.522983Z`), no paid data/credentials, no live/paper trading, no frozen artifact altered.
+
+### v3.3 acceptance check — newest committed probe linked, frozen artifacts unchanged
+
+- Controller CI committed probe `43991531527` in `629b77f` (NOT a Kilo/LLM run; schedule-only `historical-coverage-probe.yml`). File on disk matches committed blob (git status clean before edit; probe tracked at `629b77f`).
+- Probe status: `SOURCE_PROBE_COMPLETED`, `source_responses_with_http_status=8`, `historical_coverage_gate=NOT_PASSED_BY_COVERAGE_PROBE`, `original_confirmatory_gate=BLOCKED_DATA_GATE`, `performance_metrics_computed=false`.
+- Verified findings (identical structural conclusion to all prior probes): Hyperliquid candles 2026-07-19 to 2026-11-16 (2881 rows, 1h, 0 gaps); Hyperliquid funding 2026-07-20 to 2026-11-16 (2880 rows, hourly, 0 gaps, full 120-day lookback); OKX candles 2026-07-20 to 2026-11-16 (2880 rows, 1h, 0 gaps); OKX funding-rate-history **2026-08-10 to 2026-11-16 (295 rows, 8h, page_not_full on page 1, retained_days=98)**. `contract_identity` evidence_level=`candidate` for BTC/ETH/SOL/AVAX (`underlying_match=true`, `settlement_match=false`, `hl_settle_known=false` — Hyperliquid `meta` exposes no settlement-currency field; OKX `baseCcy` empty for linear USDT swaps). Contract identity remains the binding structural constraint, unchanged across all real-response probes.
+- **New honest finding this session (coverage reduction, not improvement):** OKX's rolling ~3-month funding-retention window advanced from a 2026-07-27 start (prior probe 41176339453) to a **2026-08-10 start**, while the Binance archive still ends 2026-09-30. The OKX+Binance funding intersection therefore **shrank from 65 days to 51 days** (2026-08-10 → 2026-09-30). This further weakens (never strengthens) the FVD-EXPLORATORY-003 estimand and remains far below the 90-day FVD053 prior-observation threshold. The existing test `test_okx_binance_intersection_independently_recomputed` correctly failed on the stale 65-day value and was resolved by updating the manifest to the verified 51 days (not by relaxing the test).
+- `should_run_historical_probe.py` → `should_run=false` (cooldown active, `next_eligible_at_utc=2026-11-17T06:56:01.522983Z`).
+
+### Actions performed
+
+1. **Linked new probe `43991531527` into `research_state/exploratory_run_manifest_2026-10-27.json`** (FVD-EXPLORATORY-003):
+   - `reference_probe` `41176339453` → `43991531527`; `reference_probe_sha256` `9719c272…` → `3dae9a6b…`.
+   - Added `43991531527` (sha256 `3dae9a6b…`) to `output_artifacts` (now 21 total).
+   - `coverage_summary.okx_funding_settlements` 287 → 295; `okx_funding_retained_days` 95 → 98.
+   - `coverage_summary.common_days` 65 → 51; `common_funding_start_utc` `2026-07-27T16:00:00Z` → `2026-08-10T16:00:00Z` (end unchanged `2026-09-30T16:00:00Z`).
+   - `threshold_history_eligibility.prior_daily_observations_available` 65 → 51; `common_funding_intersection_utc` start → 2026-08-10; `okx_funding_retained_days` → 98; `eligible_reason` updated to state 51 days and the rolling-window advance. Documented-stale `threshold_history_eligibility.common_days` (72) intentionally left unchanged (tests assert it differs from `coverage_summary.common_days`).
+   - `conclusion` narrative updated from "~65 days (2026-07-27 to 2026-09-30)" to "51 days (2026-08-10 to 2026-09-30 …)" for internal consistency.
+   - `last_updated_utc` → `2026-11-17T00:56:01.522983Z`; `next_step` cooldown reference → `2026-11-17T06:56:01.522983Z`.
+   - Added caveat #25 documenting the new probe, the determinism re-confirmation, and the 65→51-day intersection shrinkage.
+   - All frozen fields unchanged: `status=EXPLORATORY_ONLY`, `confirmatory_status_preserved=BLOCKED_DATA_GATE`, `historical_point_in_time_market_cap_gate=BLOCKED`, `backtest_completed=false`, `performance_metrics_computed=false`, `anchor_exercised=false`, `anchor=FVD053`, `source_code_hashes`, `config_hashes`, `parent_exploratory_manifest_sha256`.
+
+### Validation commands run (all PASS, exit 0)
+
+- `python3 -m compileall -q src scripts tests` = OK (exit 0)
+- `PYTHONPATH=src python3 -m unittest discover -s tests` = PASS (609 tests OK; the previously stale `test_okx_binance_intersection_independently_recomputed` now passes against the corrected 51-day value)
+- `PYTHONPATH=src python3 scripts/validate_research.py` = RESEARCH_VALIDATION=PASS (grid 108, anchor FVD053, NOT_RUN, performance_metrics_computed=false)
+- `PYTHONPATH=src:scripts python3 scripts/validate_all.py` = ALL_VALIDATIONS=PASS count=24
+- `PYTHONPATH=src:scripts python3 scripts/validate_manifest_artifacts.py` = MANIFEST_ARTIFACTS_VALIDATION=PASS (all reference_probe + 21 output_artifacts hashes match, incl. 43991531527)
+- `PYTHONPATH=src:scripts python3 scripts/validate_manifest_schema.py` = MANIFEST_SCHEMA_VALIDATION=PASS
+- `PYTHONPATH=src:scripts python3 scripts/validate_track_separation.py` = TRACK_SEPARATION_VALIDATION=PASS
+- `PYTHONPATH=src:scripts python3 scripts/validate_research_state_artifacts.py` = RESEARCH_STATE_ARTIFACTS_VALIDATION=PASS files=100
+- `PYTHONPATH=src:scripts python3 scripts/validate_controller_progress.py` = CONTROLLER_PROGRESS_VALIDATION=PASS
+- `PYTHONPATH=src:scripts python3 scripts/validate_blocked_manifest_claims.py` = BLOCKED_MANIFEST_CLAIMS_VALIDATION=PASS
+- `PYTHONPATH=src:scripts python3 scripts/validate_no_performance_claims.py` = NO_PERFORMANCE_CLAIMS_VALIDATION=PASS
+- `PYTHONPATH=src python3 scripts/validate_skills.py` = SKILLS_VALIDATION=PASS count=4
+- `PYTHONPATH=src python3 scripts/should_run_historical_probe.py` → `should_run=false` (cooldown, `next_eligible_at_utc=2026-11-17T06:56:01.522983Z`)
+- `git diff --check` = clean (exit 0); `git status --short` = ` M research_state/exploratory_run_manifest_2026-10-27.json`
+
+### Frozen artifacts verified unchanged (sha256 match)
+
+- `configs/cross_venue_funding_dispersion_grid_v1.json` = `6be218bc84bf118cf67c238ad1c13ef1e445658db3b1346cd64ccaccc7aa5f07` (108 configs, anchor FVD053) ✓
+- `research_state/run_manifest.json` = `4f162ce128c741434addf6aa2fa7c7dbf1bf189d4a81b8893ed96899412c7aaf` (BLOCKED_DATA_GATE) ✓
+- `research_state/fvd053_anchor_run_2026-10-25.json` = `50b328baf5854dec40105a0f5ebe498bf589906f9c033ce659843659927ca4c2` (immutable) ✓
+- `research_state/exploratory_run_manifest_2026-10-25.json` = `08bbecf10f80f46b3d56e62e5c82ce44915840b25612307c0d7026f7a9905f1f` (FVD-EXPLORATORY-002, parent, unchanged) ✓
+
+### Modified file (uncommitted, working tree)
+
+- `research_state/exploratory_run_manifest_2026-10-27.json` — new sha256 `d30b815b10bc390455abddd30a8a3e959e67e02eed11d074238f2dae24bf2546` (linked probe 43991531527; updated OKX funding counts 295/98; corrected OKX+Binance intersection 65→51 days across coverage_summary + threshold_history_eligibility + conclusion; added caveat #25; all frozen gate/status/hash fields preserved)
+
+### Status
+
+- Confirmatory track: `BLOCKED_DATA_GATE` — FVD001–FVD108, FVD053 frozen. No backtest, no performance metrics. The `>=3-year historical point-in-time market-cap rank` gate remains structurally blocked across all tested free sources.
+- FVD-EXPLORATORY-003 (OKX+Binance USDT): `EXPLORATORY_ONLY`/`INCONCLUSIVE`. Settlement currency match IS provable (both USDT), but instrument/contract identity is symbol-mapped only (candidate-level — binding constraint). OKX+Binance funding intersection now **51 days** (2026-08-10 → 2026-09-30, after OKX rolling retention advanced), below the 90-day threshold. Anchor NOT exercised. No backtest, no metrics.
+- FVD-EXPLORATORY-002 (HL+OKX): `EXPLORATORY_ONLY`/`INCONCLUSIVE`. Funding intersection ~98 days exceeds threshold, but contract identity candidate-level (structural impossibility — Hyperliquid `meta` exposes no settlement currency).
+- Probe cooldown: active, `should_run=false`, `next_eligible_at_utc=2026-11-17T06:56:01.522983Z`.
+- Contract identity remains the binding structural constraint regardless of duration (Hyperliquid `meta` exposes no settlement currency; OKX `baseCcy` empty for linear USDT swaps; `extract_hl_universe_details` strips `settleCcy`/`settlementCurrency` via `HL_UNIVERSE_FIELDS`).
+
+### Next measurable task
+
+After probe cooldown expires at `2026-11-17T06:56:01.522983Z`, the scheduled `historical-coverage-probe.yml` workflow (minute 13/43) will run the next bounded 120-day probe and commit a new dated artifact. Then: verify whether a new probe was committed, link it into the FVD-EXPLORATORY-003 manifest (update `reference_probe`/`reference_probe_sha256`/`output_artifacts` + OKX funding counts + intersection dates if the OKX rolling window advances again), re-run `validate_manifest_artifacts.py` and the full 609-test suite. Expected structural finding: identical (contract identity candidate-level, `NOT_PASSED_BY_COVERAGE_PROBE`, `BLOCKED_DATA_GATE` preserved); the OKX+Binance intersection will likely shrink further as OKX's rolling ~3-month funding window advances past 2026-09-30 (approaching zero once the window start passes the Binance archive end). Do NOT promote. No paid data, no credentials, no live/paper trading, no alteration of frozen confirmatory artifacts.
+
+---
+
 ## Link probe 41176339453 into FVD-EXPLORATORY-003 manifest (2026-10-31T07:00Z)
 
 Per active prompt `prompts/autonomous_free_data_gate_unblocking_v3_3.md` §12 (inspect latest research-state manifest/artifact timestamps and validation records; distinguish stale workflow metadata from actual checkpoint progress by inspecting commits) and AGENTS.md adaptive research-gate policy v1 §5 ("do not merely write another blocker memo; complete the next bounded, no-cost exploratory task"): The controller committed a new probe `historical_overlap_probe_41176339453_attempt_1.json` (sha256 `9719c272af1838b81460e49ccdd473784d18f3b0d4b4b5dfe0aa7f37695323f7`, committed in `c0df03f`, observed_at_utc `2026-10-31T06:57:13.450501Z`) with identical structural findings to all prior probes. Highest-priority measurable action: link the newest committed probe into the FVD-EXPLORATORY-003 manifest so the reference probe, coverage counts, and artifact registry stay current. No network probe re-dispatched (cooldown active, `should_run=false`, `next_eligible_at_utc=2026-10-31T12:57:13.450501Z`), no paid data/credentials, no live/paper trading, no frozen artifact altered.
