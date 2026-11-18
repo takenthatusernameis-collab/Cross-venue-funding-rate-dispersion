@@ -1744,6 +1744,85 @@ class FundingIntersectionAuditTests(unittest.TestCase):
                     f"OKX retains ~3 months while Binance monthly archives publish with "
                     f"a lag, so this pair cannot reach 90 days by waiting.")
 
+    def test_panel_binding_common_start_also_below_90_days(self):
+        """Red-team the optimistic common-start convention: the manifest's
+        ``common_funding_start_utc`` is the min-across-symbols earliest funding
+        timestamp, but a four-symbol panel is only jointly covered from the
+        MAX-across-symbols earliest timestamp (the panel-binding start).
+
+        Independently derive the panel-binding start from the newest committed
+        probe and assert the panel overlap is still <90 days and that the
+        optimistic start cannot mask a shorter true panel overlap.
+        """
+        manifest_path = self.STATE_DIR / "exploratory_run_manifest_2026-10-27.json"
+        if not manifest_path.exists():
+            self.skipTest("exploratory manifest not found")
+        manifest = json.loads(manifest_path.read_text(encoding="utf-8"))
+        cs = manifest.get("coverage_summary", {})
+
+        data = self._newest_real_response_probe()
+        okx_funding = self._funding_items(data, "okx_funding")
+        if not okx_funding:
+            self.skipTest("no OKX funding coverage in probe")
+        earliest_by_symbol = {}
+        latest_by_symbol = {}
+        for item in okx_funding:
+            cov = item.get("coverage", {})
+            if not isinstance(cov, dict):
+                continue
+            inst_id = item.get("instId", "")
+            base = inst_id.split("-")[0]
+            s = self._parse_utc(cov.get("earliest_utc"))
+            e = self._parse_utc(cov.get("latest_utc"))
+            if base and s:
+                earliest_by_symbol[base] = s
+            if base and e:
+                latest_by_symbol[base] = e
+        if len(earliest_by_symbol) < 2:
+            self.skipTest("need at least two OKX symbols for a panel audit")
+
+        optimized_start = min(earliest_by_symbol.values())
+        panel_start = max(earliest_by_symbol.values())
+        panel_end = min(latest_by_symbol.values())
+        self.assertGreaterEqual(panel_start, optimized_start,
+            "panel-binding start (max of per-symbol earliest) cannot precede "
+            "the optimistic start (min of per-symbol earliest)")
+
+        availability = self._newest_binance_archive_availability()
+        if availability is None:
+            self.skipTest("binance archive availability artifact not found")
+        bn_end = self._parse_utc(availability.get("archive_end_utc"))
+        if bn_end is None:
+            self.skipTest("archive_end_utc missing from availability artifact")
+
+        panel_days = (min(panel_end, bn_end) - panel_start).total_seconds() / 86400.0
+        optimistic_days = (min(panel_end, bn_end) - optimized_start).total_seconds() / 86400.0
+        self.assertLessEqual(panel_days, optimistic_days,
+            f"panel-binding duration {panel_days:.2f}d must not exceed the "
+            f"optimistic duration {optimistic_days:.2f}d")
+        self.assertLess(panel_days, 90,
+            f"panel-binding OKX+Binance overlap={panel_days:.2f} days "
+            f"(panel start {panel_start.isoformat()}, end {min(panel_end, bn_end).isoformat()}), "
+            f"expected <90 (FVD053 prior-observation threshold)")
+
+        recorded_start = self._parse_utc(cs.get("common_funding_start_utc"))
+        if recorded_start is not None:
+            self.assertEqual(recorded_start, optimized_start,
+                "coverage_summary.common_funding_start_utc must be the documented "
+                "optimistic min-across-symbols start")
+        recorded_panel = cs.get("common_funding_start_panel_binding_utc")
+        if recorded_panel is not None:
+            self.assertEqual(self._parse_utc(recorded_panel), panel_start,
+                "coverage_summary.common_funding_start_panel_binding_utc must equal "
+                "the max-across-symbols earliest OKX funding timestamp")
+        recorded_panel_days = cs.get("common_days_panel_binding")
+        if recorded_panel_days is not None:
+            self.assertAlmostEqual(panel_days, recorded_panel_days, delta=1.0,
+                msg=f"coverage_summary.common_days_panel_binding={recorded_panel_days} "
+                f"but independently recomputed panel overlap={panel_days:.2f} days")
+            self.assertLessEqual(recorded_panel_days, cs.get("common_days", 0),
+                "panel-binding duration must not exceed the optimistic common_days")
+
     def test_binance_hyperliquid_intersection_meets_duration_but_contract_identity_still_candidate(self):
         """Independently verify that the Binance+Hyperliquid funding intersection
         duration meets the 90-day FVD053 threshold (~91 days per the overlap

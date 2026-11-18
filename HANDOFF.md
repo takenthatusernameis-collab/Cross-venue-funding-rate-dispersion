@@ -1,3 +1,61 @@
+## Panel-binding common start red-team test; optimistic min-based common_days can no longer mask a shorter panel overlap (2026-11-18T00:20Z)
+
+Per `prompts/autonomous_free_data_gate_unblocking_v3_3.md` (bounded, source-independent next task after cooldown) and AGENTS.md adaptive research-gate policy v1 §5: no new probe was due (`should_run=false`, age 254s, `next_eligible_at_utc=2026-11-18T06:01:09.205747Z`), so this session executed the previously registered remaining measurable action — a red-team test that independently derives the panel-binding funding common start as max-across-symbols earliest and proves it cannot exceed the optimistic min-based `common_days`. No paid data, no credentials, no network call, no live/paper trading, no frozen artifact altered.
+
+### Verified findings
+
+- Newest committed probe remains `research_state/historical_overlap_probe_44204206323_attempt_1.json` (observed_at_utc `2026-11-18T00:01:09.205747Z`, sha256 `ad90944b9e69ed92f9f1a2096e29da62521cf09d3ca6a828cf9f0b0f5ee258e2`); no newer probe committed since `13dc2d2`. Nothing new was re-probed.
+- Independent derivation from probe coverage: OKX `earliest_utc` is `2026-08-17T16:00Z` for BTC/SOL/AVAX and `2026-08-17T08:00Z` for ETH; `latest_utc` is `2026-11-17T16:00Z` for all four. Therefore the panel-binding start is `max = 2026-08-17T16:00Z` while the documented manifest `common_funding_start_utc` is `min = 2026-08-17T08:00Z` (optimistic, 8h earlier).
+- Applying the unchanged Binance archive bound `2026-10-31T00:00Z` (`binance_monthly_archive_availability_2026-11-17.json`): panel overlap = 74.33 days; optimistic overlap = 74.67 days (manifest records `common_days=75` at the 16:00Z settlement boundary). Both < 90, so the FVD053 90-day prior-observation minimum stays unmet under either convention — the conservative panel-binding reading cannot be rescued by the optimistic one.
+- Contract identity still `candidate` for all four underlyings (`hl_settle_known=false`, `settlement_match=false`); duration is still not the binding constraint alone.
+
+### Actions performed
+
+1. **Added `test_panel_binding_common_start_also_below_90_days`** to `tests/test_historical_overlap_probe.py` (`FundingIntersectionAuditTests`, no network): derives per-symbol earliest/latest from the newest committed probe, asserts `panel_start = max(earliest) >= min(earliest)`, recomputes panel duration against the newest Binance archive bound, asserts `panel_days <= optimistic_days` and `panel_days < 90`, and cross-checks the manifest's `common_funding_start_utc` (must equal the min/across-symbols optimistic start) plus optional panel-binding fields if present.
+2. **Recorded the derived panel-binding coverage** in `research_state/exploratory_run_manifest_2026-10-27.json` `coverage_summary`: `common_funding_start_panel_binding_utc=2026-08-17T16:00:00Z`, `common_days_panel_binding=74`. Additive only; `common_days=75`, `common_funding_start_utc`, `okx_funding_settlements`, `okx_funding_settlements_by_symbol`, `okx_funding_retained_days` unchanged. Frozen fields untouched: `status=EXPLORATORY_ONLY`, `confirmatory_status_preserved=BLOCKED_DATA_GATE`, `historical_point_in_time_market_cap_gate=BLOCKED`, `backtest_completed=false`, `performance_metrics_computed=false`, `anchor_exercised=false`, `anchor=FVD053`, `source_code_hashes`, `config_hashes`, `parent_exploratory_manifest_sha256`.
+
+### Validation commands run (all PASS, exit 0)
+
+- `python3 -m compileall -q src scripts tests` = OK
+- `PYTHONPATH=src:scripts python3 -m unittest tests.test_historical_overlap_probe.FundingIntersectionAuditTests -v` = OK (12 tests, incl. new panel-binding test)
+- `PYTHONPATH=src python3 -m unittest discover -s tests` = PASS (648 tests, up from 647)
+- `PYTHONPATH=src python3 scripts/validate_research.py` = RESEARCH_VALIDATION=PASS (grid 108, anchor FVD053, NOT_RUN, performance_metrics_computed=false)
+- `PYTHONPATH=src:scripts python3 scripts/validate_all.py` = ALL_VALIDATIONS=PASS count=24
+- `PYTHONPATH=src:scripts python3 scripts/validate_manifest_artifacts.py` = MANIFEST_ARTIFACTS_VALIDATION=PASS (incl. probe 44204206323)
+- `PYTHONPATH=src:scripts python3 scripts/validate_manifest_schema.py` = MANIFEST_SCHEMA_VALIDATION=PASS confirmatory=strict exploratory=contract
+- `PYTHONPATH=src:scripts python3 scripts/validate_track_separation.py` = TRACK_SEPARATION_VALIDATION=PASS
+- `PYTHONPATH=src:scripts python3 scripts/validate_research_state_artifacts.py` = RESEARCH_STATE_ARTIFACTS_VALIDATION=PASS files=106
+- `PYTHONPATH=src:scripts python3 scripts/validate_blocked_manifest_claims.py` = BLOCKED_MANIFEST_CLAIMS_VALIDATION=PASS
+- `PYTHONPATH=src:scripts python3 scripts/validate_no_performance_claims.py` = NO_PERFORMANCE_CLAIMS_VALIDATION=PASS
+- `PYTHONPATH=src:scripts python3 scripts/validate_controller_progress.py` = CONTROLLER_PROGRESS_VALIDATION=PASS
+- `PYTHONPATH=src python3 scripts/validate_skills.py` = SKILLS_VALIDATION=PASS count=4
+- `PYTHONPATH=src python3 scripts/should_run_historical_probe.py` → `should_run=false` (`next_eligible_at_utc=2026-11-18T06:01:09.205747Z`)
+
+### Frozen artifacts verified unchanged (sha256)
+
+- `configs/cross_venue_funding_dispersion_grid_v1.json` = `6be218bc84bf118cf67c238ad1c13ef1e445658db3b1346cd64ccaccc7aa5f07` (108 configs, anchor FVD053) ✓
+- `research_state/run_manifest.json` = `4f162ce128c741434addf6aa2fa7c7dbf1bf189d4a81b8893ed96899412c7aaf` (BLOCKED_DATA_GATE) ✓
+- `research_state/fvd053_anchor_run_2026-10-25.json` = `50b328baf5854dec40105a0f5ebe498bf589906f9c033ce659843659927ca4c2` (immutable) ✓
+- `research_state/exploratory_run_manifest_2026-10-25.json` = `08bbecf10f80f46b3d56e62e5c82ce44915840b25612307c0d7026f7a9905f1f` (FVD-EXPLORATORY-002, unchanged) ✓
+
+### Changed files (uncommitted, working tree)
+
+- `tests/test_historical_overlap_probe.py` — new panel-binding red-team test
+- `research_state/exploratory_run_manifest_2026-10-27.json` — sha256 `b09fa7371c148adf8f2628c058a82194be355015b28bacee926cb6fd45f0b979`
+- `HANDOFF.md` — this section
+
+### Status
+
+- Confirmatory track: `BLOCKED_DATA_GATE` — FVD001–FVD108, FVD053 frozen. No backtest, no performance metrics. `>=3-year historical point-in-time market-cap rank` gate remains structurally blocked.
+- FVD-EXPLORATORY-003 (OKX+Binance USDT): `EXPLORATORY_ONLY`/`INCONCLUSIVE`. Contract identity `candidate` (binding). Funding intersection 74–75 days (2026-08-17→2026-10-31) under both optimistic and panel-binding conventions, structurally capped <90 days by OKX ~3-month retention + Binance ~1-month archive lag. Anchor NOT exercised.
+- FVD-EXPLORATORY-002 (HL+OKX): `EXPLORATORY_ONLY`/`INCONCLUSIVE` (~91-day intersection meets duration; contract identity candidate-level).
+
+### Next measurable task
+
+After `2026-11-18T06:01:09.205747Z`, check whether the controller committed a new `historical_overlap_probe_*` artifact; if so, link it as `reference_probe`, recompute per-symbol OKX counts, retained days, optimistic and panel-binding intersections against the unchanged 2026-10-31 Binance bound, and re-run `validate_manifest_artifacts.py` plus the full suite. Acceptance check: the new probe either (a) shows OKX retention reaching >=90 days for all four symbols simultaneously while the Binance bound is >=3 months later, or (b) documents the same structural <90-day cap with updated hashes. Expected current result remains `NOT_PASSED_BY_COVERAGE_PROBE`, `BLOCKED_DATA_GATE`; do NOT promote. No paid data, credentials, live/paper trading, or frozen-artifact edits.
+
+---
+
 ## Linked probe 44204206323; OKX per-symbol divergence flipped (BTC 277 / ETH 278); intersection stays 75d < 90 (2026-11-18T00:10Z)
 
 Per `prompts/autonomous_free_data_gate_unblocking_v3_3.md` (inspect newest committed probe; distinguish stale workflow metadata from checkpoint progress via commit history) and AGENTS.md adaptive research-gate policy v1 §5 (complete the next bounded, no-cost task): controller CI committed probe `historical_overlap_probe_44204206323_attempt_1.json` in `13dc2d2` (observed_at_utc `2026-11-18T00:01:09.205747Z`, sha256 `ad90944b9e69ed92f9f1a2096e29da62521cf09d3ca6a828cf9f0b0f5ee258e2`) immediately before this session; its only follow-up commit `1a5db85` is workflow diagnostics. Highest-priority measurable action: link it into FVD-EXPLORATORY-003, recompute OKX per-symbol counts and the intersection honestly. No probe re-dispatched (cooldown), no paid data, no credentials, no live/paper trading, no frozen artifact altered.

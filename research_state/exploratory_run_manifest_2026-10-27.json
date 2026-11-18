@@ -68,7 +68,9 @@
   "sample_construction": "Verified historical intersection of instruments with funding settlements + price history on >=2 venues over the OKX+Binance pair; no market-cap rank required for this distinct exploratory estimand; shorter history allowed; not market-cap representative.",
   "coverage_summary": {
     "common_days": 75,
+    "common_days_panel_binding": 74,
     "common_funding_end_utc": "2026-10-31T16:00:00Z",
+    "common_funding_start_panel_binding_utc": "2026-08-17T16:00:00Z",
     "common_funding_start_utc": "2026-08-17T08:00:00Z",
     "contract_identity_evidence_level": "candidate",
     "contract_identity_verified": false,
