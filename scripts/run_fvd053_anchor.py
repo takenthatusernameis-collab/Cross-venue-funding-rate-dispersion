@@ -368,6 +368,104 @@ def select_signal_assets(daily: dict[str, dict[str, float | None]],
     return eligible[:count]
 
 
+def _threshold_eligible_underlyings(
+    daily: dict[str, dict[str, float | None]],
+    samples_by_u: dict[str, list[dict]],
+    date_str: str,
+    percentile: int,
+    lookback_days: int,
+    minimum_observations: int,
+) -> int:
+    """Count underlyings that could actually be evaluated on this date.
+
+    An underlying is evaluable only if it has a dispersion value for the date AND
+    a non-None prior_daily_threshold (i.e. enough prior observations exist). This
+    separates structurally untestable dates (no underlying evaluable, so no signal
+    was possible) from dates that were tested but produced no signal because every
+    dispersion stayed below its threshold. It performs no network access and is a
+    pure diagnostic; it does not change signal selection or accounting.
+    """
+    count = 0
+    for u in UNDERLYINGS:
+        if daily.get(date_str, {}).get(u) is None:
+            continue
+        threshold = prior_daily_threshold(
+            samples_by_u[u], date_str, percentile,
+            lookback_days=lookback_days, minimum_observations=minimum_observations,
+        )
+        if threshold is not None:
+            count += 1
+    return count
+
+
+def evaluate_signal_dates(
+    daily: dict[str, dict[str, float | None]],
+    samples_by_u: dict[str, list[dict]],
+    percentile: int,
+    lookback_days: int,
+    minimum_observations: int,
+    tail_fraction: float,
+) -> tuple[dict[str, list[tuple[str, float]]], dict[str, int]]:
+    """Pure, offline evaluation of every date; no network and no side effects.
+
+    Returns ``(selected_by_date, counts)``. ``selected_by_date[date]`` is the list
+    of ``(underlying, dispersion)`` pairs selected for a signal on that date, or an
+    empty list when no signal fires. ``counts`` partitions the dates so the reported
+    ``dates_with_no_signal`` is fully explained:
+
+    - ``dates_total``: number of dates evaluated;
+    - ``dates_with_signal``: dates with at least one selected underlying;
+    - ``dates_with_no_signal``: dates with an empty selection;
+    - ``dates_threshold_ineligible``: subset of no-signal dates where NO underlying
+      had an eligible prior threshold (structurally no signal was possible);
+    - ``dates_threshold_eligible_no_signal``: subset of no-signal dates where at
+      least one threshold existed but every dispersion stayed below it;
+    - ``dates_with_no_dispersion``: dates where the whole cross-section lacked a
+      dispersion value;
+    - ``underlying_dates_threshold_eligible``: total underlying-dates that had both a
+      dispersion value and an eligible threshold.
+
+    Invariant: ``dates_with_no_signal == dates_threshold_ineligible
+    + dates_threshold_eligible_no_signal``. This is a diagnostic only; it does not
+    alter signal selection, thresholds, or accounting.
+    """
+    selected_by_date: dict[str, list[tuple[str, float]]] = {}
+    counts = {
+        "dates_total": 0,
+        "dates_with_signal": 0,
+        "dates_with_no_signal": 0,
+        "dates_threshold_ineligible": 0,
+        "dates_threshold_eligible_no_signal": 0,
+        "dates_with_no_dispersion": 0,
+        "underlying_dates_threshold_eligible": 0,
+    }
+    for day_str in sorted(daily):
+        counts["dates_total"] += 1
+        dispersion_underlyings = sum(
+            1 for u in UNDERLYINGS if daily[day_str].get(u) is not None
+        )
+        if dispersion_underlyings == 0:
+            counts["dates_with_no_dispersion"] += 1
+        threshold_eligible = _threshold_eligible_underlyings(
+            daily, samples_by_u, day_str, percentile, lookback_days, minimum_observations,
+        )
+        counts["underlying_dates_threshold_eligible"] += threshold_eligible
+        selected = select_signal_assets(
+            daily, samples_by_u, day_str, percentile, lookback_days,
+            minimum_observations, tail_fraction,
+        )
+        selected_by_date[day_str] = selected
+        if selected:
+            counts["dates_with_signal"] += 1
+        else:
+            counts["dates_with_no_signal"] += 1
+            if threshold_eligible == 0:
+                counts["dates_threshold_ineligible"] += 1
+            else:
+                counts["dates_threshold_eligible_no_signal"] += 1
+    return selected_by_date, counts
+
+
 def simulate_signal(u: str, long_venue: str, short_venue: str, notional: float,
                     entry_time: datetime, exit_time: datetime, data: dict[str, dict],
                     fee_bps: float, slip_bps: float) -> dict[str, Any]:
@@ -477,11 +575,17 @@ def run_anchor(opener=None) -> dict[str, Any]:
                     "date": day_str, "snapshot_time_utc": "23:00:00", "dispersion": disp,
                 })
 
+    # Partition every date (signal / threshold-ineligible / below-threshold) with a
+    # single pure pass; reuse the selection so accounting sees the same pairs.
+    selected_by_date, diag = evaluate_signal_dates(
+        daily, samples_by_u, params["entry_percentile"],
+        params["threshold_lookback_days"], params["threshold_minimum_observations"],
+        params["portfolio_tail_fraction"],
+    )
+
     signals: list[dict] = []
     skipped_missing_candles = 0
     skipped_missing_funding = 0
-    dates_with_no_dispersion = 0
-    dates_with_no_signal = 0
 
     for day_str in sorted(daily):
         day_date = datetime.fromisoformat(day_str).date()
@@ -489,19 +593,9 @@ def run_anchor(opener=None) -> dict[str, Any]:
         entry_time = signal_time
         exit_time = signal_time + timedelta(hours=params["holding_hours"])
 
-        selected = select_signal_assets(
-            daily, samples_by_u, day_str, params["entry_percentile"],
-            params["threshold_lookback_days"], params["threshold_minimum_observations"],
-            params["portfolio_tail_fraction"],
-        )
+        selected = selected_by_date.get(day_str, [])
         if not selected:
-            dates_with_no_signal += 1
             continue
-
-        # Count underlying-dates with any dispersion but no signal eligibility.
-        any_disp = any(daily[day_str].get(u) is not None for u in UNDERLYINGS)
-        if any_disp and not any(disp is not None for disp in daily[day_str].values()):
-            dates_with_no_dispersion += 1
 
         notional = EQUITY * params["gross_multiple"] / (2.0 * len(selected))
         for u, _disp in selected:
@@ -594,8 +688,13 @@ def run_anchor(opener=None) -> dict[str, Any]:
             ">=3-year confirmatory requirement; contract identity by underlying symbol only."
         ),
         "signal_count": len(signals),
-        "dates_with_no_signal": dates_with_no_signal,
-        "dates_with_no_dispersion": dates_with_no_dispersion,
+        "dates_total": diag["dates_total"],
+        "dates_with_signal": diag["dates_with_signal"],
+        "dates_with_no_signal": diag["dates_with_no_signal"],
+        "dates_with_no_dispersion": diag["dates_with_no_dispersion"],
+        "dates_threshold_ineligible": diag["dates_threshold_ineligible"],
+        "dates_threshold_eligible_no_signal": diag["dates_threshold_eligible_no_signal"],
+        "underlying_dates_threshold_eligible": diag["underlying_dates_threshold_eligible"],
         "skipped_missing_candles": skipped_missing_candles,
         "skipped_missing_funding": skipped_missing_funding,
         "total_funding_settlements": total_settlements,

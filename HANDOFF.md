@@ -1,3 +1,70 @@
+## Anchor diagnostic red-team: FVD-EXPLORATORY-002 "0 signals" was a candle-completeness artifact, NOT sub-threshold dispersion; fixed non-attributable diagnostics (2026-11-20T23:33Z)
+
+Per `prompts/autonomous_free_data_gate_unblocking_v3_3.md` §12 step 6 and AGENTS.md adaptive research-gate policy v1 §5 (default execution rule: when the source probe is not actionable, do the next bounded, no-cost, source-independent task rather than another blocker memo or probe re-link): HEAD was `da3a8cf`, tree clean. Newest probe by `observed_at_utc` is `historical_overlap_probe_44830909114_attempt_1.json` (`2026-11-20T22:41:21.768401Z`), already linked by the prior session; probe cooldown active (`should_run=false`, age 3020s, `next_eligible_at_utc=2026-11-21T04:41:21.768401Z`), so NO new probe was dispatched. No paid data, no credentials, no live/paper trading, no workflow edits, no frozen artifact altered.
+
+**Track A (confirmatory):** `BLOCKED_DATA_GATE` — FVD001–FVD108 + FVD053 frozen; no backtest, no performance metrics; ≥3-year PIT market-cap gate still structurally blocked.
+**Track B:** FVD-EXPLORATORY-003 (OKX+Binance) `EXPLORATORY_ONLY`/`INCONCLUSIVE`, 73.0-day intersection (<90, shrinking), unchanged. FVD-EXPLORATORY-002 (HL+OKX, ~97-day intersection MEETS the 90-day duration gate) `EXPLORATORY_ONLY`/`INCONCLUSIVE` with `signal_count=0` — this session audited WHY.
+
+### Verified finding (source-independent; from the frozen artifact's own counters + window arithmetic, no network)
+
+The FVD-EXPLORATORY-002 conclusion states *"dispersion never exceeded the 80th-percentile threshold."* The frozen `research_state/fvd053_anchor_run_2026-10-25.json` counters contradict this:
+- Daily signal dates in window 2026-07-20→2026-10-24 (23:00 UTC cutoff, end 2026-10-25T16:00Z) = **97**.
+- `dates_with_no_signal=47`, `skipped_missing_candles=50`, `skipped_missing_funding=0`, `signal_count=0`, `dates_with_no_dispersion=0`.
+- Arithmetic: `97 = 47 (empty selection) + 50 (non-empty selection)`. The 50 dates with a non-empty selection each formed exactly 1 candidate signal (tail=ceil(5×0.1)=1), and **all 50 were dropped at the candle stage** (`missing_candle_at_entry_or_exit`), not for funding (`skipped_missing_funding=0`).
+- Therefore dispersion DID exceed the 80th-percentile threshold on **50 dates**; the 0-signal outcome is a **candle-completeness/alignment artifact** (missing 23:00 entry/exit hours in the paginated candle maps), not an economic result. Candle fetches all returned HTTP 200 with no errors (8 OKX pages each, `stop_reason=window_start_reached`; HL 200), so the missing hours are an alignment/coverage issue, not a fetch failure. The exact missing-timestamp set is unrecoverable offline because raw candles were not persisted (only fetch metadata was).
+- Secondary defect: of the 47 no-signal dates, **≥30 are structurally threshold-ineligible** (the first 30 days cannot have ≥30 prior daily observations, so `prior_daily_threshold` returns None and no signal was possible regardless of dispersion). So "never exceeded threshold" is, at best, demonstrable for ≤17 dates.
+- Documentation inconsistency in the frozen EXPLORATORY-002 record: caveat[5] says *"Evaluation window ~7 signal days"* while `anchor_result`/`conclusion` say 0 signals / 47 no-signal dates. Not rewritten (immutable); flagged here.
+
+### Code defect fixed (diagnostic only; signal/threshold/accounting logic untouched)
+
+In `scripts/run_fvd053_anchor.py` the `dates_with_no_dispersion` metric used contradictory logic — `any_disp = any(v is not None ...)` AND `not any(v is not None ...)` — which can never both be true, so it was structurally always 0. Additionally `dates_with_no_signal` conflated "threshold ineligible (structurally untestable)" with "tested but below threshold". Changes:
+1. Added pure helpers `_threshold_eligible_underlyings(...)` and `evaluate_signal_dates(...)` that partition every date into `dates_with_signal` / `dates_threshold_ineligible` / `dates_threshold_eligible_no_signal` / `dates_with_no_dispersion`, with invariant `dates_with_no_signal == dates_threshold_ineligible + dates_threshold_eligible_no_signal`.
+2. `run_anchor` now calls `evaluate_signal_dates` once and reuses the selection; added result fields `dates_total`, `dates_with_signal`, `dates_threshold_ineligible`, `dates_threshold_eligible_no_signal`, `underlying_dates_threshold_eligible`; corrected `dates_with_no_dispersion`. No change to `select_signal_assets`, thresholds, timing, accounting, or FVD053 params.
+
+### Actions performed
+
+1. Refactored `scripts/run_fvd053_anchor.py` diagnostics (above); `scripts/run_fvd053_anchor.py` sha256 `99141359a9cece3e7c96a2634e71dddc8b5291a517bcef2f0b3cdcf80377a463`.
+2. Added `AnchorDiagnosticPartitionTests` (3 offline red-team tests) to `tests/test_run_fvd053_anchor.py` proving the exact additive partition, the `dates_with_no_dispersion` all-None regression (old code → 0, new → 1), and `_threshold_eligible_underlyings` behavior; `tests/test_run_fvd053_anchor.py` sha256 `f738928ba51c6d942bdfabbd62eb0752cf2949d8782d4abc0e3b936a67c573e7`.
+3. Did NOT touch any frozen artifact, the 108-grid, FVD053, run manifests, or the exploratory manifests.
+
+### Validation commands run this session (all PASS, exit 0)
+
+- `python3 -m compileall -q src scripts tests` = OK
+- `PYTHONPATH=src python3 -m unittest discover -s tests` = `Ran 651 tests ... OK` (was 648; +3 new)
+- `PYTHONPATH=src python3 scripts/validate_research.py` = RESEARCH_VALIDATION=PASS (PRIMARY_ANCHOR=FVD053, INITIAL_RUN_STATUS=NOT_RUN, PERFORMANCE_METRICS_COMPUTED=false)
+- `PYTHONPATH=src:scripts python3 scripts/validate_all.py` = ALL_VALIDATIONS=PASS count=24
+- `PYTHONPATH=src:scripts python3 scripts/validate_manifest_artifacts.py` = MANIFEST_ARTIFACTS_VALIDATION=PASS
+- `PYTHONPATH=src:scripts python3 scripts/validate_manifest_schema.py` = MANIFEST_SCHEMA_VALIDATION=PASS confirmatory=strict exploratory=contract
+- `PYTHONPATH=src:scripts python3 scripts/validate_track_separation.py` = TRACK_SEPARATION_VALIDATION=PASS
+- `PYTHONPATH=src:scripts python3 scripts/validate_research_state_artifacts.py` = RESEARCH_STATE_ARTIFACTS_VALIDATION=PASS files=115
+- `PYTHONPATH=src:scripts python3 scripts/validate_blocked_manifest_claims.py` = BLOCKED_MANIFEST_CLAIMS_VALIDATION=PASS
+- `PYTHONPATH=src:scripts python3 scripts/validate_no_performance_claims.py` = NO_PERFORMANCE_CLAIMS_VALIDATION=PASS
+- `PYTHONPATH=src:scripts python3 scripts/validate_controller_progress.py` = CONTROLLER_PROGRESS_VALIDATION=PASS
+- `python3 scripts/validate_skills.py` = SKILLS_VALIDATION=PASS count=4
+- `PYTHONPATH=src python3 scripts/should_run_historical_probe.py` = `should_run=false` (`next_eligible_at_utc=2026-11-21T04:41:21.768401Z`)
+- `git diff --check` = clean; `git status --short` = `M scripts/run_fvd053_anchor.py`, `M tests/test_run_fvd053_anchor.py`
+
+### Frozen artifacts verified unchanged (sha256, this session)
+
+- `configs/cross_venue_funding_dispersion_grid_v1.json` = `6be218bc84bf118cf67c238ad1c13ef1e445658db3b1346cd64ccaccc7aa5f07` ✓
+- `research_state/run_manifest.json` = `4f162ce128c741434addf6aa2fa7c7dbf1bf189d4a81b8893ed96899412c7aaf` (BLOCKED_DATA_GATE) ✓
+- `research_state/fvd053_anchor_run_2026-10-25.json` = `50b328baf5854dec40105a0f5ebe498bf589906f9c033ce659843659927ca4c2` (immutable) ✓
+- `research_state/exploratory_run_manifest_2026-10-25.json` = `08bbecf10f80f46b3d56e62e5c82ce44915840b25612307c0d7026f7a9905f1f` (FVD-EXPLORATORY-002, unchanged) ✓
+- `research_state/exploratory_run_manifest_2026-10-27.json` = `fbb88c4e00c984388d74c83f9439bb8f362ffe507111f132af7291c06521b03e` (FVD-EXPLORATORY-003, unchanged) ✓
+
+### Status
+
+- Track A: `BLOCKED_DATA_GATE`. No backtest, no performance metrics.
+- FVD-EXPLORATORY-002 (HL+OKX): `EXPLORATORY_ONLY`/`INCONCLUSIVE`. Duration gate (~97d) met; contract identity `candidate` (binding). **The 0-signal outcome is now attributed to missing entry/exit candles (50 candidate signals dropped), not to sub-threshold dispersion; the frozen "never exceeded threshold" conclusion is corrected by this record, not rewritten.**
+- FVD-EXPLORATORY-003 (OKX+Binance): `EXPLORATORY_ONLY`/`INCONCLUSIVE`, 73.0d <90 (shrinking). Anchor NOT exercised.
+- Probe cooldown active; next eligible `2026-11-21T04:41:21.768401Z`.
+
+### Next measurable task
+
+Register a new versioned exploratory run (next free ID, e.g. `FVD-EXPLORATORY-004`; verify registry uniqueness first) that re-runs the frozen FVD053 anchor over the current HL+OKX overlap using the fixed diagnostics and, critically, **persists the exact set of missing entry/exit 1h-candle timestamps** (and per-venue candle coverage) so the 50-candle drop can be resolved rather than inferred. Acceptance check: the new run reports `dates_with_signal`, `dates_threshold_ineligible`, `dates_threshold_eligible_no_signal`, `dates_with_no_dispersion`, `skipped_missing_candles`, `skipped_missing_funding` with the additive invariant holding, AND either (a) zero candle skips with >0 evaluated signals (→ genuine economic descriptive result on that window, still `EXPLORATORY_ONLY`, no performance claim without independent audit), or (b) a precise, timestamped explanation of the remaining candle gaps. Do NOT promote to confirmatory, do NOT relax the 90-observation gate or the ≥3-year PIT market-cap gate, and do NOT claim any performance metric. No paid data, credentials, live/paper trading, or frozen-artifact edits.
+
+---
+
 ## Linked probe 44830909114; OKX funding retention advanced, intersection shrank 75d -> 73.0d; still <90 and now shrinking (2026-11-20T23:24Z)
 
 Per `prompts/autonomous_free_data_gate_unblocking_v3_3.md` (read newest probe, link it, recompute honestly) and AGENTS.md adaptive research-gate policy v1 §5 (bounded, no-cost, source-independent progress; do not repeat a known failure): the controller committed probe `historical_overlap_probe_44830909114_attempt_1.json` (observed_at_utc `2026-11-20T22:41:21.768401Z`, sha256 `ffc7334dea918271ed16e48a359b0b1e96db965b2d83dde5b79e585b43707681`) in commit `949f50b` immediately before this session; HEAD is `a92f33e`, tree was clean at session start. Highest-priority measurable action: link the new probe into FVD-EXPLORATORY-003 and recompute coverage from the probe artifact (not from the prior handoff). No probe re-dispatched (`scripts/should_run_historical_probe.py` -> `should_run=false`, age 2577s, `next_eligible_at_utc=2026-11-21T04:41:21.768401Z`), no paid data, no credentials, no live/paper trading, no frozen artifact altered.

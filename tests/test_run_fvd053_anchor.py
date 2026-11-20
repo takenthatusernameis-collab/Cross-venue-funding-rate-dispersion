@@ -838,5 +838,110 @@ class CommittedAnchorArtifactRecomputeTests(unittest.TestCase):
         self.assertEqual(sum(4 * s.get("notional_per_leg", 0) for s in signals), self.artifact["turnover_notional"])
 
 
+class AnchorDiagnosticPartitionTests(unittest.TestCase):
+    """Red-team tests for the anchor no-signal partition diagnostics.
+
+    Source-independent and fully offline. They exercise the production
+    ``evaluate_signal_dates`` / ``_threshold_eligible_underlyings`` code paths with a
+    controlled cross-section and a patched ``prior_daily_threshold`` to prove that:
+
+    - ``dates_with_no_signal`` decomposes exactly into ``dates_threshold_ineligible``
+      (no underlying had an eligible prior threshold, so no signal was possible) plus
+      ``dates_threshold_eligible_no_signal`` (thresholds existed but every dispersion
+      stayed below them); and
+    - ``dates_with_no_dispersion`` now correctly counts dates where the whole
+      cross-section lacked a dispersion value, fixing the previous expression
+      (``any_disp and not any(disp is not None ...)``) that was a contradiction and
+      could therefore never increment (always 0).
+    """
+
+    DATES = ["2026-09-01", "2026-09-02", "2026-09-03", "2026-09-04"]
+    # Per-date threshold returned by the patched prior_daily_threshold (None == not
+    # enough prior observations to form a threshold).
+    THRESHOLDS = {
+        "2026-09-01": 0.001,   # signal: dispersion 0.003 >= 0.001 for all
+        "2026-09-02": 0.001,   # below threshold: dispersion 0.0005 < 0.001 for all
+        "2026-09-03": None,    # threshold ineligible: no underlying evaluable
+        "2026-09-04": None,    # no dispersion at all in the cross-section
+    }
+
+    def _fake_threshold(self, samples, signal_date, percentile, *,
+                        lookback_days=90, minimum_observations=30):
+        ds = signal_date if isinstance(signal_date, str) else signal_date.isoformat()
+        return self.THRESHOLDS.get(ds)
+
+    def _daily(self):
+        return {
+            "2026-09-01": {u: 0.003 for u in anchor.UNDERLYINGS},
+            "2026-09-02": {u: 0.0005 for u in anchor.UNDERLYINGS},
+            "2026-09-03": {u: 0.003 for u in anchor.UNDERLYINGS},
+            "2026-09-04": {u: None for u in anchor.UNDERLYINGS},
+        }
+
+    def test_no_signal_partition_is_exact_and_additive(self):
+        daily = self._daily()
+        samples = {u: [] for u in anchor.UNDERLYINGS}
+        with patch.object(anchor, "prior_daily_threshold", side_effect=self._fake_threshold):
+            _selected, counts = anchor.evaluate_signal_dates(
+                daily, samples, 80, 90, 30, 0.1,
+            )
+        self.assertEqual(counts["dates_total"], 4)
+        self.assertEqual(counts["dates_with_signal"], 1)
+        self.assertEqual(counts["dates_with_no_signal"], 3)
+        # 2026-09-03 (threshold ineligible) + 2026-09-04 (no dispersion, also
+        # structurally ineligible) => 2 threshold-ineligible no-signal dates.
+        self.assertEqual(counts["dates_threshold_ineligible"], 2)
+        # 2026-09-02 tested but every dispersion stayed below its threshold.
+        self.assertEqual(counts["dates_threshold_eligible_no_signal"], 1)
+        # Exact partition invariant.
+        self.assertEqual(
+            counts["dates_with_no_signal"],
+            counts["dates_threshold_ineligible"] + counts["dates_threshold_eligible_no_signal"],
+        )
+        # Underlying-dates with both a dispersion and an eligible threshold:
+        # 5 (09-01) + 5 (09-02) + 0 + 0 = 10.
+        self.assertEqual(counts["underlying_dates_threshold_eligible"], 10)
+
+    def test_dates_with_no_dispersion_counts_all_none_cross_section(self):
+        """Regression: the pre-fix expression was a contradiction and always yielded 0.
+
+        Only 2026-09-04 has no dispersion for any underlying, so the corrected
+        diagnostic must report exactly one such date (the old code reported 0).
+        """
+        daily = self._daily()
+        samples = {u: [] for u in anchor.UNDERLYINGS}
+        with patch.object(anchor, "prior_daily_threshold", side_effect=self._fake_threshold):
+            _selected, counts = anchor.evaluate_signal_dates(
+                daily, samples, 80, 90, 30, 0.1,
+            )
+        self.assertEqual(counts["dates_with_no_dispersion"], 1)
+
+    def test_threshold_eligible_helper_counts_only_evaluable_underlyings(self):
+        samples = {u: [] for u in anchor.UNDERLYINGS}
+
+        # All dispersion None -> nothing evaluable.
+        all_none = {d: {u: None for u in anchor.UNDERLYINGS} for d in self.DATES}
+        with patch.object(anchor, "prior_daily_threshold", return_value=0.001):
+            self.assertEqual(
+                anchor._threshold_eligible_underlyings(all_none, samples, "2026-09-01", 80, 90, 30),
+                0,
+            )
+
+        # Dispersion present but no threshold (insufficient history) -> not evaluable.
+        present_no_threshold = {"2026-09-01": {u: 0.003 for u in anchor.UNDERLYINGS}}
+        with patch.object(anchor, "prior_daily_threshold", return_value=None):
+            self.assertEqual(
+                anchor._threshold_eligible_underlyings(present_no_threshold, samples, "2026-09-01", 80, 90, 30),
+                0,
+            )
+
+        # Dispersion present and threshold available -> one per underlying.
+        with patch.object(anchor, "prior_daily_threshold", return_value=0.001):
+            self.assertEqual(
+                anchor._threshold_eligible_underlyings(present_no_threshold, samples, "2026-09-01", 80, 90, 30),
+                len(anchor.UNDERLYINGS),
+            )
+
+
 if __name__ == "__main__":
     unittest.main()
