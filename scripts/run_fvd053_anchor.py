@@ -276,6 +276,37 @@ def _candle_map(rows: list[dict]) -> dict[int, tuple[float, float]]:
     return {row["time"]: (row["open"], row["close"]) for row in rows}
 
 
+def _candle_coverage(rows: list[dict], start_ms: int, end_ms: int,
+                     max_missing_listed: int = 200) -> dict[str, Any]:
+    """Per-venue 1h candle coverage over [start_ms, end_ms].
+
+    Diagnostic only. Expected hourly slots are derived from the exact UTC hour
+    grid; observed slots are the unique candle timestamps inside the window. The
+    full missing-timestamp count is always reported; the explicit list is capped
+    at ``max_missing_listed`` with a truncation flag so a large gap cannot be
+    silently summarised as a small one.
+    """
+    expected = list(range(start_ms, end_ms + 1, 3_600_000))
+    observed_rows = [row for row in rows if start_ms <= row["time"] <= end_ms]
+    observed = sorted({row["time"] for row in observed_rows})
+    observed_set = set(observed)
+    missing = [t for t in expected if t not in observed_set]
+    duplicates = len(observed_rows) - len(observed)
+    return {
+        "window_start_utc": utc_iso(start_ms),
+        "window_end_utc": utc_iso(end_ms),
+        "expected_hour_slots": len(expected),
+        "observed_hour_slots": len(observed),
+        "rows_in_window": len(observed_rows),
+        "duplicate_rows": duplicates,
+        "missing_hour_slots": len(missing),
+        "missing_hours_truncated": len(missing) > max_missing_listed,
+        "missing_hour_timestamps_utc": [utc_iso(t) for t in missing[:max_missing_listed]],
+        "first_observed_utc": utc_iso(observed[0]) if observed else None,
+        "last_observed_utc": utc_iso(observed[-1]) if observed else None,
+    }
+
+
 def _funding_observations(rows: list[dict], interval_hours: float, start_ms: int, end_ms: int,
                           venue: str = "") -> list[dict[str, Any]]:
     """Normalized (8h) funding observations within [start_ms, end_ms], plus coverage guard.
@@ -310,12 +341,15 @@ def _date_range(start_utc: str, end_utc: str):
 
 
 def compute_daily_dispersions(data: dict[str, dict], lookback_hours: int,
-                              min_staleness_hours: float) -> dict[str, dict[str, float | None]]:
+                              min_staleness_hours: float, start_utc: str | None = None,
+                              end_utc: str | None = None) -> dict[str, dict[str, float | None]]:
     """Per UTC date, per underlying: dispersion of normalized funding across venues."""
     daily: dict[str, dict[str, float | None]] = {}
-    start_ms = utc_ms(WINDOW_START_UTC)
-    end_ms = utc_ms(WINDOW_END_UTC)
-    for day in _date_range(WINDOW_START_UTC, WINDOW_END_UTC):
+    start_utc = start_utc or WINDOW_START_UTC
+    end_utc = end_utc or WINDOW_END_UTC
+    start_ms = utc_ms(start_utc)
+    end_ms = utc_ms(end_utc)
+    for day in _date_range(start_utc, end_utc):
         signal_time = day.replace(hour=23, minute=0, second=0, microsecond=0)
         if utc_ms(signal_time.isoformat().replace("+00:00", "Z")) > end_ms:
             continue
@@ -488,7 +522,24 @@ def simulate_signal(u: str, long_venue: str, short_venue: str, notional: float,
     exit_long = open_price(long_venue, exit_ms)
     exit_short = open_price(short_venue, exit_ms)
     if any(p is None for p in (entry_long, entry_short, exit_long, exit_short)):
-        return {"skipped": True, "reason": "missing_candle_at_entry_or_exit"}
+        missing_candles = [
+            {"venue": venue, "side": side, "timestamp_utc": utc_iso(t_ms)}
+            for venue, side, t_ms in (
+                (long_venue, "long", entry_ms),
+                (short_venue, "short", entry_ms),
+                (long_venue, "long", exit_ms),
+                (short_venue, "short", exit_ms),
+            )
+            if candle_map[venue].get(t_ms) is None
+        ]
+        return {
+            "skipped": True,
+            "reason": "missing_candle_at_entry_or_exit",
+            "underlying": u,
+            "entry_time_utc": entry_time.isoformat().replace("+00:00", "Z"),
+            "exit_time_utc": exit_time.isoformat().replace("+00:00", "Z"),
+            "missing_candles": missing_candles,
+        }
 
     long_price_pnl = price_pnl(1, notional, entry_long, exit_long)
     short_price_pnl = price_pnl(-1, notional, entry_short, exit_short)
@@ -539,19 +590,26 @@ def simulate_signal(u: str, long_venue: str, short_venue: str, notional: float,
     }
 
 
-def run_anchor(opener=None) -> dict[str, Any]:
+def run_anchor(opener=None, experiment_id: str = "FVD-EXPLORATORY-002",
+               window_start_utc: str | None = None, window_end_utc: str | None = None,
+               run_id: str | None = None) -> dict[str, Any]:
     """Execute the frozen FVD053 anchor over the verified overlap; descriptive only."""
     params = ANCHOR_PARAMS
-    start_ms = utc_ms(WINDOW_START_UTC)
-    end_ms = utc_ms(WINDOW_END_UTC)
+    start_utc = window_start_utc or WINDOW_START_UTC
+    end_utc = window_end_utc or WINDOW_END_UTC
+    start_ms = utc_ms(start_utc)
+    end_ms = utc_ms(end_utc)
+    # Entry/exit prices for a signal at 23:00 on the last eligible date fall one
+    # holding period beyond the signal window, so fetch data through the exit hour.
+    fetch_end_ms = end_ms + int(params["holding_hours"] * 3_600_000)
 
     data: dict[str, dict] = {}
     fetch_meta: dict[str, Any] = {}
     for u in UNDERLYINGS:
-        hlf, hm = fetch_hl_funding(u, start_ms, end_ms, opener=opener)
-        hlc, cm = fetch_hl_candles(u, start_ms, end_ms, opener=opener)
-        okf, om = fetch_okx_funding(OKX_INST_ID[u], start_ms, end_ms, opener=opener)
-        okc, cm2 = fetch_okx_candles(OKX_INST_ID[u], start_ms, end_ms, opener=opener)
+        hlf, hm = fetch_hl_funding(u, start_ms, fetch_end_ms, opener=opener)
+        hlc, cm = fetch_hl_candles(u, start_ms, fetch_end_ms, opener=opener)
+        okf, om = fetch_okx_funding(OKX_INST_ID[u], start_ms, fetch_end_ms, opener=opener)
+        okc, cm2 = fetch_okx_candles(OKX_INST_ID[u], start_ms, fetch_end_ms, opener=opener)
         data[u] = {
             "hl_funding": hlf, "okx_funding": okf,
             "hl_candles": hlc, "okx_candles": okc,
@@ -561,8 +619,17 @@ def run_anchor(opener=None) -> dict[str, Any]:
             "okx_funding": om, "okx_candles": cm2,
         }
 
+    candle_coverage = {
+        u: {
+            "Hyperliquid": _candle_coverage(data[u]["hl_candles"], start_ms, fetch_end_ms),
+            "OKX": _candle_coverage(data[u]["okx_candles"], start_ms, fetch_end_ms),
+        }
+        for u in UNDERLYINGS
+    }
+
     daily = compute_daily_dispersions(
         data, params["dispersion_lookback_hours"], float(params["dispersion_lookback_hours"]),
+        start_utc=start_utc, end_utc=end_utc,
     )
 
     # One dispersion sample per underlying per date (snapshot at the daily 23:00 cutoff).
@@ -586,6 +653,7 @@ def run_anchor(opener=None) -> dict[str, Any]:
     signals: list[dict] = []
     skipped_missing_candles = 0
     skipped_missing_funding = 0
+    candle_skip_details: list[dict] = []
 
     for day_str in sorted(daily):
         day_date = datetime.fromisoformat(day_str).date()
@@ -616,6 +684,7 @@ def run_anchor(opener=None) -> dict[str, Any]:
                                      data, params["fee_bps_per_side"], params["slippage_bps_per_side"])
             if result.get("skipped"):
                 skipped_missing_candles += 1
+                candle_skip_details.append(result)
                 continue
             signals.append(result)
 
@@ -666,7 +735,8 @@ def run_anchor(opener=None) -> dict[str, Any]:
     result = {
         "schema_version": "1.0",
         "run_type": "fvd053_anchor_exploratory",
-        "experiment_id": "FVD-EXPLORATORY-002",
+        "experiment_id": experiment_id,
+        "run_id": run_id or f"{experiment_id}-run-{datetime.now(timezone.utc).date().isoformat()}",
         "anchor": "FVD053",
         "status": "EXPLORATORY_ONLY",
         "inconclusive": True,
@@ -676,11 +746,12 @@ def run_anchor(opener=None) -> dict[str, Any]:
         "anchor_params": dict(params),
         "equity": EQUITY,
         "gross_exposure_cap": "1.0x equity",
-        "window_start_utc": WINDOW_START_UTC,
-        "window_end_utc": WINDOW_END_UTC,
+        "window_start_utc": start_utc,
+        "window_end_utc": end_utc,
+        "fetch_end_utc": utc_iso(fetch_end_ms),
         "underlyings": list(UNDERLYINGS),
         "venues": ["Hyperliquid", "OKX"],
-        "data_cutoff_utc": WINDOW_END_UTC,
+        "data_cutoff_utc": end_utc,
         "observed_at_utc": datetime.now(timezone.utc).isoformat().replace("+00:00", "Z"),
         "sample_construction": (
             "Verified historical intersection of 5 underlyings with funding settlements "
@@ -697,6 +768,8 @@ def run_anchor(opener=None) -> dict[str, Any]:
         "underlying_dates_threshold_eligible": diag["underlying_dates_threshold_eligible"],
         "skipped_missing_candles": skipped_missing_candles,
         "skipped_missing_funding": skipped_missing_funding,
+        "candle_skip_details": candle_skip_details,
+        "candle_coverage": candle_coverage,
         "total_funding_settlements": total_settlements,
         "venue_pair_count": len(venue_pairs),
         "venue_pairs": venue_pairs,
@@ -751,14 +824,26 @@ def main(argv: list[str] | None = None) -> int:
     import argparse
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument("--output", default="research_state/fvd053_anchor_run_2026-10-25.json")
+    parser.add_argument("--experiment-id", default="FVD-EXPLORATORY-002")
+    parser.add_argument("--window-start-utc", default=None)
+    parser.add_argument("--window-end-utc", default=None)
     args = parser.parse_args(argv)
-    result = run_anchor()
+    result = run_anchor(
+        experiment_id=args.experiment_id,
+        window_start_utc=args.window_start_utc,
+        window_end_utc=args.window_end_utc,
+        run_id=f"{args.experiment_id}-run-{datetime.now(timezone.utc).date().isoformat()}",
+    )
     sha = write_artifact(result, args.output)
     print(json.dumps({
         "status": result["status"],
         "experiment_id": result["experiment_id"],
+        "run_id": result["run_id"],
         "anchor": result["anchor"],
         "signal_count": result["signal_count"],
+        "dates_with_signal": result["dates_with_signal"],
+        "skipped_missing_candles": result["skipped_missing_candles"],
+        "skipped_missing_funding": result["skipped_missing_funding"],
         "net_return": result["net_return"],
         "output": args.output,
         "sha256": sha,

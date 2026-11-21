@@ -1,0 +1,1712 @@
+{
+  "anchor": "FVD053",
+  "anchor_params": {
+    "daily_cutoff_utc": "23:00",
+    "dispersion_lookback_hours": 24,
+    "entry_percentile": 80,
+    "fee_bps_per_side": 5.0,
+    "gross_multiple": 1.0,
+    "holding_hours": 24,
+    "minimum_eligible_venues": 2,
+    "portfolio_tail_fraction": 0.1,
+    "slippage_bps_per_side": 5.0,
+    "threshold_lookback_days": 90,
+    "threshold_minimum_observations": 30
+  },
+  "attribution": {
+    "total_fees": 230.0,
+    "total_funding_cash_flow": 21.8008897994265,
+    "total_net_pnl": -435.8828552191358,
+    "total_price_basis_pnl": 2.3162549814376607,
+    "total_slippage": 230.0
+  },
+  "average_gross_exposure": 10000.0,
+  "average_gross_exposure_multiple": 1.0,
+  "backtest_completed": false,
+  "candle_coverage": {
+    "AVAX": {
+      "Hyperliquid": {
+        "duplicate_rows": 0,
+        "expected_hour_slots": 2369,
+        "first_observed_utc": "2026-07-20T00:00:00Z",
+        "last_observed_utc": "2026-10-26T16:00:00Z",
+        "missing_hour_slots": 0,
+        "missing_hour_timestamps_utc": [],
+        "missing_hours_truncated": false,
+        "observed_hour_slots": 2369,
+        "rows_in_window": 2369,
+        "window_end_utc": "2026-10-26T16:00:00Z",
+        "window_start_utc": "2026-07-20T00:00:00Z"
+      },
+      "OKX": {
+        "duplicate_rows": 0,
+        "expected_hour_slots": 2369,
+        "first_observed_utc": "2026-07-20T00:00:00Z",
+        "last_observed_utc": "2026-10-26T16:00:00Z",
+        "missing_hour_slots": 0,
+        "missing_hour_timestamps_utc": [],
+        "missing_hours_truncated": false,
+        "observed_hour_slots": 2369,
+        "rows_in_window": 2369,
+        "window_end_utc": "2026-10-26T16:00:00Z",
+        "window_start_utc": "2026-07-20T00:00:00Z"
+      }
+    },
+    "BTC": {
+      "Hyperliquid": {
+        "duplicate_rows": 0,
+        "expected_hour_slots": 2369,
+        "first_observed_utc": "2026-07-20T00:00:00Z",
+        "last_observed_utc": "2026-10-26T16:00:00Z",
+        "missing_hour_slots": 0,
+        "missing_hour_timestamps_utc": [],
+        "missing_hours_truncated": false,
+        "observed_hour_slots": 2369,
+        "rows_in_window": 2369,
+        "window_end_utc": "2026-10-26T16:00:00Z",
+        "window_start_utc": "2026-07-20T00:00:00Z"
+      },
+      "OKX": {
+        "duplicate_rows": 0,
+        "expected_hour_slots": 2369,
+        "first_observed_utc": "2026-07-20T00:00:00Z",
+        "last_observed_utc": "2026-10-26T16:00:00Z",
+        "missing_hour_slots": 0,
+        "missing_hour_timestamps_utc": [],
+        "missing_hours_truncated": false,
+        "observed_hour_slots": 2369,
+        "rows_in_window": 2369,
+        "window_end_utc": "2026-10-26T16:00:00Z",
+        "window_start_utc": "2026-07-20T00:00:00Z"
+      }
+    },
+    "ETH": {
+      "Hyperliquid": {
+        "duplicate_rows": 0,
+        "expected_hour_slots": 2369,
+        "first_observed_utc": "2026-07-20T00:00:00Z",
+        "last_observed_utc": "2026-10-26T16:00:00Z",
+        "missing_hour_slots": 0,
+        "missing_hour_timestamps_utc": [],
+        "missing_hours_truncated": false,
+        "observed_hour_slots": 2369,
+        "rows_in_window": 2369,
+        "window_end_utc": "2026-10-26T16:00:00Z",
+        "window_start_utc": "2026-07-20T00:00:00Z"
+      },
+      "OKX": {
+        "duplicate_rows": 0,
+        "expected_hour_slots": 2369,
+        "first_observed_utc": "2026-07-20T00:00:00Z",
+        "last_observed_utc": "2026-10-26T16:00:00Z",
+        "missing_hour_slots": 0,
+        "missing_hour_timestamps_utc": [],
+        "missing_hours_truncated": false,
+        "observed_hour_slots": 2369,
+        "rows_in_window": 2369,
+        "window_end_utc": "2026-10-26T16:00:00Z",
+        "window_start_utc": "2026-07-20T00:00:00Z"
+      }
+    },
+    "LINK": {
+      "Hyperliquid": {
+        "duplicate_rows": 0,
+        "expected_hour_slots": 2369,
+        "first_observed_utc": "2026-07-20T00:00:00Z",
+        "last_observed_utc": "2026-10-26T16:00:00Z",
+        "missing_hour_slots": 0,
+        "missing_hour_timestamps_utc": [],
+        "missing_hours_truncated": false,
+        "observed_hour_slots": 2369,
+        "rows_in_window": 2369,
+        "window_end_utc": "2026-10-26T16:00:00Z",
+        "window_start_utc": "2026-07-20T00:00:00Z"
+      },
+      "OKX": {
+        "duplicate_rows": 0,
+        "expected_hour_slots": 2369,
+        "first_observed_utc": "2026-07-20T00:00:00Z",
+        "last_observed_utc": "2026-10-26T16:00:00Z",
+        "missing_hour_slots": 0,
+        "missing_hour_timestamps_utc": [],
+        "missing_hours_truncated": false,
+        "observed_hour_slots": 2369,
+        "rows_in_window": 2369,
+        "window_end_utc": "2026-10-26T16:00:00Z",
+        "window_start_utc": "2026-07-20T00:00:00Z"
+      }
+    },
+    "SOL": {
+      "Hyperliquid": {
+        "duplicate_rows": 0,
+        "expected_hour_slots": 2369,
+        "first_observed_utc": "2026-07-20T00:00:00Z",
+        "last_observed_utc": "2026-10-26T16:00:00Z",
+        "missing_hour_slots": 0,
+        "missing_hour_timestamps_utc": [],
+        "missing_hours_truncated": false,
+        "observed_hour_slots": 2369,
+        "rows_in_window": 2369,
+        "window_end_utc": "2026-10-26T16:00:00Z",
+        "window_start_utc": "2026-07-20T00:00:00Z"
+      },
+      "OKX": {
+        "duplicate_rows": 0,
+        "expected_hour_slots": 2369,
+        "first_observed_utc": "2026-07-20T00:00:00Z",
+        "last_observed_utc": "2026-10-26T16:00:00Z",
+        "missing_hour_slots": 0,
+        "missing_hour_timestamps_utc": [],
+        "missing_hours_truncated": false,
+        "observed_hour_slots": 2369,
+        "rows_in_window": 2369,
+        "window_end_utc": "2026-10-26T16:00:00Z",
+        "window_start_utc": "2026-07-20T00:00:00Z"
+      }
+    }
+  },
+  "candle_skip_details": [],
+  "confirmatory_status_preserved": "BLOCKED_DATA_GATE",
+  "cost_sensitivity": {
+    "base_fee_slippage_bps": [
+      5.0,
+      5.0
+    ],
+    "base_net_return": -0.04358828552191358,
+    "optimistic_fee_slippage_bps": [
+      2.0,
+      2.0
+    ],
+    "optimistic_net_return": -0.015988285521913583,
+    "stress_fee_slippage_bps": [
+      10.0,
+      10.0
+    ],
+    "stress_net_return": -0.08958828552191359
+  },
+  "data_cutoff_utc": "2026-10-25T16:00:00Z",
+  "dates_threshold_eligible_no_signal": 13,
+  "dates_threshold_ineligible": 61,
+  "dates_total": 97,
+  "dates_with_no_dispersion": 31,
+  "dates_with_no_signal": 74,
+  "dates_with_signal": 23,
+  "equity": 10000.0,
+  "experiment_id": "FVD-EXPLORATORY-004",
+  "fetch_end_utc": "2026-10-26T16:00:00Z",
+  "fetch_metadata": {
+    "AVAX": {
+      "hyperliquid_candles": {
+        "coin": "AVAX",
+        "error": null,
+        "field": "1h candles",
+        "http_status": 200,
+        "latency_ms": 332.7,
+        "method": "POST",
+        "request_sha256": "bf2183eb0ff87296065eed12ad31c04ac52be17efe894db50d4339e0de326ff2",
+        "response_bytes_read": 313339,
+        "source": "Hyperliquid",
+        "url": "https://api.hyperliquid.xyz/info"
+      },
+      "hyperliquid_funding": {
+        "pages": [
+          {
+            "error": null,
+            "http_status": 200,
+            "latency_ms": 502.0,
+            "method": "POST",
+            "page": 1,
+            "request_sha256": "7f1da66b2e21353464889f3129f7c728de45c1fc4f17d4c7a430f9ce89410c3c",
+            "response_bytes_read": 45576,
+            "url": "https://api.hyperliquid.xyz/info"
+          },
+          {
+            "error": null,
+            "http_status": 200,
+            "latency_ms": 695.6,
+            "method": "POST",
+            "page": 2,
+            "request_sha256": "a88a4ff040b22991a82aadb25db34550ce5fc4127193c1f3d7442e5db68aa126",
+            "response_bytes_read": 45086,
+            "url": "https://api.hyperliquid.xyz/info"
+          },
+          {
+            "error": null,
+            "http_status": 200,
+            "latency_ms": 496.6,
+            "method": "POST",
+            "page": 3,
+            "request_sha256": "bbd6fad77499e3422af853c9b33917d9da98e8e6cdffeb950636adf3fd089866",
+            "response_bytes_read": 45195,
+            "url": "https://api.hyperliquid.xyz/info"
+          },
+          {
+            "error": null,
+            "http_status": 200,
+            "latency_ms": 512.8,
+            "method": "POST",
+            "page": 4,
+            "request_sha256": "754b8d5bc19480a7462f480d47bf391d496f116650e29123c21c66cac945f2af",
+            "response_bytes_read": 44540,
+            "url": "https://api.hyperliquid.xyz/info"
+          },
+          {
+            "error": null,
+            "http_status": 200,
+            "latency_ms": 351.2,
+            "method": "POST",
+            "page": 5,
+            "request_sha256": "abba38a1dd3d7215f4e8b8fb27235665d46b83ede2d2155e51a99cec0e34a13a",
+            "response_bytes_read": 33597,
+            "url": "https://api.hyperliquid.xyz/info"
+          }
+        ],
+        "pages_received": 5,
+        "stop_reason": "window_reached_or_page_not_full"
+      },
+      "okx_candles": {
+        "pages": [
+          {
+            "error": null,
+            "http_status": 200,
+            "latency_ms": 192.9,
+            "method": "GET",
+            "page": 1,
+            "request_sha256": null,
+            "response_bytes_read": 26659,
+            "url": "https://www.okx.com/api/v5/market/history-candles?instId=AVAX-USDT-SWAP&bar=1H&limit=300"
+          },
+          {
+            "error": null,
+            "http_status": 200,
+            "latency_ms": 192.6,
+            "method": "GET",
+            "page": 2,
+            "request_sha256": null,
+            "response_bytes_read": 26381,
+            "url": "https://www.okx.com/api/v5/market/history-candles?instId=AVAX-USDT-SWAP&bar=1H&limit=300&after=1794157200000"
+          },
+          {
+            "error": null,
+            "http_status": 200,
+            "latency_ms": 227.9,
+            "method": "GET",
+            "page": 3,
+            "request_sha256": null,
+            "response_bytes_read": 26619,
+            "url": "https://www.okx.com/api/v5/market/history-candles?instId=AVAX-USDT-SWAP&bar=1H&limit=300&after=1793077200000"
+          },
+          {
+            "error": null,
+            "http_status": 200,
+            "latency_ms": 202.8,
+            "method": "GET",
+            "page": 4,
+            "request_sha256": null,
+            "response_bytes_read": 27887,
+            "url": "https://www.okx.com/api/v5/market/history-candles?instId=AVAX-USDT-SWAP&bar=1H&limit=300&after=1791997200000"
+          },
+          {
+            "error": null,
+            "http_status": 200,
+            "latency_ms": 206.2,
+            "method": "GET",
+            "page": 5,
+            "request_sha256": null,
+            "response_bytes_read": 28162,
+            "url": "https://www.okx.com/api/v5/market/history-candles?instId=AVAX-USDT-SWAP&bar=1H&limit=300&after=1790917200000"
+          },
+          {
+            "error": null,
+            "http_status": 200,
+            "latency_ms": 232.7,
+            "method": "GET",
+            "page": 6,
+            "request_sha256": null,
+            "response_bytes_read": 26422,
+            "url": "https://www.okx.com/api/v5/market/history-candles?instId=AVAX-USDT-SWAP&bar=1H&limit=300&after=1789837200000"
+          },
+          {
+            "error": null,
+            "http_status": 200,
+            "latency_ms": 234.5,
+            "method": "GET",
+            "page": 7,
+            "request_sha256": null,
+            "response_bytes_read": 26350,
+            "url": "https://www.okx.com/api/v5/market/history-candles?instId=AVAX-USDT-SWAP&bar=1H&limit=300&after=1788757200000"
+          },
+          {
+            "error": null,
+            "http_status": 200,
+            "latency_ms": 221.1,
+            "method": "GET",
+            "page": 8,
+            "request_sha256": null,
+            "response_bytes_read": 26607,
+            "url": "https://www.okx.com/api/v5/market/history-candles?instId=AVAX-USDT-SWAP&bar=1H&limit=300&after=1787677200000"
+          },
+          {
+            "error": null,
+            "http_status": 200,
+            "latency_ms": 213.4,
+            "method": "GET",
+            "page": 9,
+            "request_sha256": null,
+            "response_bytes_read": 26426,
+            "url": "https://www.okx.com/api/v5/market/history-candles?instId=AVAX-USDT-SWAP&bar=1H&limit=300&after=1786597200000"
+          },
+          {
+            "error": null,
+            "http_status": 200,
+            "latency_ms": 207.4,
+            "method": "GET",
+            "page": 10,
+            "request_sha256": null,
+            "response_bytes_read": 26494,
+            "url": "https://www.okx.com/api/v5/market/history-candles?instId=AVAX-USDT-SWAP&bar=1H&limit=300&after=1785517200000"
+          }
+        ],
+        "pages_received": 10,
+        "stop_reason": "window_start_reached"
+      },
+      "okx_funding": {
+        "pages": [
+          {
+            "error": null,
+            "http_status": 200,
+            "latency_ms": 198.7,
+            "method": "GET",
+            "page": 1,
+            "request_sha256": null,
+            "response_bytes_read": 53812,
+            "url": "https://www.okx.com/api/v5/public/funding-rate-history?instId=AVAX-USDT-SWAP&limit=400"
+          }
+        ],
+        "pages_received": 1,
+        "stop_reason": "page_not_full"
+      }
+    },
+    "BTC": {
+      "hyperliquid_candles": {
+        "coin": "BTC",
+        "error": null,
+        "field": "1h candles",
+        "http_status": 200,
+        "latency_ms": 536.8,
+        "method": "POST",
+        "request_sha256": "2a095b8c2053e8401016d8754a469d3e719793b0a9d8950213aa8b0b121d9c44",
+        "response_bytes_read": 328720,
+        "source": "Hyperliquid",
+        "url": "https://api.hyperliquid.xyz/info"
+      },
+      "hyperliquid_funding": {
+        "pages": [
+          {
+            "error": null,
+            "http_status": 200,
+            "latency_ms": 746.5,
+            "method": "POST",
+            "page": 1,
+            "request_sha256": "6151a67a0170ac0e88efa51d279fd065f21bd888bbf671f210170fadbe69aae7",
+            "response_bytes_read": 44903,
+            "url": "https://api.hyperliquid.xyz/info"
+          },
+          {
+            "error": null,
+            "http_status": 200,
+            "latency_ms": 492.5,
+            "method": "POST",
+            "page": 2,
+            "request_sha256": "8902990cf842f6d1832eb05d7d7fb387c32a55a9a33fdfe83682bc8907fbf777",
+            "response_bytes_read": 44355,
+            "url": "https://api.hyperliquid.xyz/info"
+          },
+          {
+            "error": null,
+            "http_status": 200,
+            "latency_ms": 200.2,
+            "method": "POST",
+            "page": 3,
+            "request_sha256": "270e2ad2967c1986f0ccb4302e0d1259eadad2c61276ce4bc63838480ddaa3fd",
+            "response_bytes_read": 44401,
+            "url": "https://api.hyperliquid.xyz/info"
+          },
+          {
+            "error": null,
+            "http_status": 200,
+            "latency_ms": 264.2,
+            "method": "POST",
+            "page": 4,
+            "request_sha256": "5e812ea085dbee17193d184be13b09e6cb6f643b2666d815b12e76f8e7c26c18",
+            "response_bytes_read": 44472,
+            "url": "https://api.hyperliquid.xyz/info"
+          },
+          {
+            "error": null,
+            "http_status": 200,
+            "latency_ms": 423.7,
+            "method": "POST",
+            "page": 5,
+            "request_sha256": "501776b83792007cf752b6a9885bc050403996cbeb6a2ca22128206682c5bcc1",
+            "response_bytes_read": 32771,
+            "url": "https://api.hyperliquid.xyz/info"
+          }
+        ],
+        "pages_received": 5,
+        "stop_reason": "window_reached_or_page_not_full"
+      },
+      "okx_candles": {
+        "pages": [
+          {
+            "error": null,
+            "http_status": 200,
+            "latency_ms": 208.6,
+            "method": "GET",
+            "page": 1,
+            "request_sha256": null,
+            "response_bytes_read": 30671,
+            "url": "https://www.okx.com/api/v5/market/history-candles?instId=BTC-USDT-SWAP&bar=1H&limit=300"
+          },
+          {
+            "error": null,
+            "http_status": 200,
+            "latency_ms": 214.5,
+            "method": "GET",
+            "page": 2,
+            "request_sha256": null,
+            "response_bytes_read": 30363,
+            "url": "https://www.okx.com/api/v5/market/history-candles?instId=BTC-USDT-SWAP&bar=1H&limit=300&after=1794157200000"
+          },
+          {
+            "error": null,
+            "http_status": 200,
+            "latency_ms": 224.6,
+            "method": "GET",
+            "page": 3,
+            "request_sha256": null,
+            "response_bytes_read": 30389,
+            "url": "https://www.okx.com/api/v5/market/history-candles?instId=BTC-USDT-SWAP&bar=1H&limit=300&after=1793077200000"
+          },
+          {
+            "error": null,
+            "http_status": 200,
+            "latency_ms": 208.2,
+            "method": "GET",
+            "page": 4,
+            "request_sha256": null,
+            "response_bytes_read": 30302,
+            "url": "https://www.okx.com/api/v5/market/history-candles?instId=BTC-USDT-SWAP&bar=1H&limit=300&after=1791997200000"
+          },
+          {
+            "error": null,
+            "http_status": 200,
+            "latency_ms": 214.0,
+            "method": "GET",
+            "page": 5,
+            "request_sha256": null,
+            "response_bytes_read": 30464,
+            "url": "https://www.okx.com/api/v5/market/history-candles?instId=BTC-USDT-SWAP&bar=1H&limit=300&after=1790917200000"
+          },
+          {
+            "error": null,
+            "http_status": 200,
+            "latency_ms": 220.3,
+            "method": "GET",
+            "page": 6,
+            "request_sha256": null,
+            "response_bytes_read": 30418,
+            "url": "https://www.okx.com/api/v5/market/history-candles?instId=BTC-USDT-SWAP&bar=1H&limit=300&after=1789837200000"
+          },
+          {
+            "error": null,
+            "http_status": 200,
+            "latency_ms": 219.0,
+            "method": "GET",
+            "page": 7,
+            "request_sha256": null,
+            "response_bytes_read": 30378,
+            "url": "https://www.okx.com/api/v5/market/history-candles?instId=BTC-USDT-SWAP&bar=1H&limit=300&after=1788757200000"
+          },
+          {
+            "error": null,
+            "http_status": 200,
+            "latency_ms": 210.0,
+            "method": "GET",
+            "page": 8,
+            "request_sha256": null,
+            "response_bytes_read": 30374,
+            "url": "https://www.okx.com/api/v5/market/history-candles?instId=BTC-USDT-SWAP&bar=1H&limit=300&after=1787677200000"
+          },
+          {
+            "error": null,
+            "http_status": 200,
+            "latency_ms": 509.0,
+            "method": "GET",
+            "page": 9,
+            "request_sha256": null,
+            "response_bytes_read": 30292,
+            "url": "https://www.okx.com/api/v5/market/history-candles?instId=BTC-USDT-SWAP&bar=1H&limit=300&after=1786597200000"
+          },
+          {
+            "error": null,
+            "http_status": 200,
+            "latency_ms": 199.1,
+            "method": "GET",
+            "page": 10,
+            "request_sha256": null,
+            "response_bytes_read": 30441,
+            "url": "https://www.okx.com/api/v5/market/history-candles?instId=BTC-USDT-SWAP&bar=1H&limit=300&after=1785517200000"
+          }
+        ],
+        "pages_received": 10,
+        "stop_reason": "window_start_reached"
+      },
+      "okx_funding": {
+        "pages": [
+          {
+            "error": null,
+            "http_status": 200,
+            "latency_ms": 201.7,
+            "method": "GET",
+            "page": 1,
+            "request_sha256": null,
+            "response_bytes_read": 54125,
+            "url": "https://www.okx.com/api/v5/public/funding-rate-history?instId=BTC-USDT-SWAP&limit=400"
+          }
+        ],
+        "pages_received": 1,
+        "stop_reason": "page_not_full"
+      }
+    },
+    "ETH": {
+      "hyperliquid_candles": {
+        "coin": "ETH",
+        "error": null,
+        "field": "1h candles",
+        "http_status": 200,
+        "latency_ms": 230.1,
+        "method": "POST",
+        "request_sha256": "c0885a668783c77a7f2dbe8d456c224e6543322257d16d72d075a65ce39ef5ac",
+        "response_bytes_read": 318916,
+        "source": "Hyperliquid",
+        "url": "https://api.hyperliquid.xyz/info"
+      },
+      "hyperliquid_funding": {
+        "pages": [
+          {
+            "error": null,
+            "http_status": 200,
+            "latency_ms": 442.9,
+            "method": "POST",
+            "page": 1,
+            "request_sha256": "180e4e0c7554e6994c27f2cf54c2edaae1445d552529b958b0972b7f78343cfc",
+            "response_bytes_read": 44713,
+            "url": "https://api.hyperliquid.xyz/info"
+          },
+          {
+            "error": null,
+            "http_status": 200,
+            "latency_ms": 287.6,
+            "method": "POST",
+            "page": 2,
+            "request_sha256": "219ffc3268acefc66ca36ba89319d581c4f97bb8b7791440bea53e97d26e7919",
+            "response_bytes_read": 44372,
+            "url": "https://api.hyperliquid.xyz/info"
+          },
+          {
+            "error": null,
+            "http_status": 200,
+            "latency_ms": 232.3,
+            "method": "POST",
+            "page": 3,
+            "request_sha256": "515d69b51799cd38d523a55f3c0d8bb4320d3610933f51b3d57ba7a6b77752d5",
+            "response_bytes_read": 44151,
+            "url": "https://api.hyperliquid.xyz/info"
+          },
+          {
+            "error": null,
+            "http_status": 200,
+            "latency_ms": 507.7,
+            "method": "POST",
+            "page": 4,
+            "request_sha256": "187e8be4901746d3c40b9338ecc04aa076fde5a395122c02bdd467c04bdd2c52",
+            "response_bytes_read": 44006,
+            "url": "https://api.hyperliquid.xyz/info"
+          },
+          {
+            "error": null,
+            "http_status": 200,
+            "latency_ms": 194.1,
+            "method": "POST",
+            "page": 5,
+            "request_sha256": "6dc2326ff6071f331421ba176a0d0853a2fc07ff968e0c14a79b8516b36c3484",
+            "response_bytes_read": 32980,
+            "url": "https://api.hyperliquid.xyz/info"
+          }
+        ],
+        "pages_received": 5,
+        "stop_reason": "window_reached_or_page_not_full"
+      },
+      "okx_candles": {
+        "pages": [
+          {
+            "error": null,
+            "http_status": 200,
+            "latency_ms": 651.3,
+            "method": "GET",
+            "page": 1,
+            "request_sha256": null,
+            "response_bytes_read": 31029,
+            "url": "https://www.okx.com/api/v5/market/history-candles?instId=ETH-USDT-SWAP&bar=1H&limit=300"
+          },
+          {
+            "error": null,
+            "http_status": 200,
+            "latency_ms": 208.1,
+            "method": "GET",
+            "page": 2,
+            "request_sha256": null,
+            "response_bytes_read": 30894,
+            "url": "https://www.okx.com/api/v5/market/history-candles?instId=ETH-USDT-SWAP&bar=1H&limit=300&after=1794157200000"
+          },
+          {
+            "error": null,
+            "http_status": 200,
+            "latency_ms": 224.7,
+            "method": "GET",
+            "page": 3,
+            "request_sha256": null,
+            "response_bytes_read": 30918,
+            "url": "https://www.okx.com/api/v5/market/history-candles?instId=ETH-USDT-SWAP&bar=1H&limit=300&after=1793077200000"
+          },
+          {
+            "error": null,
+            "http_status": 200,
+            "latency_ms": 196.4,
+            "method": "GET",
+            "page": 4,
+            "request_sha256": null,
+            "response_bytes_read": 30797,
+            "url": "https://www.okx.com/api/v5/market/history-candles?instId=ETH-USDT-SWAP&bar=1H&limit=300&after=1791997200000"
+          },
+          {
+            "error": null,
+            "http_status": 200,
+            "latency_ms": 251.3,
+            "method": "GET",
+            "page": 5,
+            "request_sha256": null,
+            "response_bytes_read": 30885,
+            "url": "https://www.okx.com/api/v5/market/history-candles?instId=ETH-USDT-SWAP&bar=1H&limit=300&after=1790917200000"
+          },
+          {
+            "error": null,
+            "http_status": 200,
+            "latency_ms": 229.3,
+            "method": "GET",
+            "page": 6,
+            "request_sha256": null,
+            "response_bytes_read": 30982,
+            "url": "https://www.okx.com/api/v5/market/history-candles?instId=ETH-USDT-SWAP&bar=1H&limit=300&after=1789837200000"
+          },
+          {
+            "error": null,
+            "http_status": 200,
+            "latency_ms": 207.0,
+            "method": "GET",
+            "page": 7,
+            "request_sha256": null,
+            "response_bytes_read": 30869,
+            "url": "https://www.okx.com/api/v5/market/history-candles?instId=ETH-USDT-SWAP&bar=1H&limit=300&after=1788757200000"
+          },
+          {
+            "error": null,
+            "http_status": 200,
+            "latency_ms": 215.0,
+            "method": "GET",
+            "page": 8,
+            "request_sha256": null,
+            "response_bytes_read": 30944,
+            "url": "https://www.okx.com/api/v5/market/history-candles?instId=ETH-USDT-SWAP&bar=1H&limit=300&after=1787677200000"
+          },
+          {
+            "error": null,
+            "http_status": 200,
+            "latency_ms": 318.7,
+            "method": "GET",
+            "page": 9,
+            "request_sha256": null,
+            "response_bytes_read": 30710,
+            "url": "https://www.okx.com/api/v5/market/history-candles?instId=ETH-USDT-SWAP&bar=1H&limit=300&after=1786597200000"
+          },
+          {
+            "error": null,
+            "http_status": 200,
+            "latency_ms": 219.6,
+            "method": "GET",
+            "page": 10,
+            "request_sha256": null,
+            "response_bytes_read": 30988,
+            "url": "https://www.okx.com/api/v5/market/history-candles?instId=ETH-USDT-SWAP&bar=1H&limit=300&after=1785517200000"
+          }
+        ],
+        "pages_received": 10,
+        "stop_reason": "window_start_reached"
+      },
+      "okx_funding": {
+        "pages": [
+          {
+            "error": null,
+            "http_status": 200,
+            "latency_ms": 209.9,
+            "method": "GET",
+            "page": 1,
+            "request_sha256": null,
+            "response_bytes_read": 54603,
+            "url": "https://www.okx.com/api/v5/public/funding-rate-history?instId=ETH-USDT-SWAP&limit=400"
+          }
+        ],
+        "pages_received": 1,
+        "stop_reason": "page_not_full"
+      }
+    },
+    "LINK": {
+      "hyperliquid_candles": {
+        "coin": "LINK",
+        "error": null,
+        "field": "1h candles",
+        "http_status": 200,
+        "latency_ms": 785.3,
+        "method": "POST",
+        "request_sha256": "af291c74aabf20b7f565018e9891fd97b848e34d88c03c4e6c89fcc33a00a5bf",
+        "response_bytes_read": 311797,
+        "source": "Hyperliquid",
+        "url": "https://api.hyperliquid.xyz/info"
+      },
+      "hyperliquid_funding": {
+        "pages": [
+          {
+            "error": null,
+            "http_status": 200,
+            "latency_ms": 497.4,
+            "method": "POST",
+            "page": 1,
+            "request_sha256": "f5aac3dfa5f4409c06d71ad46d9cc5438069aaf2fd8a25966574da4207511d0d",
+            "response_bytes_read": 44964,
+            "url": "https://api.hyperliquid.xyz/info"
+          },
+          {
+            "error": null,
+            "http_status": 200,
+            "latency_ms": 495.2,
+            "method": "POST",
+            "page": 2,
+            "request_sha256": "4e2eebd096a441c6613dbc2a684b912f07fc132098096692897a10330547e6ab",
+            "response_bytes_read": 44874,
+            "url": "https://api.hyperliquid.xyz/info"
+          },
+          {
+            "error": null,
+            "http_status": 200,
+            "latency_ms": 268.4,
+            "method": "POST",
+            "page": 3,
+            "request_sha256": "ddddc1eac36a4c3a5e7e643c2321a57576152bf617472b7ab63894039e2e9ccd",
+            "response_bytes_read": 44691,
+            "url": "https://api.hyperliquid.xyz/info"
+          },
+          {
+            "error": null,
+            "http_status": 200,
+            "latency_ms": 200.7,
+            "method": "POST",
+            "page": 4,
+            "request_sha256": "52f43d973113913bc364615f24cc705050dbc1b03672e45adff0cd8788ee61b2",
+            "response_bytes_read": 44824,
+            "url": "https://api.hyperliquid.xyz/info"
+          },
+          {
+            "error": null,
+            "http_status": 200,
+            "latency_ms": 327.6,
+            "method": "POST",
+            "page": 5,
+            "request_sha256": "21ec97301e0ede42465ff5784d0d694f32dfaabd9bce10952a5592d03adbd1a0",
+            "response_bytes_read": 33115,
+            "url": "https://api.hyperliquid.xyz/info"
+          }
+        ],
+        "pages_received": 5,
+        "stop_reason": "window_reached_or_page_not_full"
+      },
+      "okx_candles": {
+        "pages": [
+          {
+            "error": null,
+            "http_status": 200,
+            "latency_ms": 198.4,
+            "method": "GET",
+            "page": 1,
+            "request_sha256": null,
+            "response_bytes_read": 26990,
+            "url": "https://www.okx.com/api/v5/market/history-candles?instId=LINK-USDT-SWAP&bar=1H&limit=300"
+          },
+          {
+            "error": null,
+            "http_status": 200,
+            "latency_ms": 204.1,
+            "method": "GET",
+            "page": 2,
+            "request_sha256": null,
+            "response_bytes_read": 27891,
+            "url": "https://www.okx.com/api/v5/market/history-candles?instId=LINK-USDT-SWAP&bar=1H&limit=300&after=1794157200000"
+          },
+          {
+            "error": null,
+            "http_status": 200,
+            "latency_ms": 208.7,
+            "method": "GET",
+            "page": 3,
+            "request_sha256": null,
+            "response_bytes_read": 27615,
+            "url": "https://www.okx.com/api/v5/market/history-candles?instId=LINK-USDT-SWAP&bar=1H&limit=300&after=1793077200000"
+          },
+          {
+            "error": null,
+            "http_status": 200,
+            "latency_ms": 195.0,
+            "method": "GET",
+            "page": 4,
+            "request_sha256": null,
+            "response_bytes_read": 27827,
+            "url": "https://www.okx.com/api/v5/market/history-candles?instId=LINK-USDT-SWAP&bar=1H&limit=300&after=1791997200000"
+          },
+          {
+            "error": null,
+            "http_status": 200,
+            "latency_ms": 217.3,
+            "method": "GET",
+            "page": 5,
+            "request_sha256": null,
+            "response_bytes_read": 28235,
+            "url": "https://www.okx.com/api/v5/market/history-candles?instId=LINK-USDT-SWAP&bar=1H&limit=300&after=1790917200000"
+          },
+          {
+            "error": null,
+            "http_status": 200,
+            "latency_ms": 226.4,
+            "method": "GET",
+            "page": 6,
+            "request_sha256": null,
+            "response_bytes_read": 27986,
+            "url": "https://www.okx.com/api/v5/market/history-candles?instId=LINK-USDT-SWAP&bar=1H&limit=300&after=1789837200000"
+          },
+          {
+            "error": null,
+            "http_status": 200,
+            "latency_ms": 245.2,
+            "method": "GET",
+            "page": 7,
+            "request_sha256": null,
+            "response_bytes_read": 27959,
+            "url": "https://www.okx.com/api/v5/market/history-candles?instId=LINK-USDT-SWAP&bar=1H&limit=300&after=1788757200000"
+          },
+          {
+            "error": null,
+            "http_status": 200,
+            "latency_ms": 209.3,
+            "method": "GET",
+            "page": 8,
+            "request_sha256": null,
+            "response_bytes_read": 27526,
+            "url": "https://www.okx.com/api/v5/market/history-candles?instId=LINK-USDT-SWAP&bar=1H&limit=300&after=1787677200000"
+          },
+          {
+            "error": null,
+            "http_status": 200,
+            "latency_ms": 216.0,
+            "method": "GET",
+            "page": 9,
+            "request_sha256": null,
+            "response_bytes_read": 26476,
+            "url": "https://www.okx.com/api/v5/market/history-candles?instId=LINK-USDT-SWAP&bar=1H&limit=300&after=1786597200000"
+          },
+          {
+            "error": null,
+            "http_status": 200,
+            "latency_ms": 208.1,
+            "method": "GET",
+            "page": 10,
+            "request_sha256": null,
+            "response_bytes_read": 26524,
+            "url": "https://www.okx.com/api/v5/market/history-candles?instId=LINK-USDT-SWAP&bar=1H&limit=300&after=1785517200000"
+          }
+        ],
+        "pages_received": 10,
+        "stop_reason": "window_start_reached"
+      },
+      "okx_funding": {
+        "pages": [
+          {
+            "error": null,
+            "http_status": 200,
+            "latency_ms": 203.1,
+            "method": "GET",
+            "page": 1,
+            "request_sha256": null,
+            "response_bytes_read": 53462,
+            "url": "https://www.okx.com/api/v5/public/funding-rate-history?instId=LINK-USDT-SWAP&limit=400"
+          }
+        ],
+        "pages_received": 1,
+        "stop_reason": "page_not_full"
+      }
+    },
+    "SOL": {
+      "hyperliquid_candles": {
+        "coin": "SOL",
+        "error": null,
+        "field": "1h candles",
+        "http_status": 200,
+        "latency_ms": 827.8,
+        "method": "POST",
+        "request_sha256": "8e7bf148c3f12056bc043404ae18daa58330809ec98950a79453b9e88d7ccade",
+        "response_bytes_read": 314340,
+        "source": "Hyperliquid",
+        "url": "https://api.hyperliquid.xyz/info"
+      },
+      "hyperliquid_funding": {
+        "pages": [
+          {
+            "error": null,
+            "http_status": 200,
+            "latency_ms": 267.4,
+            "method": "POST",
+            "page": 1,
+            "request_sha256": "654b911b8824e7ea10223293ff02b7875a19a4b464e0295a03812891dfc4be6e",
+            "response_bytes_read": 45084,
+            "url": "https://api.hyperliquid.xyz/info"
+          },
+          {
+            "error": null,
+            "http_status": 200,
+            "latency_ms": 480.5,
+            "method": "POST",
+            "page": 2,
+            "request_sha256": "c69f453b1085b8658f3859ee78ae8e583a6ea92298e9a9b1db6ff1d748d16c82",
+            "response_bytes_read": 44456,
+            "url": "https://api.hyperliquid.xyz/info"
+          },
+          {
+            "error": null,
+            "http_status": 200,
+            "latency_ms": 186.2,
+            "method": "POST",
+            "page": 3,
+            "request_sha256": "7762ececb630b7dbb8d4b2cbb1c3957758bcb69f5787a29a8df42ab1a743cd2a",
+            "response_bytes_read": 44721,
+            "url": "https://api.hyperliquid.xyz/info"
+          },
+          {
+            "error": null,
+            "http_status": 200,
+            "latency_ms": 336.2,
+            "method": "POST",
+            "page": 4,
+            "request_sha256": "9cbef9069b7b3f6ee98f8253a34fd852a1d0155c28a9753da57e965bad257f23",
+            "response_bytes_read": 44373,
+            "url": "https://api.hyperliquid.xyz/info"
+          },
+          {
+            "error": null,
+            "http_status": 200,
+            "latency_ms": 178.2,
+            "method": "POST",
+            "page": 5,
+            "request_sha256": "b2339df641fbc340e2a7cbb32c559c8803be228bd5a7097599e8a5c6c714b4f8",
+            "response_bytes_read": 33006,
+            "url": "https://api.hyperliquid.xyz/info"
+          }
+        ],
+        "pages_received": 5,
+        "stop_reason": "window_reached_or_page_not_full"
+      },
+      "okx_candles": {
+        "pages": [
+          {
+            "error": null,
+            "http_status": 200,
+            "latency_ms": 208.8,
+            "method": "GET",
+            "page": 1,
+            "request_sha256": null,
+            "response_bytes_read": 28035,
+            "url": "https://www.okx.com/api/v5/market/history-candles?instId=SOL-USDT-SWAP&bar=1H&limit=300"
+          },
+          {
+            "error": null,
+            "http_status": 200,
+            "latency_ms": 199.9,
+            "method": "GET",
+            "page": 2,
+            "request_sha256": null,
+            "response_bytes_read": 28091,
+            "url": "https://www.okx.com/api/v5/market/history-candles?instId=SOL-USDT-SWAP&bar=1H&limit=300&after=1794157200000"
+          },
+          {
+            "error": null,
+            "http_status": 200,
+            "latency_ms": 192.8,
+            "method": "GET",
+            "page": 3,
+            "request_sha256": null,
+            "response_bytes_read": 29139,
+            "url": "https://www.okx.com/api/v5/market/history-candles?instId=SOL-USDT-SWAP&bar=1H&limit=300&after=1793077200000"
+          },
+          {
+            "error": null,
+            "http_status": 200,
+            "latency_ms": 189.9,
+            "method": "GET",
+            "page": 4,
+            "request_sha256": null,
+            "response_bytes_read": 29121,
+            "url": "https://www.okx.com/api/v5/market/history-candles?instId=SOL-USDT-SWAP&bar=1H&limit=300&after=1791997200000"
+          },
+          {
+            "error": null,
+            "http_status": 200,
+            "latency_ms": 211.5,
+            "method": "GET",
+            "page": 5,
+            "request_sha256": null,
+            "response_bytes_read": 29270,
+            "url": "https://www.okx.com/api/v5/market/history-candles?instId=SOL-USDT-SWAP&bar=1H&limit=300&after=1790917200000"
+          },
+          {
+            "error": null,
+            "http_status": 200,
+            "latency_ms": 220.6,
+            "method": "GET",
+            "page": 6,
+            "request_sha256": null,
+            "response_bytes_read": 28889,
+            "url": "https://www.okx.com/api/v5/market/history-candles?instId=SOL-USDT-SWAP&bar=1H&limit=300&after=1789837200000"
+          },
+          {
+            "error": null,
+            "http_status": 200,
+            "latency_ms": 221.8,
+            "method": "GET",
+            "page": 7,
+            "request_sha256": null,
+            "response_bytes_read": 28985,
+            "url": "https://www.okx.com/api/v5/market/history-candles?instId=SOL-USDT-SWAP&bar=1H&limit=300&after=1788757200000"
+          },
+          {
+            "error": null,
+            "http_status": 200,
+            "latency_ms": 245.9,
+            "method": "GET",
+            "page": 8,
+            "request_sha256": null,
+            "response_bytes_read": 27889,
+            "url": "https://www.okx.com/api/v5/market/history-candles?instId=SOL-USDT-SWAP&bar=1H&limit=300&after=1787677200000"
+          },
+          {
+            "error": null,
+            "http_status": 200,
+            "latency_ms": 235.5,
+            "method": "GET",
+            "page": 9,
+            "request_sha256": null,
+            "response_bytes_read": 27780,
+            "url": "https://www.okx.com/api/v5/market/history-candles?instId=SOL-USDT-SWAP&bar=1H&limit=300&after=1786597200000"
+          },
+          {
+            "error": null,
+            "http_status": 200,
+            "latency_ms": 203.9,
+            "method": "GET",
+            "page": 10,
+            "request_sha256": null,
+            "response_bytes_read": 27880,
+            "url": "https://www.okx.com/api/v5/market/history-candles?instId=SOL-USDT-SWAP&bar=1H&limit=300&after=1785517200000"
+          }
+        ],
+        "pages_received": 10,
+        "stop_reason": "window_start_reached"
+      },
+      "okx_funding": {
+        "pages": [
+          {
+            "error": null,
+            "http_status": 200,
+            "latency_ms": 198.4,
+            "method": "GET",
+            "page": 1,
+            "request_sha256": null,
+            "response_bytes_read": 54083,
+            "url": "https://www.okx.com/api/v5/public/funding-rate-history?instId=SOL-USDT-SWAP&limit=400"
+          }
+        ],
+        "pages_received": 1,
+        "stop_reason": "page_not_full"
+      }
+    }
+  },
+  "gross_exposure_cap": "1.0x equity",
+  "gross_price_return": 0.00023162549814376607,
+  "inconclusive": true,
+  "net_return": -0.04358828552191358,
+  "observed_at_utc": "2026-11-21T04:08:13.974872Z",
+  "peak_to_trough_decline": 0.04358828552191358,
+  "peak_to_trough_decline_pct_of_equity": 4.358828552191358e-06,
+  "performance_metrics_computed": false,
+  "run_id": "FVD-EXPLORATORY-004-run-2026-11-21",
+  "run_type": "fvd053_anchor_exploratory",
+  "sample_construction": "Verified historical intersection of 5 underlyings with funding settlements + 1h price history on 2 venues; no market-cap rank; shorter history vs the >=3-year confirmatory requirement; contract identity by underlying symbol only.",
+  "schema_version": "1.0",
+  "signal_count": 23,
+  "signals": [
+    {
+      "entry_price_long": 2638.12,
+      "entry_price_short": 2640.4,
+      "entry_time_utc": "2026-09-20T23:00:00Z",
+      "exit_price_long": 2777.71,
+      "exit_price_short": 2780.6,
+      "exit_time_utc": "2026-09-21T23:00:00Z",
+      "fees": 10.0,
+      "funding_cash_flow": 1.7016016490020003,
+      "funding_settlements": 27,
+      "gross_exposure": 10000.0,
+      "long_venue": "OKX",
+      "net_pnl": -19.225074402065317,
+      "net_return": -0.0019225074402065318,
+      "notional_per_leg": 5000.0,
+      "price_basis_pnl": -0.926676051067318,
+      "short_venue": "Hyperliquid",
+      "skipped": false,
+      "slippage": 10.0,
+      "underlying": "ETH"
+    },
+    {
+      "entry_price_long": 11.239,
+      "entry_price_short": 11.257,
+      "entry_time_utc": "2026-09-21T23:00:00Z",
+      "exit_price_long": 11.258,
+      "exit_price_short": 11.274,
+      "exit_time_utc": "2026-09-22T23:00:00Z",
+      "fees": 10.0,
+      "funding_cash_flow": 2.5738193848525,
+      "funding_settlements": 27,
+      "gross_exposure": 10000.0,
+      "long_venue": "OKX",
+      "net_pnl": -16.52432854375313,
+      "net_return": -0.0016524328543753128,
+      "notional_per_leg": 5000.0,
+      "price_basis_pnl": 0.9018520713943712,
+      "short_venue": "Hyperliquid",
+      "skipped": false,
+      "slippage": 10.0,
+      "underlying": "AVAX"
+    },
+    {
+      "entry_price_long": 11.258,
+      "entry_price_short": 11.274,
+      "entry_time_utc": "2026-09-22T23:00:00Z",
+      "exit_price_long": 10.308,
+      "exit_price_short": 10.314,
+      "exit_time_utc": "2026-09-23T23:00:00Z",
+      "fees": 10.0,
+      "funding_cash_flow": 2.3249090590345,
+      "funding_settlements": 27,
+      "gross_exposure": 10000.0,
+      "long_venue": "OKX",
+      "net_pnl": -13.838897488655387,
+      "net_return": -0.0013838897488655387,
+      "notional_per_leg": 5000.0,
+      "price_basis_pnl": 3.8361934523101127,
+      "short_venue": "Hyperliquid",
+      "skipped": false,
+      "slippage": 10.0,
+      "underlying": "AVAX"
+    },
+    {
+      "entry_price_long": 10.308,
+      "entry_price_short": 10.314,
+      "entry_time_utc": "2026-09-23T23:00:00Z",
+      "exit_price_long": 10.186,
+      "exit_price_short": 10.198,
+      "exit_time_utc": "2026-09-24T23:00:00Z",
+      "fees": 10.0,
+      "funding_cash_flow": 1.889502702992,
+      "funding_settlements": 27,
+      "gross_exposure": 10000.0,
+      "long_venue": "OKX",
+      "net_pnl": -21.053590570999003,
+      "net_return": -0.0021053590570999,
+      "notional_per_leg": 5000.0,
+      "price_basis_pnl": -2.9430932739910034,
+      "short_venue": "Hyperliquid",
+      "skipped": false,
+      "slippage": 10.0,
+      "underlying": "AVAX"
+    },
+    {
+      "entry_price_long": 10.186,
+      "entry_price_short": 10.198,
+      "entry_time_utc": "2026-09-24T23:00:00Z",
+      "exit_price_long": 10.587,
+      "exit_price_short": 10.596,
+      "exit_time_utc": "2026-09-25T23:00:00Z",
+      "fees": 10.0,
+      "funding_cash_flow": 0.748940115118,
+      "funding_settlements": 27,
+      "gross_exposure": 10000.0,
+      "long_venue": "OKX",
+      "net_pnl": -17.54856276974174,
+      "net_return": -0.001754856276974174,
+      "notional_per_leg": 5000.0,
+      "price_basis_pnl": 1.702497115140261,
+      "short_venue": "Hyperliquid",
+      "skipped": false,
+      "slippage": 10.0,
+      "underlying": "AVAX"
+    },
+    {
+      "entry_price_long": 2690.77,
+      "entry_price_short": 2692.0,
+      "entry_time_utc": "2026-09-25T23:00:00Z",
+      "exit_price_long": 2687.85,
+      "exit_price_short": 2689.1,
+      "exit_time_utc": "2026-09-26T23:00:00Z",
+      "fees": 10.0,
+      "funding_cash_flow": 1.1104563486065,
+      "funding_settlements": 27,
+      "gross_exposure": 10000.0,
+      "long_venue": "OKX",
+      "net_pnl": -18.929169924072227,
+      "net_return": -0.0018929169924072227,
+      "notional_per_leg": 5000.0,
+      "price_basis_pnl": -0.03962627267872776,
+      "short_venue": "Hyperliquid",
+      "skipped": false,
+      "slippage": 10.0,
+      "underlying": "ETH"
+    },
+    {
+      "entry_price_long": 2687.85,
+      "entry_price_short": 2689.1,
+      "entry_time_utc": "2026-09-26T23:00:00Z",
+      "exit_price_long": 2674.0,
+      "exit_price_short": 2675.0,
+      "exit_time_utc": "2026-09-27T23:00:00Z",
+      "fees": 10.0,
+      "funding_cash_flow": 0.8561340633425,
+      "funding_settlements": 27,
+      "gross_exposure": 10000.0,
+      "long_venue": "OKX",
+      "net_pnl": -18.69100256533339,
+      "net_return": -0.0018691002565333391,
+      "notional_per_leg": 5000.0,
+      "price_basis_pnl": 0.45286337132410637,
+      "short_venue": "Hyperliquid",
+      "skipped": false,
+      "slippage": 10.0,
+      "underlying": "ETH"
+    },
+    {
+      "entry_price_long": 84163.8,
+      "entry_price_short": 84160.0,
+      "entry_time_utc": "2026-09-27T23:00:00Z",
+      "exit_price_long": 83522.5,
+      "exit_price_short": 83508.0,
+      "exit_time_utc": "2026-09-28T23:00:00Z",
+      "fees": 10.0,
+      "funding_cash_flow": 0.23669783376249995,
+      "funding_settlements": 27,
+      "gross_exposure": 10000.0,
+      "long_venue": "OKX",
+      "net_pnl": -19.12588803073661,
+      "net_return": -0.0019125888030736612,
+      "notional_per_leg": 5000.0,
+      "price_basis_pnl": 0.6374141355008902,
+      "short_venue": "Hyperliquid",
+      "skipped": false,
+      "slippage": 10.0,
+      "underlying": "BTC"
+    },
+    {
+      "entry_price_long": 118.55,
+      "entry_price_short": 118.56,
+      "entry_time_utc": "2026-09-28T23:00:00Z",
+      "exit_price_long": 119.04,
+      "exit_price_short": 119.07,
+      "exit_time_utc": "2026-09-29T23:00:00Z",
+      "fees": 10.0,
+      "funding_cash_flow": 0.8076791228345,
+      "funding_settlements": 27,
+      "gross_exposure": 10000.0,
+      "long_venue": "OKX",
+      "net_pnl": -20.034032551802813,
+      "net_return": -0.0020034032551802814,
+      "notional_per_leg": 5000.0,
+      "price_basis_pnl": -0.8417116746373132,
+      "short_venue": "Hyperliquid",
+      "skipped": false,
+      "slippage": 10.0,
+      "underlying": "SOL"
+    },
+    {
+      "entry_price_long": 11.103,
+      "entry_price_short": 11.094,
+      "entry_time_utc": "2026-10-03T23:00:00Z",
+      "exit_price_long": 11.097,
+      "exit_price_short": 11.095,
+      "exit_time_utc": "2026-10-04T23:00:00Z",
+      "fees": 10.0,
+      "funding_cash_flow": -0.1745166747325,
+      "funding_settlements": 27,
+      "gross_exposure": 10000.0,
+      "long_venue": "Hyperliquid",
+      "net_pnl": -23.327183183480294,
+      "net_return": -0.0023327183183480295,
+      "notional_per_leg": 5000.0,
+      "price_basis_pnl": -3.1526665087477923,
+      "short_venue": "OKX",
+      "skipped": false,
+      "slippage": 10.0,
+      "underlying": "AVAX"
+    },
+    {
+      "entry_price_long": 2729.72,
+      "entry_price_short": 2730.9,
+      "entry_time_utc": "2026-10-04T23:00:00Z",
+      "exit_price_long": 2714.88,
+      "exit_price_short": 2715.6,
+      "exit_time_utc": "2026-10-05T23:00:00Z",
+      "fees": 10.0,
+      "funding_cash_flow": 0.6016022653274999,
+      "funding_settlements": 27,
+      "gross_exposure": 10000.0,
+      "long_venue": "OKX",
+      "net_pnl": -18.567929788069367,
+      "net_return": -0.0018567929788069367,
+      "notional_per_leg": 5000.0,
+      "price_basis_pnl": 0.8304679466031324,
+      "short_venue": "Hyperliquid",
+      "skipped": false,
+      "slippage": 10.0,
+      "underlying": "ETH"
+    },
+    {
+      "entry_price_long": 85884.7,
+      "entry_price_short": 85919.0,
+      "entry_time_utc": "2026-10-05T23:00:00Z",
+      "exit_price_long": 85494.1,
+      "exit_price_short": 85534.0,
+      "exit_time_utc": "2026-10-06T23:00:00Z",
+      "fees": 10.0,
+      "funding_cash_flow": 1.131008772715,
+      "funding_settlements": 27,
+      "gross_exposure": 10000.0,
+      "long_venue": "OKX",
+      "net_pnl": -19.20395758839408,
+      "net_return": -0.0019203957588394078,
+      "notional_per_leg": 5000.0,
+      "price_basis_pnl": -0.3349663611090783,
+      "short_venue": "Hyperliquid",
+      "skipped": false,
+      "slippage": 10.0,
+      "underlying": "BTC"
+    },
+    {
+      "entry_price_long": 120.76,
+      "entry_price_short": 120.82,
+      "entry_time_utc": "2026-10-06T23:00:00Z",
+      "exit_price_long": 115.93,
+      "exit_price_short": 115.93,
+      "exit_time_utc": "2026-10-07T23:00:00Z",
+      "fees": 10.0,
+      "funding_cash_flow": 0.9318995742830001,
+      "funding_settlements": 27,
+      "gross_exposure": 10000.0,
+      "long_venue": "OKX",
+      "net_pnl": -16.6843808949562,
+      "net_return": -0.0016684380894956199,
+      "notional_per_leg": 5000.0,
+      "price_basis_pnl": 2.3837195307608,
+      "short_venue": "Hyperliquid",
+      "skipped": false,
+      "slippage": 10.0,
+      "underlying": "SOL"
+    },
+    {
+      "entry_price_long": 83200.1,
+      "entry_price_short": 83203.0,
+      "entry_time_utc": "2026-10-07T23:00:00Z",
+      "exit_price_long": 81863.4,
+      "exit_price_short": 81861.0,
+      "exit_time_utc": "2026-10-08T23:00:00Z",
+      "fees": 10.0,
+      "funding_cash_flow": 0.7326629275459999,
+      "funding_settlements": 27,
+      "gross_exposure": 10000.0,
+      "long_venue": "OKX",
+      "net_pnl": -18.95163881943064,
+      "net_return": -0.0018951638819430642,
+      "notional_per_leg": 5000.0,
+      "price_basis_pnl": 0.3156982530233563,
+      "short_venue": "Hyperliquid",
+      "skipped": false,
+      "slippage": 10.0,
+      "underlying": "BTC"
+    },
+    {
+      "entry_price_long": 110.28,
+      "entry_price_short": 110.29,
+      "entry_time_utc": "2026-10-08T23:00:00Z",
+      "exit_price_long": 109.15,
+      "exit_price_short": 109.18,
+      "exit_time_utc": "2026-10-09T23:00:00Z",
+      "fees": 10.0,
+      "funding_cash_flow": 1.6467903264085,
+      "funding_settlements": 27,
+      "gross_exposure": 10000.0,
+      "long_venue": "OKX",
+      "net_pnl": -19.264555509525387,
+      "net_return": -0.0019264555509525387,
+      "notional_per_leg": 5000.0,
+      "price_basis_pnl": -0.9113458359338864,
+      "short_venue": "Hyperliquid",
+      "skipped": false,
+      "slippage": 10.0,
+      "underlying": "SOL"
+    },
+    {
+      "entry_price_long": 109.15,
+      "entry_price_short": 109.18,
+      "entry_time_utc": "2026-10-09T23:00:00Z",
+      "exit_price_long": 110.42,
+      "exit_price_short": 110.47,
+      "exit_time_utc": "2026-10-10T23:00:00Z",
+      "fees": 10.0,
+      "funding_cash_flow": 0.9197130648205001,
+      "funding_settlements": 27,
+      "gross_exposure": 10000.0,
+      "long_venue": "OKX",
+      "net_pnl": -19.980220030741194,
+      "net_return": -0.0019980220030741194,
+      "notional_per_leg": 5000.0,
+      "price_basis_pnl": -0.8999330955616927,
+      "short_venue": "Hyperliquid",
+      "skipped": false,
+      "slippage": 10.0,
+      "underlying": "SOL"
+    },
+    {
+      "entry_price_long": 82111.0,
+      "entry_price_short": 82119.0,
+      "entry_time_utc": "2026-10-12T23:00:00Z",
+      "exit_price_long": 83479.5,
+      "exit_price_short": 83500.0,
+      "exit_time_utc": "2026-10-13T23:00:00Z",
+      "fees": 10.0,
+      "funding_cash_flow": 0.204982161554,
+      "funding_settlements": 27,
+      "gross_exposure": 10000.0,
+      "long_venue": "OKX",
+      "net_pnl": -20.547990249854593,
+      "net_return": -0.0020547990249854594,
+      "notional_per_leg": 5000.0,
+      "price_basis_pnl": -0.7529724114085923,
+      "short_venue": "Hyperliquid",
+      "skipped": false,
+      "slippage": 10.0,
+      "underlying": "BTC"
+    },
+    {
+      "entry_price_long": 12.933,
+      "entry_price_short": 12.938,
+      "entry_time_utc": "2026-10-13T23:00:00Z",
+      "exit_price_long": 12.409,
+      "exit_price_short": 12.401,
+      "exit_time_utc": "2026-10-14T23:00:00Z",
+      "fees": 10.0,
+      "funding_cash_flow": 0.931603146487,
+      "funding_settlements": 27,
+      "gross_exposure": 10000.0,
+      "long_venue": "OKX",
+      "net_pnl": -14.122726170558188,
+      "net_return": -0.0014122726170558188,
+      "notional_per_leg": 5000.0,
+      "price_basis_pnl": 4.9456706829548125,
+      "short_venue": "Hyperliquid",
+      "skipped": false,
+      "slippage": 10.0,
+      "underlying": "LINK"
+    },
+    {
+      "entry_price_long": 81625.0,
+      "entry_price_short": 81630.0,
+      "entry_time_utc": "2026-10-14T23:00:00Z",
+      "exit_price_long": 82417.0,
+      "exit_price_short": 82431.0,
+      "exit_time_utc": "2026-10-15T23:00:00Z",
+      "fees": 10.0,
+      "funding_cash_flow": 0.49735979952450005,
+      "funding_settlements": 27,
+      "gross_exposure": 10000.0,
+      "long_venue": "OKX",
+      "net_pnl": -20.0509365040263,
+      "net_return": -0.00200509365040263,
+      "notional_per_leg": 5000.0,
+      "price_basis_pnl": -0.5482963035507993,
+      "short_venue": "Hyperliquid",
+      "skipped": false,
+      "slippage": 10.0,
+      "underlying": "BTC"
+    },
+    {
+      "entry_price_long": 10.057,
+      "entry_price_short": 10.063,
+      "entry_time_utc": "2026-10-15T23:00:00Z",
+      "exit_price_long": 9.9716,
+      "exit_price_short": 9.971,
+      "exit_time_utc": "2026-10-16T23:00:00Z",
+      "fees": 10.0,
+      "funding_cash_flow": 0.8622752901459998,
+      "funding_settlements": 27,
+      "gross_exposure": 10000.0,
+      "long_venue": "Hyperliquid",
+      "net_pnl": -15.883699860083114,
+      "net_return": -0.0015883699860083113,
+      "notional_per_leg": 5000.0,
+      "price_basis_pnl": 3.254024849770886,
+      "short_venue": "OKX",
+      "skipped": false,
+      "slippage": 10.0,
+      "underlying": "AVAX"
+    },
+    {
+      "entry_price_long": 9.681,
+      "entry_price_short": 9.6744,
+      "entry_time_utc": "2026-10-18T23:00:00Z",
+      "exit_price_long": 9.614,
+      "exit_price_short": 9.6171,
+      "exit_time_utc": "2026-10-19T23:00:00Z",
+      "fees": 10.0,
+      "funding_cash_flow": -0.6086373159989998,
+      "funding_settlements": 27,
+      "gross_exposure": 10000.0,
+      "long_venue": "OKX",
+      "net_pnl": -25.598260910498617,
+      "net_return": -0.0025598260910498615,
+      "notional_per_leg": 5000.0,
+      "price_basis_pnl": -4.989623594499616,
+      "short_venue": "Hyperliquid",
+      "skipped": false,
+      "slippage": 10.0,
+      "underlying": "AVAX"
+    },
+    {
+      "entry_price_long": 12.567,
+      "entry_price_short": 12.571,
+      "entry_time_utc": "2026-10-21T23:00:00Z",
+      "exit_price_long": 11.916,
+      "exit_price_short": 11.915,
+      "exit_time_utc": "2026-10-22T23:00:00Z",
+      "fees": 10.0,
+      "funding_cash_flow": 1.2354582254565,
+      "funding_settlements": 27,
+      "gross_exposure": 10000.0,
+      "long_venue": "OKX",
+      "net_pnl": -16.85825323657566,
+      "net_return": -0.001685825323657566,
+      "notional_per_leg": 5000.0,
+      "price_basis_pnl": 1.9062885379678391,
+      "short_venue": "Hyperliquid",
+      "skipped": false,
+      "slippage": 10.0,
+      "underlying": "LINK"
+    },
+    {
+      "entry_price_long": 11.916,
+      "entry_price_short": 11.915,
+      "entry_time_utc": "2026-10-22T23:00:00Z",
+      "exit_price_long": 11.68,
+      "exit_price_short": 11.685,
+      "exit_time_utc": "2026-10-23T23:00:00Z",
+      "fees": 10.0,
+      "funding_cash_flow": 0.6389479563445,
+      "funding_settlements": 27,
+      "gross_exposure": 10000.0,
+      "long_venue": "OKX",
+      "net_pnl": -21.870575625782585,
+      "net_return": -0.0021870575625782583,
+      "notional_per_leg": 5000.0,
+      "price_basis_pnl": -2.5095235821270876,
+      "short_venue": "Hyperliquid",
+      "skipped": false,
+      "slippage": 10.0,
+      "underlying": "LINK"
+    }
+  ],
+  "skipped_missing_candles": 0,
+  "skipped_missing_funding": 0,
+  "status": "EXPLORATORY_ONLY",
+  "total_executions": 92,
+  "total_funding_settlements": 621,
+  "turnover_notional": 460000.0,
+  "uncertainty": "Not estimable: signal episodes overlap within a 24-hour holding window and are not independent; the sample window is ~97 days vs the >=3-year confirmatory requirement. No block-bootstrap confidence interval is reported.",
+  "underlying_dates_threshold_eligible": 180,
+  "underlyings": [
+    "BTC",
+    "ETH",
+    "SOL",
+    "AVAX",
+    "LINK"
+  ],
+  "venue_pair_count": 6,
+  "venue_pairs": [
+    [
+      "AVAX",
+      "Hyperliquid",
+      "OKX"
+    ],
+    [
+      "AVAX",
+      "OKX",
+      "Hyperliquid"
+    ],
+    [
+      "BTC",
+      "OKX",
+      "Hyperliquid"
+    ],
+    [
+      "ETH",
+      "OKX",
+      "Hyperliquid"
+    ],
+    [
+      "LINK",
+      "OKX",
+      "Hyperliquid"
+    ],
+    [
+      "SOL",
+      "OKX",
+      "Hyperliquid"
+    ]
+  ],
+  "venues": [
+    "Hyperliquid",
+    "OKX"
+  ],
+  "volatility_per_signal_return": 0.00026882238550334625,
+  "window_end_utc": "2026-10-25T16:00:00Z",
+  "window_start_utc": "2026-07-20T00:00:00Z"
+}

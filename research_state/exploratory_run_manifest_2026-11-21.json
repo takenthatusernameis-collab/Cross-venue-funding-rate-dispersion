@@ -1,0 +1,121 @@
+{
+  "schema_version": "1.0",
+  "experiment_id": "FVD-EXPLORATORY-004",
+  "run_id": "FVD-EXPLORATORY-004-run-2026-11-21",
+  "status": "EXPLORATORY_ONLY",
+  "confirmatory_status_preserved": "BLOCKED_DATA_GATE",
+  "historical_point_in_time_market_cap_gate": "BLOCKED",
+  "backtest_completed": false,
+  "performance_metrics_computed": false,
+  "date_utc": "2026-11-21",
+  "started_at_utc": "2026-11-21T04:07:00Z",
+  "completed_at_utc": "2026-11-21T04:08:13.974872Z",
+  "last_updated_utc": "2026-11-21T04:10:00Z",
+  "purpose": "Diagnostic-only re-run of the frozen FVD053 anchor over the same verified Hyperliquid+OKX overlap window as FVD-EXPLORATORY-002, using corrected candle coverage through the exit hour and persistent missing-candle attribution. It tests whether the 50 candle-stage signal drops recorded by FVD-EXPLORATORY-002 were a data-coverage/alignment artifact rather than an economic result. It does not modify frozen artifacts and does not promote, replace, or unlock any confirmatory track.",
+  "estimand": {
+    "description": "Same as FVD-EXPLORATORY-002: cross-venue funding-dispersion carry over the verified Hyperliquid+OKX historical overlap, using the frozen FVD053 anchor (24h dispersion lookback, 80th-percentile prior-90-day threshold, 24h hold, top-10% cross-sectional tail, at least 2 eligible venues). This run changes only data-retrieval coverage and diagnostic persistence; signal selection, thresholds, timing, and accounting are unchanged.",
+    "distinct_from_confirmatory": "FVD-DISPERSION-V1 (market-cap-weighted universe) and FVD-EXPLORATORY-001/002/003 remain frozen. This is a separately versioned exploratory diagnostic run, not a new confirmatory hypothesis.",
+    "exploratory_only_reason": "Contract identity remains candidate-level (symbol-mapped only), the window is ~97 days versus the >=3-year confirmatory requirement, and no independent audit or sealed holdout exists."
+  },
+  "data_cutoff_utc": "2026-10-25T16:00:00Z",
+  "instrument_list": ["BTC", "ETH", "SOL", "AVAX", "LINK"],
+  "venue_set": ["Hyperliquid", "OKX"],
+  "contract_mapping": {
+    "Hyperliquid": "BTC, ETH, SOL, AVAX, LINK (coin name)",
+    "OKX": "BTC-USDT-SWAP, ETH-USDT-SWAP, SOL-USDT-SWAP, AVAX-USDT-SWAP, LINK-USDT-SWAP"
+  },
+  "contract_mapping_basis": "underlying symbol match only; instId derived from underlying; not independently verified via metadata/lifecycle; survivorship bias unmeasured",
+  "contract_identity_verified": false,
+  "contract_identity_evidence_level": "candidate",
+  "binding_constraint": "contract identity remains candidate-level (symbol-mapped only). This run resolves the candle-coverage attribution, not the instrument-identity constraint.",
+  "anchor": "FVD053",
+  "anchor_params": {
+    "dispersion_lookback_hours": 24,
+    "entry_percentile": 80,
+    "holding_hours": 24,
+    "minimum_eligible_venues": 2,
+    "portfolio_tail_fraction": 0.1
+  },
+  "anchor_exercised": true,
+  "anchor_result": "DESCRIPTIVE ONLY, NOT A PERFORMANCE CLAIM. The frozen FVD053 anchor was exercised over the identical FVD-EXPLORATORY-002 window (2026-07-20T00:00Z to 2026-10-25T16:00Z) with candle data fetched through the exit hour. Result: 97 daily signal dates, 180 threshold-eligible underlying-dates, 23 dates with a selected signal, 0 signals dropped for missing entry/exit candles, and 0 dropped for missing funding. Per-venue 1h candle coverage is complete: 2369/2369 expected hourly slots for each of 5 underlyings on each of 2 venues (0 missing, 0 duplicates). This confirms that the 50 candle-stage drops in FVD-EXPLORATORY-002 were a candle coverage/exit-hour alignment artifact, not an economic finding. The 23 signals are descriptive accounting output only; they are not an independently audited backtest, no uncertainty is estimable (overlapping 24h episodes), and no performance metric is claimed.",
+  "cost_assumptions": {
+    "id": "base",
+    "fee_bps_per_side": 5,
+    "slippage_bps_per_side": 5,
+    "note": "frozen grid base scenario; sensitivity assumption, not a venue fee claim"
+  },
+  "gross_exposure_cap": "1.0x equity",
+  "sample_construction": "Verified historical intersection of 5 underlyings with funding settlements + 1h price history on 2 venues; no market-cap rank; shorter history than the >=3-year confirmatory requirement; contract identity by underlying symbol only.",
+  "coverage_summary": {
+    "window_start_utc": "2026-07-20T00:00:00Z",
+    "window_end_utc": "2026-10-25T16:00:00Z",
+    "fetch_end_utc": "2026-10-26T16:00:00Z",
+    "daily_signal_dates": 97,
+    "dates_with_signal": 23,
+    "dates_threshold_ineligible": 61,
+    "dates_threshold_eligible_no_signal": 13,
+    "dates_with_no_dispersion": 31,
+    "underlying_dates_threshold_eligible": 180,
+    "candle_hour_slots_expected_per_series": 2369,
+    "candle_hour_slots_observed_per_series": 2369,
+    "candle_missing_hours_per_series": 0,
+    "skipped_missing_candles": 0,
+    "skipped_missing_funding": 0,
+    "total_funding_settlements_applied": 621,
+    "venue_pairs": 6,
+    "underlyings_with_signals": {"BTC": 5, "ETH": 4, "SOL": 4, "AVAX": 7, "LINK": 3},
+    "okx_funding_retention_note": "OKX funding-rate-history returned a single page with stop_reason=page_not_full, consistent with the rolling ~3-month retention verified by the committed probes; the first OKX settlement inside this window is therefore later than the window start, which is why 31 dates have no cross-venue dispersion."
+  },
+  "threshold_history_eligibility": {
+    "common_days": 97,
+    "prior_daily_observations_available": 97,
+    "minimum_required": 30,
+    "eligible_for_threshold_computation": true,
+    "contract_identity_verified": false,
+    "contract_identity_evidence_level": "candidate",
+    "note": "The 90-day lookback and 30-observation floor are applied unchanged. 61 dates are structurally threshold-ineligible because OKX funding does not yet cover enough prior daily observations; this is reported, not relaxed."
+  },
+  "data_gate_result": "PARTIAL — funding + complete 1h price history verified for both venues over the ~97-day window; contract identity symbol-only/unverified; short history versus the 3-year confirmatory requirement. The candle-coverage sub-gap is resolved.",
+  "historical_coverage_gate": "NOT_PASSED_BY_COVERAGE_PROBE",
+  "exclusion_rules": [
+    "no forward fill",
+    "no invented fills",
+    "settlement-timed funding only",
+    "gross exposure <= 1.0x equity",
+    "minimum 2 eligible venues",
+    "threshold excludes current signal date",
+    ">=90 prior daily observations required for threshold",
+    "no silent exclusion: missing candles are reported with exact timestamps"
+  ],
+  "implementation_gate_result": "Source-independent primitives covered by known-answer/adversarial tests; this run adds persistent candle-coverage and missing-candle diagnostics (tests/test_run_fvd053_anchor.py::CandleCoverageDiagnosticTests and AnchorCandleDiagnosticsTests). No backtest and no performance metric computed.",
+  "conclusion": "EXPLORATORY_ONLY / INCONCLUSIVE for inference. The 0-signal outcome of FVD-EXPLORATORY-002 is now attributed to candle coverage/exit-hour alignment: with data fetched through the exit hour, all 23 remaining candidate signals had complete entry/exit candles and 0 were dropped. The 50 earlier drops are a diagnostic artifact, not evidence about the economics of the mechanism. This run does not establish an edge, is not independently audited, and cannot promote or unlock the confirmatory track.",
+  "next_step": "Do not promote. Either (a) independently recompute the 23 descriptive signals from the immutable per-signal ledger and have a separate reviewer challenge timing, funding signs, cost attribution and selection, or (b) move to another source-independent task. The >=3-year historical point-in-time market-cap gate remains structurally blocked.",
+  "reference_probe": "historical_overlap_probe_44830909114_attempt_1.json",
+  "reference_probe_sha256": "ffc7334dea918271ed16e48a359b0b1e96db965b2d83dde5b79e585b43707681",
+  "parent_exploratory_manifest": "research_state/exploratory_run_manifest_2026-10-25.json",
+  "parent_exploratory_manifest_sha256": "08bbecf10f80f46b3d56e62e5c82ce44915840b25612307c0d7026f7a9905f1f",
+  "parent_anchor_run": "research_state/fvd053_anchor_run_2026-10-25.json",
+  "parent_anchor_run_sha256": "50b328baf5854dec40105a0f5ebe498bf589906f9c033ce659843659927ca4c2",
+  "source_code_hashes": {
+    "scripts/run_fvd053_anchor.py": "6bbbf32db3ab0b5232dcfa03818ffa955d032f1e80e3de776212407b6b5e61dd",
+    "tests/test_run_fvd053_anchor.py": "73e7348d02f9d14d21e4241bff7571f422d7bc708b86fc2b524492b2835bcf7e"
+  },
+  "config_hashes": {
+    "configs/cross_venue_funding_dispersion_grid_v1.json": "6be218bc84bf118cf67c238ad1c13ef1e445658db3b1346cd64ccaccc7aa5f07"
+  },
+  "output_artifacts": [
+    {
+      "path": "research_state/fvd053_anchor_run_2026-11-21.json",
+      "sha256": "ac6b51fe8f34463cf1db06c17c1b23cb32292b851db7ce6effdbcc53aa60b588"
+    }
+  ],
+  "caveats": [
+    "Free public sources lack >=3 years of historical point-in-time market-cap ranks; the confirmatory gate remains BLOCKED_DATA_GATE.",
+    "The 23 signals are descriptive accounting output from a single non-preregistered diagnostic window; they are not a performance claim and have not been independently audited.",
+    "Uncertainty is not estimable: signal episodes overlap within a 24-hour holding window and are not independent.",
+    "Contract identity is symbol-mapped only (candidate-level); settlement currency for Hyperliquid is inferred, not proven.",
+    "Survivorship and ticker-reuse handling are not assessed; the sample is availability-selected, not market-cap representative.",
+    "OKX funding retention (~3 months) leaves 61 of 97 dates structurally threshold-ineligible; the 90-observation threshold is reported, not relaxed.",
+    "The earlier FVD-EXPLORATORY-002 artifact is immutable and is not rewritten; this record supersedes only its 'never exceeded threshold' interpretation, not the artifact bytes."
+  ]
+}

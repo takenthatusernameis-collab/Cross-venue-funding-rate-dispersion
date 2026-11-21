@@ -17,6 +17,7 @@ MANIFESTS = [
     ROOT / "research_state" / "exploratory_run_manifest_2026-10-24.json",
     ROOT / "research_state" / "exploratory_run_manifest_2026-10-25.json",
     ROOT / "research_state" / "exploratory_run_manifest_2026-10-27.json",
+    ROOT / "research_state" / "exploratory_run_manifest_2026-11-21.json",
 ]
 
 

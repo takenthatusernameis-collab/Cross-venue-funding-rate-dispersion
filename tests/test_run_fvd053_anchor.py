@@ -943,5 +943,176 @@ class AnchorDiagnosticPartitionTests(unittest.TestCase):
             )
 
 
+class CandleCoverageDiagnosticTests(unittest.TestCase):
+    """Offline diagnostics for the FVD-EXPLORATORY-004 candle-gap attribution.
+
+    These tests prove that a skipped signal records the exact missing venue and
+    timestamp, and that per-venue candle coverage reports the full missing-hour
+    count with an explicit truncation flag. They do not change signal selection,
+    thresholds, or accounting.
+    """
+
+    def _data(self):
+        return {
+            "BTC": {
+                "hl_funding": internal_hl_funding_series(START_MS, END_MS, HL_RATE),
+                "okx_funding": internal_okx_funding_series(START_MS, END_MS, OKX_RATE),
+                "hl_candles": internal_candle_list(START_MS, END_MS, PRICE_OPEN, PRICE_CLOSE),
+                "okx_candles": internal_candle_list(START_MS, END_MS, PRICE_OPEN, PRICE_CLOSE),
+            }
+        }
+
+    def test_missing_candle_details_identify_exact_venue_and_timestamp(self):
+        entry = dt.datetime(2026, 8, 2, 23, 0, tzinfo=dt.timezone.utc)
+        exit_ = dt.datetime(2026, 8, 3, 23, 0, tzinfo=dt.timezone.utc)
+        data = self._data()
+        exit_ms = ms(exit_.isoformat().replace("+00:00", "Z"))
+        data["BTC"]["okx_candles"] = [
+            row for row in data["BTC"]["okx_candles"] if row["time"] != exit_ms
+        ]
+        res = anchor.simulate_signal(
+            "BTC", "OKX", "Hyperliquid", 5000.0, entry, exit_, data,
+            anchor.ANCHOR_PARAMS["fee_bps_per_side"],
+            anchor.ANCHOR_PARAMS["slippage_bps_per_side"],
+        )
+        self.assertTrue(res["skipped"])
+        self.assertEqual(res["reason"], "missing_candle_at_entry_or_exit")
+        self.assertEqual(
+            res["missing_candles"],
+            [{"venue": "OKX", "side": "long", "timestamp_utc": "2026-08-03T23:00:00Z"}],
+        )
+
+    def test_candle_coverage_counts_missing_slots(self):
+        base = START_MS
+        rows = [
+            {"time": base, "open": 1.0, "close": 1.0},
+            {"time": base + 3_600_000, "open": 1.0, "close": 1.0},
+            {"time": base + 3 * 3_600_000, "open": 1.0, "close": 1.0},
+        ]
+        cov = anchor._candle_coverage(rows, base, base + 4 * 3_600_000)
+        self.assertEqual(cov["expected_hour_slots"], 5)
+        self.assertEqual(cov["observed_hour_slots"], 3)
+        self.assertEqual(cov["missing_hour_slots"], 2)
+        self.assertFalse(cov["missing_hours_truncated"])
+        self.assertEqual(len(cov["missing_hour_timestamps_utc"]), 2)
+
+    def test_candle_coverage_counts_duplicates_and_marks_truncation(self):
+        base = START_MS
+        rows = [
+            {"time": base, "open": 1.0, "close": 1.0},
+            {"time": base, "open": 1.0, "close": 1.0},
+            {"time": base + 3_600_000, "open": 1.0, "close": 1.0},
+        ]
+        cov = anchor._candle_coverage(rows, base, base + 4 * 3_600_000, max_missing_listed=1)
+        self.assertEqual(cov["rows_in_window"], 3)
+        self.assertEqual(cov["duplicate_rows"], 1)
+        self.assertEqual(cov["missing_hour_slots"], 3)
+        self.assertTrue(cov["missing_hours_truncated"])
+        self.assertEqual(len(cov["missing_hour_timestamps_utc"]), 1)
+
+
+class AnchorCandleDiagnosticsTests(unittest.TestCase):
+    """End-to-end checks that the anchor persists coverage and exit-hour fetches."""
+
+    def setUp(self):
+        self._patches = [
+            patch.object(anchor, "WINDOW_START_UTC", WINDOW_START),
+            patch.object(anchor, "WINDOW_END_UTC", WINDOW_END),
+            patch.object(anchor, "fetch_json", side_effect=fake_fetch_json_result),
+            patch.object(anchor, "prior_daily_threshold", return_value=1e-6),
+        ]
+        for p in self._patches:
+            p.start()
+
+    def tearDown(self):
+        for p in reversed(self._patches):
+            p.stop()
+
+    def test_fetch_end_covers_exit_hour_and_coverage_is_persisted(self):
+        result = anchor.run_anchor()
+        expected_fetch_end = anchor.utc_iso(END_MS + 24 * 3_600_000)
+        self.assertEqual(result["fetch_end_utc"], expected_fetch_end)
+        self.assertEqual(result["window_end_utc"], WINDOW_END)
+        for u in anchor.UNDERLYINGS:
+            for venue in ("Hyperliquid", "OKX"):
+                cov = result["candle_coverage"][u][venue]
+                self.assertIn("missing_hour_slots", cov)
+                self.assertEqual(cov["missing_hour_slots"],
+                                 cov["expected_hour_slots"] - cov["observed_hour_slots"])
+        self.assertIsInstance(result["candle_skip_details"], list)
+
+    def test_experiment_and_run_id_are_reportable(self):
+        result = anchor.run_anchor(experiment_id="FVD-EXPLORATORY-004",
+                                   run_id="FVD-EXPLORATORY-004-run-2026-11-21")
+        self.assertEqual(result["experiment_id"], "FVD-EXPLORATORY-004")
+        self.assertEqual(result["run_id"], "FVD-EXPLORATORY-004-run-2026-11-21")
+
+
+class Exploratory004ArtifactAuditTests(unittest.TestCase):
+    """Independent, artifact-based audit of the FVD-EXPLORATORY-004 anchor output.
+
+    Recomputes totals from the immutable per-signal ledger without calling the
+    anchor's aggregation path, and checks the diagnostic partition and coverage
+    invariants. It asserts no performance claim and no confirmatory promotion.
+    """
+
+    ARTIFACT = ROOT / "research_state" / "fvd053_anchor_run_2026-11-21.json"
+
+    def setUp(self):
+        self.data = json.loads(self.ARTIFACT.read_text(encoding="utf-8"))
+
+    def test_no_performance_or_promotion_flags(self):
+        self.assertEqual(self.data["status"], "EXPLORATORY_ONLY")
+        self.assertFalse(self.data["backtest_completed"])
+        self.assertFalse(self.data["performance_metrics_computed"])
+        self.assertEqual(self.data["confirmatory_status_preserved"], "BLOCKED_DATA_GATE")
+        self.assertEqual(self.data["experiment_id"], "FVD-EXPLORATORY-004")
+
+    def test_independent_recomputation_from_signal_ledger(self):
+        signals = self.data["signals"]
+        attr = self.data["attribution"]
+        price = sum(s["price_basis_pnl"] for s in signals)
+        funding = sum(s["funding_cash_flow"] for s in signals)
+        fees = sum(s["fees"] for s in signals)
+        slippage = sum(s["slippage"] for s in signals)
+        net = sum(s["net_pnl"] for s in signals)
+        self.assertAlmostEqual(price, attr["total_price_basis_pnl"], places=9)
+        self.assertAlmostEqual(funding, attr["total_funding_cash_flow"], places=9)
+        self.assertAlmostEqual(fees, attr["total_fees"], places=9)
+        self.assertAlmostEqual(slippage, attr["total_slippage"], places=9)
+        self.assertAlmostEqual(net, attr["total_net_pnl"], places=9)
+        for s in signals:
+            self.assertAlmostEqual(
+                s["net_pnl"],
+                s["price_basis_pnl"] + s["funding_cash_flow"] - s["fees"] - s["slippage"],
+                places=9,
+            )
+        self.assertEqual(sum(s["funding_settlements"] for s in signals),
+                         self.data["total_funding_settlements"])
+
+    def test_diagnostic_partition_and_coverage_invariants(self):
+        d = self.data
+        self.assertEqual(d["dates_total"], d["dates_with_signal"] + d["dates_with_no_signal"])
+        self.assertEqual(
+            d["dates_with_no_signal"],
+            d["dates_threshold_ineligible"] + d["dates_threshold_eligible_no_signal"],
+        )
+        self.assertEqual(d["signal_count"], len(d["signals"]))
+        self.assertEqual(d["skipped_missing_candles"], 0)
+        self.assertEqual(d["skipped_missing_funding"], 0)
+        self.assertEqual(d["candle_skip_details"], [])
+        for venues in d["candle_coverage"].values():
+            for cov in venues.values():
+                self.assertEqual(cov["missing_hour_slots"], 0)
+                self.assertEqual(
+                    cov["missing_hour_slots"],
+                    cov["expected_hour_slots"] - cov["observed_hour_slots"],
+                )
+
+    def test_gross_exposure_respects_cap(self):
+        for s in self.data["signals"]:
+            self.assertLessEqual(s["gross_exposure"], self.data["equity"] + 1e-9)
+
+
 if __name__ == "__main__":
     unittest.main()

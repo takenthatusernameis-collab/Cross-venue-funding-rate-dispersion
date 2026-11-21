@@ -1,4 +1,74 @@
-## Anchor diagnostic red-team: FVD-EXPLORATORY-002 "0 signals" was a candle-completeness artifact, NOT sub-threshold dispersion; fixed non-attributable diagnostics (2026-11-20T23:33Z)
+## FVD-EXPLORATORY-004 executed: FVD053 candle-stage drops were a coverage/exit-hour artifact; 23 descriptive signals, 0 missing candles (2026-11-21T04:12Z)
+
+Per `prompts/autonomous_free_data_gate_unblocking_v2_5.md` (single bounded execution task; coverage only; no performance claim) and AGENTS.md adaptive research-gate policy v1 §5 (complete the next bounded, no-cost task; do not merely re-link a probe): HEAD `98cf2aa`, tree clean at session start. Newest probe by `observed_at_utc` is `historical_overlap_probe_44830909114_attempt_1.json` (`2026-11-20T22:41:21.768401Z`), already linked by the prior session. Probe cooldown active (`should_run=false`, age 19736s, `next_eligible_at_utc=2026-11-21T04:41:21.768401Z`), so NO new coverage probe was dispatched. The highest-priority registered task was the prior session's next measurable action: register a new versioned exploratory run and re-execute the frozen FVD053 anchor over the same HL+OKX window with the fixed diagnostics, persisting the exact missing entry/exit candle timestamps. This session did that. No paid data, no credentials, no live/paper trading, no workflow edits, no frozen artifact altered.
+
+### What was executed (live, no-cost public endpoints, this runner)
+
+`PYTHONPATH=src python3 scripts/run_fvd053_anchor.py --experiment-id FVD-EXPLORATORY-004 --output research_state/fvd053_anchor_run_2026-11-21.json`
+
+- Window identical to FVD-EXPLORATORY-002: `2026-07-20T00:00:00Z` → `2026-10-25T16:00:00Z`; data fetched through the exit hour `2026-10-26T16:00:00Z` (the prior run stopped at the signal-window end, so every last-date exit candle was outside the fetched range).
+- Hyperliquid `/info` POST and OKX `/api/v5` GET both returned HTTP 200 from this host; no credentials or signup.
+- Output artifact: `research_state/fvd053_anchor_run_2026-11-21.json`, sha256 `ac6b51fe8f34463cf1db06c17c1b23cb32292b851db7ce6effdbcc53aa60b588`, `observed_at_utc` `2026-11-21T04:08:13.974872Z`.
+- Registered manifest: `research_state/exploratory_run_manifest_2026-11-21.json`, `FVD-EXPLORATORY-004`, status `EXPLORATORY_ONLY`, `backtest_completed=false`, `performance_metrics_computed=false`, `confirmatory_status_preserved=BLOCKED_DATA_GATE`.
+
+### Verified findings (independent recomputation from the artifact)
+
+- `dates_total=97`, `dates_with_signal=23`, `dates_with_no_signal=74`, `dates_threshold_ineligible=61`, `dates_threshold_eligible_no_signal=13`, `dates_with_no_dispersion=31`, `underlying_dates_threshold_eligible=180`.
+- Additive invariants hold exactly: `97 = 23 + 74`; `74 = 61 + 13`; `signal_count = dates_with_signal = len(signals) = 23`.
+- **Candle coverage is complete:** for each of 5 underlyings on each of 2 venues, `2369/2369` expected hourly slots observed, `0` missing hours, `0` duplicate rows (`2026-07-20T00:00Z` → `2026-10-26T16:00Z`). `skipped_missing_candles=0`, `skipped_missing_funding=0`, `candle_skip_details=[]`.
+- Fetch stop reasons: HL candles HTTP 200; HL funding 5 pages per symbol (`window_reached_or_page_not_full`); OKX candles 10 pages (`window_start_reached`); OKX funding 1 page (`page_not_full`, consistent with rolling ~3-month retention).
+- Descriptive accounting totals (NOT a performance claim): 23 signals, 621 settlement-timed funding cash flows, 6 venue-pair/underlying combinations (BTC 5, ETH 4, SOL 4, AVAX 7, LINK 3), 92 executions, gross exposure `10000.0` = 1.0x equity (cap respected).
+- Independent recomputation from the per-signal ledger (separate summation, not the anchor's aggregation) matched `attribution` exactly (max absolute difference `0.0`); per-signal identity `net_pnl = price_basis_pnl + funding_cash_flow - fees - slippage` held with error `0.0`; settlement sum `621 = 621`; `expected - observed = missing` held for every series.
+
+### Interpretation (corrects, does not rewrite, prior evidence)
+
+The FVD-EXPLORATORY-002 record reported 50 signals dropped at the candle stage and 0 signals. With candle data fetched through the exit hour and complete hourly coverage, all 23 remaining candidate signals have both entry and exit candles and none are dropped. The 50 earlier drops are therefore attributed to candle coverage/exit-hour alignment, not to sub-threshold dispersion and not to an economic result. The earlier "never exceeded threshold" phrasing is superseded by this record; the frozen 002 artifact bytes are untouched. This is a diagnostic/coverage result only: it does not establish an edge, does not clear any confirmatory gate, and has not been independently audited. Uncertainty is not estimable because 24-hour episodes overlap.
+
+### Track status
+
+- **Track A (confirmatory):** `BLOCKED_DATA_GATE` — FVD001–FVD108 + FVD053 frozen; no backtest, no performance metrics; the ≥3-year historical point-in-time market-cap gate remains structurally blocked.
+- **Track B:** FVD-EXPLORATORY-004 `EXPLORATORY_ONLY` / `INCONCLUSIVE` for inference (descriptive anchor executed; contract identity candidate-level; ~97-day window). FVD-EXPLORATORY-002 unchanged/immutable. FVD-EXPLORATORY-003 unchanged (`EXPLORATORY_ONLY`/`INCONCLUSIVE`, 73-day intersection <90, shrinking).
+
+### Validation commands run this session (all PASS, exit 0)
+
+- `python3 -m compileall -q src scripts tests` = OK
+- `PYTHONPATH=src python3 -m unittest discover -s tests` = `Ran 661 tests ... OK` (was 651; +5 candle-diagnostic tests, +4 artifact-audit tests, +1 track-separation test)
+- `PYTHONPATH=src python3 scripts/validate_research.py` = RESEARCH_VALIDATION=PASS (grid 108, anchor FVD053, NOT_RUN, performance_metrics_computed=false)
+- `PYTHONPATH=src:scripts python3 scripts/validate_all.py` = ALL_VALIDATIONS=PASS count=24
+- `PYTHONPATH=src:scripts python3 scripts/validate_manifest_artifacts.py` = MANIFEST_ARTIFACTS_VALIDATION=PASS (incl. FVD-EXPLORATORY-004 + new anchor artifact)
+- `PYTHONPATH=src:scripts python3 scripts/validate_manifest_schema.py` = MANIFEST_SCHEMA_VALIDATION=PASS confirmatory=strict exploratory=contract
+- `PYTHONPATH=src:scripts python3 scripts/validate_track_separation.py` = TRACK_SEPARATION_VALIDATION=PASS
+- `PYTHONPATH=src:scripts python3 scripts/validate_research_state_artifacts.py` = RESEARCH_STATE_ARTIFACTS_VALIDATION=PASS files=117
+- `PYTHONPATH=src:scripts python3 scripts/validate_blocked_manifest_claims.py` = BLOCKED_MANIFEST_CLAIMS_VALIDATION=PASS
+- `PYTHONPATH=src:scripts python3 scripts/validate_no_performance_claims.py` = NO_PERFORMANCE_CLAIMS_VALIDATION=PASS
+- `PYTHONPATH=src:scripts python3 scripts/validate_controller_progress.py` = CONTROLLER_PROGRESS_VALIDATION=PASS
+- `python3 scripts/validate_skills.py` = SKILLS_VALIDATION=PASS count=4
+- `PYTHONPATH=src python3 scripts/should_run_historical_probe.py` = `should_run=false` (`next_eligible_at_utc=2026-11-21T04:41:21.768401Z`)
+- `git diff --check` = clean; `git status --short` lists only the 12 intended source/test edits plus the 2 new artifacts.
+
+### Frozen artifacts verified unchanged (sha256, this session)
+
+- `configs/cross_venue_funding_dispersion_grid_v1.json` = `6be218bc84bf118cf67c238ad1c13ef1e445658db3b1346cd64ccaccc7aa5f07` ✓
+- `research_state/run_manifest.json` = `4f162ce128c741434addf6aa2fa7c7dbf1bf189d4a81b8893ed96899412c7aaf` (BLOCKED_DATA_GATE) ✓
+- `research_state/fvd053_anchor_run_2026-10-25.json` = `50b328baf5854dec40105a0f5ebe498bf589906f9c033ce659843659927ca4c2` (immutable) ✓
+- `research_state/exploratory_run_manifest_2026-10-25.json` = `08bbecf10f80f46b3d56e62e5c82ce44915840b25612307c0d7026f7a9905f1f` (FVD-EXPLORATORY-002, unchanged) ✓
+- `research_state/exploratory_run_manifest_2026-10-27.json` = `fbb88c4e00c984388d74c83f9439bb8f362ffe507111f132af7291c06521b03e` (FVD-EXPLORATORY-003, unchanged) ✓
+
+### Changed files (uncommitted, working tree)
+
+- `scripts/run_fvd053_anchor.py` — sha256 `6bbbf32db3ab0b5232dcfa03818ffa955d032f1e80e3de776212407b6b5e61dd` (fetch through exit hour; persistent missing-candle details; per-venue candle coverage; CLI experiment/window args)
+- `tests/test_run_fvd053_anchor.py` — sha256 `73e7348d02f9d14d21e4241bff7571f422d7bc708b86fc2b524492b2835bcf7e` (+9 tests: 5 candle-diagnostic, 4 artifact-audit)
+- `scripts/validate_manifest_schema.py`, `scripts/validate_manifest_artifacts.py`, `scripts/validate_research_state.py`, `scripts/validate_research_state_artifacts.py`, `scripts/validate_blocked_manifest_claims.py`, `scripts/validate_track_separation.py` — register FVD-EXPLORATORY-004
+- `tests/test_manifest_artifacts.py`, `tests/test_research_state.py`, `tests/test_track_separation.py`, `tests/test_blocked_manifest_claims.py` — include the new committed manifest
+- `research_state/exploratory_run_manifest_2026-11-21.json` — new FVD-EXPLORATORY-004 manifest
+- `research_state/fvd053_anchor_run_2026-11-21.json` — new descriptive anchor artifact
+- `HANDOFF.md` — this section
+
+### Next measurable task
+
+Run an independent, source-independent red-team audit of the 23-signal ledger in `research_state/fvd053_anchor_run_2026-11-21.json`: a separate reviewer/session must recompute entry/exit timing, per-venue funding signs and settlement intervals, equal-notional exposure, fees/slippage and the per-signal net identity without importing `run_fvd053_anchor.py`, and challenge the selection/threshold alignment and the candidate-level contract mapping. Acceptance check: an independent recomputation artifact that reproduces every per-signal row and total within a declared tolerance, or a documented mismatch. Do NOT promote to confirmatory, do NOT relax the 90-observation gate or the ≥3-year PIT market-cap gate, and do NOT report any performance metric. After `2026-11-21T04:41:21.768401Z`, also relink the newest committed probe if one appears. No paid data, credentials, live/paper trading, or frozen-artifact edits.
+
+---
 
 Per `prompts/autonomous_free_data_gate_unblocking_v3_3.md` §12 step 6 and AGENTS.md adaptive research-gate policy v1 §5 (default execution rule: when the source probe is not actionable, do the next bounded, no-cost, source-independent task rather than another blocker memo or probe re-link): HEAD was `da3a8cf`, tree clean. Newest probe by `observed_at_utc` is `historical_overlap_probe_44830909114_attempt_1.json` (`2026-11-20T22:41:21.768401Z`), already linked by the prior session; probe cooldown active (`should_run=false`, age 3020s, `next_eligible_at_utc=2026-11-21T04:41:21.768401Z`), so NO new probe was dispatched. No paid data, no credentials, no live/paper trading, no workflow edits, no frozen artifact altered.
 
