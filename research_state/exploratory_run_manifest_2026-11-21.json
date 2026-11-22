@@ -10,7 +10,7 @@
   "date_utc": "2026-11-21",
   "started_at_utc": "2026-11-21T04:07:00Z",
   "completed_at_utc": "2026-11-21T04:08:13.974872Z",
-  "last_updated_utc": "2026-11-21T04:10:00Z",
+  "last_updated_utc": "2026-11-21T23:59:00Z",
   "purpose": "Diagnostic-only re-run of the frozen FVD053 anchor over the same verified Hyperliquid+OKX overlap window as FVD-EXPLORATORY-002, using corrected candle coverage through the exit hour and persistent missing-candle attribution. It tests whether the 50 candle-stage signal drops recorded by FVD-EXPLORATORY-002 were a data-coverage/alignment artifact rather than an economic result. It does not modify frozen artifacts and does not promote, replace, or unlock any confirmatory track.",
   "estimand": {
     "description": "Same as FVD-EXPLORATORY-002: cross-venue funding-dispersion carry over the verified Hyperliquid+OKX historical overlap, using the frozen FVD053 anchor (24h dispersion lookback, 80th-percentile prior-90-day threshold, 24h hold, top-10% cross-sectional tail, at least 2 eligible venues). This run changes only data-retrieval coverage and diagnostic persistence; signal selection, thresholds, timing, and accounting are unchanged.",
@@ -89,7 +89,28 @@
   ],
   "implementation_gate_result": "Source-independent primitives covered by known-answer/adversarial tests; this run adds persistent candle-coverage and missing-candle diagnostics (tests/test_run_fvd053_anchor.py::CandleCoverageDiagnosticTests and AnchorCandleDiagnosticsTests). No backtest and no performance metric computed.",
   "conclusion": "EXPLORATORY_ONLY / INCONCLUSIVE for inference. The 0-signal outcome of FVD-EXPLORATORY-002 is now attributed to candle coverage/exit-hour alignment: with data fetched through the exit hour, all 23 remaining candidate signals had complete entry/exit candles and 0 were dropped. The 50 earlier drops are a diagnostic artifact, not evidence about the economics of the mechanism. This run does not establish an edge, is not independently audited, and cannot promote or unlock the confirmatory track.",
-  "next_step": "Do not promote. Either (a) independently recompute the 23 descriptive signals from the immutable per-signal ledger and have a separate reviewer challenge timing, funding signs, cost attribution and selection, or (b) move to another source-independent task. The >=3-year historical point-in-time market-cap gate remains structurally blocked.",
+  "next_step": "Do not promote. Independent arithmetic audit of the 23-signal ledger is complete (research_state/fvd053_anchor_audit_2026-11-21.json: 19/19 identity checks PASS, 1 documented label-unit defect). Remaining audit gaps require persisting funding-rate rows, the daily dispersion/threshold series and raw candle references in a new versioned exploratory run before any economic interpretation. The >=3-year historical point-in-time market-cap gate remains structurally blocked.",
+  "independent_audit": {
+    "audit_artifact": "research_state/fvd053_anchor_audit_2026-11-21.json",
+    "audit_artifact_sha256": "31660144ded8033d122b8ebdfc8c38b597a13b9496b2f7b2748510c5b3df42f2",
+    "auditor": "scripts/audit_fvd053_anchor.py (does not import scripts/run_fvd053_anchor.py)",
+    "target_artifact": "research_state/fvd053_anchor_run_2026-11-21.json",
+    "target_sha256": "ac6b51fe8f34463cf1db06c17c1b23cb32292b851db7ce6effdbcc53aa60b588",
+    "verdict": "PASS",
+    "checks_passed": 19,
+    "checks_failed": 0,
+    "tolerance_abs": 1e-06,
+    "label_defects": [
+      "peak_to_trough_decline_pct_of_equity recorded as 4.358828552191358e-06 while a percent-of-equity label implies 4.358828552191358; flagged, not rewritten"
+    ],
+    "unresolved_limitations": [
+      "funding rate rows are not persisted, so funding signs/magnitudes cannot be recomputed from the ledger",
+      "dispersion/threshold series are not persisted, so selection and threshold formation cannot be recomputed",
+      "entry/exit prices are not traceable to persisted raw candles in this artifact",
+      "contract identity remains candidate-level (symbol-mapped only)"
+    ],
+    "does_not_establish": "no edge, no performance metric and no gate clearance; arithmetic/identity audit only"
+  },
   "reference_probe": "historical_overlap_probe_44830909114_attempt_1.json",
   "reference_probe_sha256": "ffc7334dea918271ed16e48a359b0b1e96db965b2d83dde5b79e585b43707681",
   "parent_exploratory_manifest": "research_state/exploratory_run_manifest_2026-10-25.json",
@@ -107,6 +128,10 @@
     {
       "path": "research_state/fvd053_anchor_run_2026-11-21.json",
       "sha256": "ac6b51fe8f34463cf1db06c17c1b23cb32292b851db7ce6effdbcc53aa60b588"
+    },
+    {
+      "path": "research_state/fvd053_anchor_audit_2026-11-21.json",
+      "sha256": "31660144ded8033d122b8ebdfc8c38b597a13b9496b2f7b2748510c5b3df42f2"
     }
   ],
   "caveats": [
@@ -116,6 +141,7 @@
     "Contract identity is symbol-mapped only (candidate-level); settlement currency for Hyperliquid is inferred, not proven.",
     "Survivorship and ticker-reuse handling are not assessed; the sample is availability-selected, not market-cap representative.",
     "OKX funding retention (~3 months) leaves 61 of 97 dates structurally threshold-ineligible; the 90-observation threshold is reported, not relaxed.",
-    "The earlier FVD-EXPLORATORY-002 artifact is immutable and is not rewritten; this record supersedes only its 'never exceeded threshold' interpretation, not the artifact bytes."
+    "The earlier FVD-EXPLORATORY-002 artifact is immutable and is not rewritten; this record supersedes only its 'never exceeded threshold' interpretation, not the artifact bytes.",
+    "Independent ledger recomputation (scripts/audit_fvd053_anchor.py -> research_state/fvd053_anchor_audit_2026-11-21.json) reproduced all 23 per-signal rows and totals within 1e-06 and flagged a 1e-4 label-unit defect in peak_to_trough_decline_pct_of_equity; funding rows, dispersion/threshold series and raw candles are not persisted, so selection and funding magnitudes remain unaudited."
   ]
 }

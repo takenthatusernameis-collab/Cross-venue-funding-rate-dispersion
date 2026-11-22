@@ -1,0 +1,248 @@
+{
+  "audit_type": "independent_fvd053_anchor_ledger_recomputation",
+  "auditor": "scripts/audit_fvd053_anchor.py (no import of scripts/run_fvd053_anchor.py)",
+  "checks": [
+    {
+      "check": "document_status",
+      "detail": {
+        "backtest_completed": false,
+        "confirmatory_status_preserved": "BLOCKED_DATA_GATE",
+        "performance_metrics_computed": false,
+        "status": "EXPLORATORY_ONLY"
+      },
+      "passed": true
+    },
+    {
+      "check": "row_count_invariants",
+      "detail": {
+        "dates_with_signal": 23,
+        "rows": 23,
+        "signal_count": 23
+      },
+      "passed": true
+    },
+    {
+      "check": "selection_partition",
+      "detail": {
+        "dates_threshold_eligible_no_signal": 13,
+        "dates_threshold_ineligible": 61,
+        "dates_total": 97,
+        "dates_with_no_signal": 74,
+        "dates_with_signal": 23
+      },
+      "passed": true
+    },
+    {
+      "check": "no_skipped_rows",
+      "detail": {
+        "skipped": 0
+      },
+      "passed": true
+    },
+    {
+      "check": "entry_exit_timing",
+      "detail": {
+        "count": 0,
+        "violations": []
+      },
+      "passed": true
+    },
+    {
+      "check": "one_signal_per_date",
+      "detail": {
+        "rows": 23,
+        "unique_entry_times": 23
+      },
+      "passed": true
+    },
+    {
+      "check": "funding_settlement_invariant",
+      "detail": {
+        "per_signal_settlements": [
+          27
+        ],
+        "total": 621
+      },
+      "passed": true
+    },
+    {
+      "check": "equal_notional_and_cap",
+      "detail": {
+        "count": 0,
+        "violations": []
+      },
+      "passed": true
+    },
+    {
+      "check": "price_basis_pnl_recomputed",
+      "detail": {
+        "count": 0,
+        "violations": []
+      },
+      "passed": true
+    },
+    {
+      "check": "fees_and_slippage_recomputed",
+      "detail": {
+        "count": 0,
+        "violations": []
+      },
+      "passed": true
+    },
+    {
+      "check": "per_signal_net_identity",
+      "detail": {
+        "count": 0,
+        "violations": []
+      },
+      "passed": true
+    },
+    {
+      "check": "aggregate_totals",
+      "detail": {
+        "total_fees": {
+          "recomputed": 230.0,
+          "recorded": 230.0
+        },
+        "total_funding_cash_flow": {
+          "recomputed": 21.8008897994265,
+          "recorded": 21.8008897994265
+        },
+        "total_net_pnl": {
+          "recomputed": -435.8828552191358,
+          "recorded": -435.8828552191358
+        },
+        "total_price_basis_pnl": {
+          "recomputed": 2.3162549814376607,
+          "recorded": 2.3162549814376607
+        },
+        "total_slippage": {
+          "recomputed": 230.0,
+          "recorded": 230.0
+        }
+      },
+      "passed": true
+    },
+    {
+      "check": "turnover_recomputed",
+      "detail": {
+        "recomputed": 460000.0,
+        "recorded": 460000.0
+      },
+      "passed": true
+    },
+    {
+      "check": "average_gross_exposure_recomputed",
+      "detail": {
+        "recomputed": 10000.0,
+        "recorded": 10000.0
+      },
+      "passed": true
+    },
+    {
+      "check": "return_identities",
+      "detail": {
+        "gross_price_return": {
+          "recomputed": 0.00023162549814376607,
+          "recorded": 0.00023162549814376607
+        },
+        "net_return": {
+          "recomputed": -0.04358828552191358,
+          "recorded": -0.04358828552191358
+        },
+        "peak_to_trough_decline": {
+          "recomputed_abs": 0.04358828552191358,
+          "recorded": 0.04358828552191358
+        }
+      },
+      "passed": true
+    },
+    {
+      "check": "cost_sensitivity_arithmetic",
+      "detail": {
+        "base": {
+          "recomputed": -0.04358828552191358,
+          "recorded": -0.04358828552191358
+        },
+        "optimistic": {
+          "recomputed": -0.01598828552191358,
+          "recorded": -0.015988285521913583
+        },
+        "stress": {
+          "recomputed": -0.08958828552191359,
+          "recorded": -0.08958828552191359
+        }
+      },
+      "passed": true
+    },
+    {
+      "check": "per_signal_volatility_definition",
+      "detail": {
+        "recomputed_sample_stdev": 0.00026882238550334625,
+        "recorded": 0.00026882238550334625
+      },
+      "passed": true
+    },
+    {
+      "check": "per_underlying_counts",
+      "detail": {
+        "manifest": {
+          "AVAX": 7,
+          "BTC": 5,
+          "ETH": 4,
+          "LINK": 3,
+          "SOL": 4
+        },
+        "recomputed": {
+          "AVAX": 7,
+          "BTC": 5,
+          "ETH": 4,
+          "LINK": 3,
+          "SOL": 4
+        }
+      },
+      "passed": true
+    },
+    {
+      "check": "venue_pair_membership",
+      "detail": {
+        "count": 0,
+        "venues": [
+          "Hyperliquid",
+          "OKX"
+        ],
+        "violations": []
+      },
+      "passed": true
+    }
+  ],
+  "economic_claim": "none: arithmetic/identity audit of descriptive exploratory accounting only",
+  "failed_checks": [],
+  "label_defects": [
+    {
+      "expected_percent_of_equity": 4.358828552191358,
+      "field": "peak_to_trough_decline_pct_of_equity",
+      "note": "recorded value is scaled by ~1e-4 relative to a percent-of-equity label; flagged here, not rewritten in the immutable ledger",
+      "recorded": 4.358828552191358e-06,
+      "severity": "derived_label_units"
+    }
+  ],
+  "limitations": [
+    "No per-settlement funding rate rows are persisted, so funding cash-flow magnitude and sign cannot be recomputed from the ledger; only settlement counts and the funding term in the net identity are checkable.",
+    "No daily dispersion series, threshold percentile values, or selected-taillist are persisted, so the top-10% selection and the prior-90-day 80th-percentile threshold cannot be independently recomputed offline.",
+    "Entry/exit prices are not traceable to persisted raw venue candles or response hashes in this artifact, so price provenance cannot be re-verified from the ledger alone.",
+    "Contract identity is underlying-symbol-mapped only (candidate level); lifecycle, multiplier and settlement-currency equivalence are unproven.",
+    "The two venues settle funding on different cadences (Hyperliquid hourly, OKX 8-hourly), so 27 settlements per 24h hold is asserted as an invariant, not validated against raw rates."
+  ],
+  "manifest_sha256_match": true,
+  "passed_checks": 19,
+  "performance_metrics_computed": false,
+  "recomputed_at_utc": "2026-11-21T23:59:42.188953Z",
+  "schema_version": "1.0",
+  "target_artifact": "research_state/fvd053_anchor_run_2026-11-21.json",
+  "target_experiment_id": "FVD-EXPLORATORY-004",
+  "target_observed_at_utc": "2026-11-21T04:08:13.974872Z",
+  "target_sha256": "ac6b51fe8f34463cf1db06c17c1b23cb32292b851db7ce6effdbcc53aa60b588",
+  "tolerance_abs": 1e-06,
+  "verdict": "PASS"
+}

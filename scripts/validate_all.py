@@ -30,6 +30,7 @@ SCRIPTS = [
     "scripts/validate_validation_coverage.py",
     "scripts/validate_blocked_manifest_claims.py",
     "scripts/validate_no_performance_claims.py",
+    "scripts/audit_fvd053_anchor.py",
 ]
 
 
