@@ -23,6 +23,7 @@ from cross_venue_funding_dispersion.recompute import attribution_check
 ROOT = Path(__file__).resolve().parents[1]
 sys.path.insert(0, str(ROOT / "scripts"))
 import run_fvd053_anchor as anchor
+import audit_fvd053_anchor as auditor
 
 
 def ms(value: str) -> int:
@@ -1112,6 +1113,73 @@ class Exploratory004ArtifactAuditTests(unittest.TestCase):
     def test_gross_exposure_respects_cap(self):
         for s in self.data["signals"]:
             self.assertLessEqual(s["gross_exposure"], self.data["equity"] + 1e-9)
+
+
+class EvidenceDetailTests(unittest.TestCase):
+    """Audit-evidence persistence is opt-in and independently recomputable."""
+
+    def setUp(self):
+        params = dict(anchor.ANCHOR_PARAMS)
+        params["threshold_minimum_observations"] = 3
+        self._patches = [
+            patch.object(anchor, "WINDOW_START_UTC", WINDOW_START),
+            patch.object(anchor, "WINDOW_END_UTC", WINDOW_END),
+            patch.object(anchor, "fetch_json", side_effect=fake_fetch_json_result),
+            patch.object(anchor, "ANCHOR_PARAMS", params),
+        ]
+        for p in self._patches:
+            p.start()
+        self.result = anchor.run_anchor(experiment_id="FVD-EVIDENCE-SMOKE", evidence_detail=True)
+
+    def tearDown(self):
+        for p in reversed(self._patches):
+            p.stop()
+
+    def test_default_run_is_unchanged_and_has_no_evidence(self):
+        plain = anchor.run_anchor()
+        self.assertNotIn("evidence_detail", plain)
+        self.assertNotIn("dispersion_evidence", plain)
+        for row in plain["signals"]:
+            self.assertNotIn("funding_evidence", row)
+
+    def test_evidence_is_persisted_per_signal_and_date(self):
+        self.assertTrue(self.result["evidence_detail"])
+        self.assertEqual(len(self.result["dispersion_evidence"]), self.result["dates_total"])
+        self.assertEqual(len(self.result["selection_evidence"]), self.result["dates_with_signal"])
+        for row in self.result["signals"]:
+            self.assertEqual(len(row["candle_evidence"]), 4)
+            self.assertEqual(len(row["funding_evidence"]), row["funding_settlements"])
+            self.assertAlmostEqual(
+                sum(e["cash_flow"] for e in row["funding_evidence"]),
+                row["funding_cash_flow"],
+                places=9,
+            )
+
+    def test_auditor_recomputes_evidence_and_detects_tampering(self):
+        checks = auditor.audit_evidence(self.result)
+        self.assertTrue(checks)
+        self.assertTrue(all(check["passed"] for check in checks), checks)
+
+        tampered = json.loads(json.dumps(self.result))
+        tampered["signals"][0]["funding_evidence"][0]["cash_flow"] += 1.0
+        failed = [c["check"] for c in auditor.audit_evidence(tampered) if not c["passed"]]
+        self.assertEqual(failed, ["evidence_funding_recomputed"])
+
+        tampered = json.loads(json.dumps(self.result))
+        day = tampered["dispersion_evidence"][-1]
+        first = next(iter(day["underlyings"]))
+        day["underlyings"][first]["prior_threshold"] = 12345.0
+        failed = [c["check"] for c in auditor.audit_evidence(tampered) if not c["passed"]]
+        self.assertIn("evidence_dispersion_thresholds", failed)
+
+        tampered = json.loads(json.dumps(self.result))
+        tampered["signals"][0]["candle_evidence"][0]["open"] += 1.0
+        failed = [c["check"] for c in auditor.audit_evidence(tampered) if not c["passed"]]
+        self.assertIn("evidence_candle_prices", failed)
+
+    def test_absent_evidence_yields_no_evidence_checks(self):
+        plain = anchor.run_anchor()
+        self.assertEqual(auditor.audit_evidence(plain), [])
 
 
 if __name__ == "__main__":

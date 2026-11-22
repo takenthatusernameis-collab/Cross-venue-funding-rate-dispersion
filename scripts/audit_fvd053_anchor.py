@@ -24,9 +24,10 @@ Offline only: no network, no credentials, no trading, no frozen artifact writes.
 import argparse
 import hashlib
 import json
+import math
 import statistics
 import sys
-from datetime import datetime, timezone
+from datetime import date, datetime, timedelta, timezone
 from pathlib import Path
 
 ROOT = Path(__file__).resolve().parents[1]
@@ -40,6 +41,14 @@ UNVERIFIABLE_LIMITATIONS = [
     "Entry/exit prices are not traceable to persisted raw venue candles or response hashes in this artifact, so price provenance cannot be re-verified from the ledger alone.",
     "Contract identity is underlying-symbol-mapped only (candidate level); lifecycle, multiplier and settlement-currency equivalence are unproven.",
     "The two venues settle funding on different cadences (Hyperliquid hourly, OKX 8-hourly), so 27 settlements per 24h hold is asserted as an invariant, not validated against raw rates.",
+]
+
+EVIDENCE_LIMITATIONS = [
+    "Settlement rows, daily dispersion/threshold series and selected-window funding observations are persisted, so funding cash flow, the 80th-percentile threshold rule, the top-10% selection and the dispersion values are independently recomputable from the artifact.",
+    "Only entry/exit candle rows are persisted, not the full 1h series; series content is bound by a recorded SHA-256 digest over (time, open, close) that cannot be re-derived without refetching the raw venue data.",
+    "Contract identity is underlying-symbol-mapped only (candidate level); lifecycle, multiplier and settlement-currency equivalence remain unproven.",
+    "No executable-fill, order-book depth or borrow/leverage constraint evidence is persisted; costs remain a frozen bps assumption.",
+    "The window is ~97 days and settlement episodes overlap within the 24h hold, so the descriptive totals are not an independent-sample estimate and no performance metric is claimed.",
 ]
 
 
@@ -68,10 +77,218 @@ def _close(a, b, tol=TOLERANCE) -> bool:
     return _is_num(a) and _is_num(b) and abs(a - b) <= tol
 
 
+def _same(a, b, tol=TOLERANCE) -> bool:
+    """Close comparison that also treats two missing values as equal (no fallback)."""
+    if a is None and b is None:
+        return True
+    return _close(a, b, tol)
+
+
 def _price_pnl(row, notional):
     long_pnl = notional * (row["exit_price_long"] / row["entry_price_long"] - 1.0)
     short_pnl = notional * (1.0 - row["exit_price_short"] / row["entry_price_short"])
     return long_pnl + short_pnl
+
+
+def _linear_quantile(values, percentile, minimum_observations):
+    """Independent Type-7/linear quantile; no fallback when samples are insufficient."""
+    clean = sorted(float(v) for v in values)
+    if len(clean) < minimum_observations or not clean:
+        return None
+    position = (len(clean) - 1) * (float(percentile) / 100.0)
+    lower, upper = math.floor(position), math.ceil(position)
+    if lower == upper:
+        return clean[lower]
+    return clean[lower] + (clean[upper] - clean[lower]) * (position - lower)
+
+
+def _prior_threshold(series_by_date, current_date, percentile, lookback_days, minimum_observations):
+    """Recompute the prior-only 80th-percentile threshold from persisted daily dispersions."""
+    current = date.fromisoformat(current_date)
+    lower = current - timedelta(days=lookback_days)
+    values = [
+        value for day_str, value in series_by_date.items()
+        if value is not None and lower <= date.fromisoformat(day_str) < current
+    ]
+    return _linear_quantile(values, percentile, minimum_observations)
+
+
+def _time_weighted_mean(observations, start, end, max_staleness_hours):
+    """Independent piecewise-constant mean with a hard staleness guard."""
+    stale = float(max_staleness_hours) * 3600.0
+    rows = sorted(
+        (_parse_utc(row["timestamp"]), float(row["rate_8h"])) for row in observations
+    )
+    if not rows or rows[0][0] > start:
+        return None
+    if len({timestamp for timestamp, _ in rows}) != len(rows):
+        return None
+    active = [row for row in rows if row[0] <= start]
+    if not active:
+        return None
+    current_time, current_rate = active[-1]
+    if (start - current_time).total_seconds() > stale:
+        return None
+    future = [(ts, value) for ts, value in rows if start < ts < end]
+    cursor = start
+    area = 0.0
+    for next_time, _ in future + [(end, current_rate)]:
+        if (next_time - current_time).total_seconds() > stale:
+            return None
+        area += current_rate * (next_time - cursor).total_seconds() / 3600.0
+        cursor = next_time
+        match = [row for row in future if row[0] == next_time]
+        if match:
+            current_time, current_rate = match[0]
+    if cursor < end:
+        area += current_rate * (end - cursor).total_seconds() / 3600.0
+    return area / ((end - start).total_seconds() / 3600.0)
+
+
+def audit_evidence(doc: dict, tolerance: float = TOLERANCE) -> list[dict]:
+    """Recompute the persisted evidence series; empty list when the artifact has none."""
+    if not doc.get("evidence_detail"):
+        return []
+    checks: list[dict] = []
+
+    def record(check_id, passed, detail):
+        checks.append({"check": check_id, "passed": bool(passed), "detail": detail})
+
+    signals = doc.get("signals") or []
+    params = doc.get("anchor_params") or {}
+
+    funding_errors = []
+    for row in signals:
+        evidence = row.get("funding_evidence")
+        if not evidence:
+            funding_errors.append(f"missing evidence: {row.get('underlying')} {row.get('entry_time_utc')}")
+            continue
+        total = sum(entry["cash_flow"] for entry in evidence)
+        if not _close(total, row.get("funding_cash_flow"), tolerance):
+            funding_errors.append(f"sum mismatch: {row.get('underlying')} {row.get('entry_time_utc')}")
+        if len(evidence) != row.get("funding_settlements"):
+            funding_errors.append(f"count mismatch: {row.get('underlying')} {row.get('entry_time_utc')}")
+        for entry in evidence:
+            expected_side = 1 if entry["venue"] == row.get("long_venue") else -1
+            expected_cash = -expected_side * entry["notional"] * entry["original_rate"]
+            if entry["side"] != expected_side or not _close(entry["cash_flow"], expected_cash, tolerance):
+                funding_errors.append(f"sign/scale: {row.get('underlying')} {entry['settlement_time_utc']}")
+    record("evidence_funding_recomputed", not funding_errors,
+           {"violations": funding_errors[:5], "count": len(funding_errors)})
+
+    candle_errors = []
+    for row in signals:
+        evidence = row.get("candle_evidence") or []
+        if len(evidence) != 4:
+            candle_errors.append(f"expected 4 rows: {row.get('underlying')} {row.get('entry_time_utc')}")
+            continue
+        by_key = {(e["venue"], e["side"], e["timestamp_utc"]): e for e in evidence}
+        price_fields = (
+            (row.get("long_venue"), "long", row.get("entry_time_utc"), "entry_price_long"),
+            (row.get("short_venue"), "short", row.get("entry_time_utc"), "entry_price_short"),
+            (row.get("long_venue"), "long", row.get("exit_time_utc"), "exit_price_long"),
+            (row.get("short_venue"), "short", row.get("exit_time_utc"), "exit_price_short"),
+        )
+        recomputed = {}
+        for venue, side, timestamp, field in price_fields:
+            entry = by_key.get((venue, side, timestamp))
+            if entry is None or not _close(entry["open"], row.get(field), tolerance):
+                candle_errors.append(f"price mismatch: {row.get('underlying')} {field}")
+                recomputed = None
+                break
+            recomputed[field] = entry["open"]
+        if recomputed:
+            proxy = dict(row)
+            proxy.update(recomputed)
+            if not _close(_price_pnl(proxy, row.get("notional_per_leg")), row.get("price_basis_pnl"), tolerance):
+                candle_errors.append(f"price pnl mismatch: {row.get('underlying')} {row.get('entry_time_utc')}")
+    record("evidence_candle_prices", not candle_errors,
+           {"violations": candle_errors[:5], "count": len(candle_errors)})
+
+    dispersion = doc.get("dispersion_evidence") or []
+    threshold_errors = []
+    selection_errors = []
+    series_by_underlying = {u: {} for u in (doc.get("underlyings") or [])}
+    for day in dispersion:
+        for underlying, values in (day.get("underlyings") or {}).items():
+            series_by_underlying.setdefault(underlying, {})[day["date_utc"]] = values.get("dispersion")
+
+    signal_dates = 0
+    for day in dispersion:
+        date_str = day["date_utc"]
+        selected_flags = {}
+        for underlying, values in (day.get("underlyings") or {}).items():
+            threshold = _prior_threshold(
+                series_by_underlying.get(underlying, {}), date_str, params.get("entry_percentile", 80),
+                params.get("threshold_lookback_days", 90), params.get("threshold_minimum_observations", 30),
+            )
+            if not _same(threshold, values.get("prior_threshold"), tolerance):
+                threshold_errors.append(f"{date_str} {underlying}")
+            if values.get("threshold_eligible") is not (threshold is not None):
+                threshold_errors.append(f"eligibility {date_str} {underlying}")
+            should_select = (
+                threshold is not None
+                and values.get("dispersion") is not None
+                and values["dispersion"] >= threshold
+            )
+            selected_flags[underlying] = should_select
+            if values.get("selected") and not should_select:
+                selection_errors.append(f"selected but ineligible {date_str} {underlying}")
+
+        eligible = sorted(
+            ((underlying, day["underlyings"][underlying]["dispersion"])
+             for underlying, flag in selected_flags.items() if flag),
+            key=lambda pair: (-pair[1], pair[0]),
+        )
+        tail = max(1, math.ceil(len(eligible) * params.get("portfolio_tail_fraction", 0.1))) if eligible else 0
+        expected_selected = {name for name, _ in eligible[:tail]}
+        recorded_selected = {u for u, v in day["underlyings"].items() if v.get("selected")}
+        if expected_selected != recorded_selected:
+            selection_errors.append(f"tail {date_str}")
+        if expected_selected:
+            signal_dates += 1
+
+    record("evidence_dispersion_thresholds", not threshold_errors,
+           {"violations": threshold_errors[:5], "count": len(threshold_errors)})
+    record(
+        "evidence_selection_rule",
+        not selection_errors
+        and signal_dates == doc.get("dates_with_signal")
+        and len(dispersion) == doc.get("dates_total"),
+        {"violations": selection_errors[:5], "count": len(selection_errors),
+         "signal_dates": signal_dates, "dates_total": len(dispersion)},
+    )
+
+    observation_errors = []
+    for entry in doc.get("selection_evidence") or []:
+        start = _parse_utc(entry["window_start_utc"])
+        end = _parse_utc(entry["signal_time_utc"])
+        for underlying, values in (entry.get("underlyings") or {}).items():
+            means = []
+            for venue, observations in (values.get("observations") or {}).items():
+                mean = _time_weighted_mean(
+                    observations, start, end, params.get("dispersion_lookback_hours", 24),
+                )
+                if mean is not None:
+                    means.append(mean)
+            recomputed = statistics.pstdev(means) if len(means) >= 2 else None
+            if not _same(recomputed, values.get("dispersion"), 1e-9):
+                observation_errors.append(f"{entry['date_utc']} {underlying}")
+    record("evidence_dispersion_from_observations", not observation_errors,
+           {"violations": observation_errors[:5], "count": len(observation_errors)})
+
+    digest_errors = []
+    for underlying, venues in (doc.get("series_digests") or {}).items():
+        for venue, payload in venues.items():
+            candles = payload.get("candles") or {}
+            if not candles.get("row_count") or len(str(candles.get("sha256"))) != 64:
+                digest_errors.append(f"{underlying} {venue}")
+            if not payload.get("funding_rows"):
+                digest_errors.append(f"{underlying} {venue} funding")
+    record("evidence_series_digests", bool(doc.get("series_digests")) and not digest_errors,
+           {"violations": digest_errors[:5], "count": len(digest_errors)})
+
+    return checks
 
 
 def audit_ledger(doc: dict, manifest: dict | None = None, tolerance: float = TOLERANCE) -> dict:
@@ -316,18 +533,20 @@ def audit_ledger(doc: dict, manifest: dict | None = None, tolerance: float = TOL
             }
         )
 
+    evidence_checks = audit_evidence(doc, tolerance)
     failed = [check["check"] for check in checks if not check["passed"]]
+    failed += [check["check"] for check in evidence_checks if not check["passed"]]
     return {
         "schema_version": "1.0",
         "audit_type": "independent_fvd053_anchor_ledger_recomputation",
         "auditor": "scripts/audit_fvd053_anchor.py (no import of scripts/run_fvd053_anchor.py)",
         "tolerance_abs": tolerance,
-        "checks": checks,
-        "passed_checks": len(checks) - len(failed),
+        "checks": checks + evidence_checks,
+        "passed_checks": len(checks) + len(evidence_checks) - len(failed),
         "failed_checks": failed,
         "label_defects": label_defects,
         "verdict": "PASS" if not failed else "MISMATCH",
-        "limitations": UNVERIFIABLE_LIMITATIONS,
+        "limitations": EVIDENCE_LIMITATIONS if doc.get("evidence_detail") else UNVERIFIABLE_LIMITATIONS,
     }
 
 

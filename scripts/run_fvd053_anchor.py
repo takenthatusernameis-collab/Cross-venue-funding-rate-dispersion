@@ -502,14 +502,25 @@ def evaluate_signal_dates(
 
 def simulate_signal(u: str, long_venue: str, short_venue: str, notional: float,
                     entry_time: datetime, exit_time: datetime, data: dict[str, dict],
-                    fee_bps: float, slip_bps: float) -> dict[str, Any]:
-    """Simulate one equal-notional cross-venue pair with separated attribution."""
+                    fee_bps: float, slip_bps: float,
+                    evidence: bool = False) -> dict[str, Any]:
+    """Simulate one equal-notional cross-venue pair with separated attribution.
+
+    With ``evidence=True`` the returned row additionally carries the exact
+    settlement rows and the exact entry/exit candle rows used, so an independent
+    auditor can recompute the funding cash flow and price PnL from the artifact
+    without re-fetching. Default behaviour and arithmetic are unchanged.
+    """
     entry_ms = utc_ms(entry_time)
     exit_ms = utc_ms(exit_time)
     d = data[u]
     hl_candles = _candle_map(d["hl_candles"])
     okx_candles = _candle_map(d["okx_candles"])
     candle_map = {"Hyperliquid": hl_candles, "OKX": okx_candles}
+    candle_row_map = {
+        "Hyperliquid": {row["time"]: row for row in d["hl_candles"]},
+        "OKX": {row["time"]: row for row in d["okx_candles"]},
+    }
 
     def open_price(venue: str, t_ms: int) -> float | None:
         candle = candle_map[venue].get(t_ms)
@@ -548,8 +559,10 @@ def simulate_signal(u: str, long_venue: str, short_venue: str, notional: float,
     # Per-venue settlement-timed funding over (entry_time, exit_time].
     funding = 0.0
     settlements = 0
+    funding_evidence: list[dict[str, Any]] = []
     for venue, side in ((long_venue, 1), (short_venue, -1)):
         rates = d["hl_funding"] if venue == "Hyperliquid" else d["okx_funding"]
+        interval_hours = 1.0 if venue == "Hyperliquid" else 8.0
         seen_times: set[int] = set()
         for row in rates:
             t = row["time"]
@@ -558,8 +571,20 @@ def simulate_signal(u: str, long_venue: str, short_venue: str, notional: float,
                 rate = _latest_at_or_before(rates, t)
                 if rate is None:
                     continue
-                funding += funding_cash_flow(side, notional, rate)
+                cash = funding_cash_flow(side, notional, rate)
+                funding += cash
                 settlements += 1
+                if evidence:
+                    funding_evidence.append({
+                        "venue": venue,
+                        "side": side,
+                        "settlement_time_utc": utc_iso(t),
+                        "original_rate": rate,
+                        "interval_hours": interval_hours,
+                        "rate_8h": normalize_funding_rate(rate, interval_hours),
+                        "notional": notional,
+                        "cash_flow": cash,
+                    })
 
     fills = 2 * FILLS_PER_LEG
     fees = execution_cost(notional, fee_bps, 0.0) * fills
@@ -587,12 +612,133 @@ def simulate_signal(u: str, long_venue: str, short_venue: str, notional: float,
         "net_pnl": total_net_pnl,
         "net_return": total_net_pnl / EQUITY,
         "funding_settlements": settlements,
+        **(
+            {
+                "funding_evidence": funding_evidence,
+                "candle_evidence": [
+                    {
+                        "venue": venue,
+                        "side": side,
+                        "timestamp_utc": utc_iso(t_ms),
+                        "open": candle_row_map[venue][t_ms]["open"],
+                        "close": candle_row_map[venue][t_ms]["close"],
+                    }
+                    for venue, side, t_ms in (
+                        (long_venue, "long", entry_ms),
+                        (short_venue, "short", entry_ms),
+                        (long_venue, "long", exit_ms),
+                        (short_venue, "short", exit_ms),
+                    )
+                ],
+            }
+            if evidence else {}
+        ),
+    }
+
+
+def _series_digest(rows: list[dict]) -> dict[str, Any]:
+    """Deterministic digest of a persisted (time, open, close) candle series."""
+    canonical = [
+        {"time": row["time"], "open": row.get("open"), "close": row.get("close")}
+        for row in sorted(rows, key=lambda r: r["time"])
+    ]
+    payload = json.dumps(canonical, sort_keys=True, separators=(",", ":")).encode()
+    return {
+        "row_count": len(canonical),
+        "first_time_utc": utc_iso(canonical[0]["time"]) if canonical else None,
+        "last_time_utc": utc_iso(canonical[-1]["time"]) if canonical else None,
+        "sha256": hashlib.sha256(payload).hexdigest(),
+    }
+
+
+def build_evidence_payload(daily: dict[str, dict[str, float | None]],
+                           samples_by_u: dict[str, list[dict]],
+                           selected_by_date: dict[str, list[tuple[str, float]]],
+                           data: dict[str, dict], params: dict[str, Any],
+                           start_utc: str, end_utc: str) -> dict[str, Any]:
+    """Persist the inputs an independent auditor needs, without new calculations.
+
+    - ``dispersion_evidence``: every daily snapshot value, its prior threshold and
+      the resulting selection flag, so the 80th-percentile threshold rule and the
+      top-10% tail selection can be recomputed from the artifact.
+    - ``selection_evidence``: the exact normalized funding observations (with the
+      original rate and documented interval) inside each selected signal window.
+    - ``series_digests``: content digests of the candle series used for prices.
+    """
+    dispersion_evidence = []
+    selection_evidence = []
+    for day_str in sorted(daily):
+        selected_names = {name for name, _disp in selected_by_date.get(day_str, [])}
+        per_underlying: dict[str, Any] = {}
+        for u in UNDERLYINGS:
+            disp = daily[day_str].get(u)
+            threshold = prior_daily_threshold(
+                samples_by_u[u], day_str, params["entry_percentile"],
+                lookback_days=params["threshold_lookback_days"],
+                minimum_observations=params["threshold_minimum_observations"],
+            )
+            per_underlying[u] = {
+                "dispersion": disp,
+                "prior_threshold": threshold,
+                "threshold_eligible": threshold is not None,
+                "selected": u in selected_names,
+            }
+        dispersion_evidence.append({"date_utc": day_str, "underlyings": per_underlying})
+
+        if not selected_names:
+            continue
+        signal_time = f"{day_str}T{params['daily_cutoff_utc']}:00Z"
+        window_start = (
+            datetime.fromisoformat(signal_time.replace("Z", "+00:00"))
+            - timedelta(hours=params["dispersion_lookback_hours"])
+        ).isoformat().replace("+00:00", "Z")
+        ws_ms = utc_ms(window_start)
+        st_ms = utc_ms(signal_time)
+        staleness_ms = int(params["dispersion_lookback_hours"] * 3_600_000)
+        entry: dict[str, Any] = {
+            "date_utc": day_str,
+            "signal_time_utc": signal_time,
+            "window_start_utc": window_start,
+            "underlyings": {},
+        }
+        for u in sorted(selected_names):
+            d = data[u]
+            entry["underlyings"][u] = {
+                "dispersion": daily[day_str][u],
+                "observations": {
+                    "Hyperliquid": _funding_observations(
+                        d["hl_funding"], 1.0, ws_ms - staleness_ms, st_ms, venue="Hyperliquid"),
+                    "OKX": _funding_observations(
+                        d["okx_funding"], 8.0, ws_ms - staleness_ms, st_ms, venue="OKX"),
+                },
+            }
+        selection_evidence.append(entry)
+
+    series_digests = {
+        u: {
+            "Hyperliquid": {
+                "candles": _series_digest(data[u]["hl_candles"]),
+                "funding_rows": len(data[u]["hl_funding"]),
+            },
+            "OKX": {
+                "candles": _series_digest(data[u]["okx_candles"]),
+                "funding_rows": len(data[u]["okx_funding"]),
+            },
+        }
+        for u in UNDERLYINGS
+    }
+    return {
+        "dispersion_evidence": dispersion_evidence,
+        "selection_evidence": selection_evidence,
+        "series_digests": series_digests,
+        "evidence_window_utc": [start_utc, end_utc],
     }
 
 
 def run_anchor(opener=None, experiment_id: str = "FVD-EXPLORATORY-002",
                window_start_utc: str | None = None, window_end_utc: str | None = None,
-               run_id: str | None = None) -> dict[str, Any]:
+               run_id: str | None = None,
+               evidence_detail: bool = False) -> dict[str, Any]:
     """Execute the frozen FVD053 anchor over the verified overlap; descriptive only."""
     params = ANCHOR_PARAMS
     start_utc = window_start_utc or WINDOW_START_UTC
@@ -681,7 +827,8 @@ def run_anchor(opener=None, experiment_id: str = "FVD-EXPLORATORY-002",
             else:
                 long_venue, short_venue = "OKX", "Hyperliquid"
             result = simulate_signal(u, long_venue, short_venue, notional, entry_time, exit_time,
-                                     data, params["fee_bps_per_side"], params["slippage_bps_per_side"])
+                                     data, params["fee_bps_per_side"], params["slippage_bps_per_side"],
+                                     evidence=evidence_detail)
             if result.get("skipped"):
                 skipped_missing_candles += 1
                 candle_skip_details.append(result)
@@ -805,6 +952,11 @@ def run_anchor(opener=None, experiment_id: str = "FVD-EXPLORATORY-002",
         "signals": signals,
         "fetch_metadata": fetch_meta,
     }
+    if evidence_detail:
+        result["evidence_detail"] = True
+        result.update(build_evidence_payload(
+            daily, samples_by_u, selected_by_date, data, params, start_utc, end_utc,
+        ))
     return result
 
 
@@ -827,12 +979,16 @@ def main(argv: list[str] | None = None) -> int:
     parser.add_argument("--experiment-id", default="FVD-EXPLORATORY-002")
     parser.add_argument("--window-start-utc", default=None)
     parser.add_argument("--window-end-utc", default=None)
+    parser.add_argument("--evidence-detail", action="store_true",
+                        help="Persist per-settlement funding rows, dispersion/threshold series and "
+                             "entry/exit candle rows so the ledger is independently auditable.")
     args = parser.parse_args(argv)
     result = run_anchor(
         experiment_id=args.experiment_id,
         window_start_utc=args.window_start_utc,
         window_end_utc=args.window_end_utc,
         run_id=f"{args.experiment_id}-run-{datetime.now(timezone.utc).date().isoformat()}",
+        evidence_detail=args.evidence_detail,
     )
     sha = write_artifact(result, args.output)
     print(json.dumps({
