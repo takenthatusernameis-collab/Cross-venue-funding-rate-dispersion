@@ -75,6 +75,7 @@ class TestManifestArtifacts(unittest.TestCase):
             root / "research_state" / "exploratory_run_manifest_2026-10-25.json",
             root / "research_state" / "exploratory_run_manifest_2026-10-27.json",
             root / "research_state" / "exploratory_run_manifest_2026-11-21.json",
+            root / "research_state" / "exploratory_run_manifest_2026-11-22.json",
         ]
         self.assertEqual(validate_manifest_artifacts(manifests, root), [])
 

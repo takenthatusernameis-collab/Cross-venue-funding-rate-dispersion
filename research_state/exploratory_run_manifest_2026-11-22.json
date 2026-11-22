@@ -1,0 +1,134 @@
+{
+  "schema_version": "1.0",
+  "experiment_id": "FVD-EXPLORATORY-005",
+  "run_id": "FVD-EXPLORATORY-005-run-2026-11-22",
+  "status": "EXPLORATORY_ONLY",
+  "confirmatory_status_preserved": "BLOCKED_DATA_GATE",
+  "historical_point_in_time_market_cap_gate": "BLOCKED",
+  "backtest_completed": false,
+  "performance_metrics_computed": false,
+  "date_utc": "2026-11-22",
+  "started_at_utc": "2026-11-22T12:01:35Z",
+  "completed_at_utc": "2026-11-22T12:02:12.439926Z",
+  "last_updated_utc": "2026-11-22T12:02:12.439926Z",
+  "purpose": "Evidence-detail re-execution of the frozen FVD053 anchor over the identical Hyperliquid+OKX window used by FVD-EXPLORATORY-004. It persists the exact daily dispersion/threshold series, the per-signal settlement funding rows and the entry/exit candle rows so the red-team audit can recompute selection, funding sign/magnitude and price provenance from the artifact alone. Preregistered before execution; it changes no signal, threshold, timing or accounting rule.",
+  "preregistration": {
+    "registered_at_utc": "2026-11-22T12:01:35Z",
+    "registered_before_outcome_calculation": true,
+    "window_start_utc": "2026-07-20T00:00:00Z",
+    "window_end_utc": "2026-10-25T16:00:00Z",
+    "frozen_anchor": "FVD053",
+    "declared_changes_vs_parent": [
+      "persist evidence_detail (dispersion/threshold series, per-settlement funding rows, entry/exit candle rows)",
+      "no change to signal selection, threshold rule, timing, fees, slippage or exposure"
+    ],
+    "expected_artifacts": [
+      "research_state/fvd053_anchor_run_2026-11-22.json",
+      "research_state/fvd053_anchor_audit_2026-11-22.json"
+    ]
+  },
+  "estimand": {
+    "description": "Same frozen FVD053 anchor as FVD-EXPLORATORY-002/004: 24h dispersion lookback, prior-90-day 80th-percentile threshold, 24h hold, top-10% cross-sectional tail, at least 2 eligible venues, equal notional.",
+    "distinct_from_confirmatory": "FVD-DISPERSION-V1 and FVD-EXPLORATORY-001..004 remain frozen; this is a separately versioned audit-detail run, not a new confirmatory hypothesis.",
+    "exploratory_only_reason": "Contract identity remains candidate-level (symbol-mapped only), the window is ~97 days versus the >=3-year confirmatory requirement, and no sealed holdout exists."
+  },
+  "data_cutoff_utc": "2026-10-25T16:00:00Z",
+  "instrument_list": [
+    "BTC",
+    "ETH",
+    "SOL",
+    "AVAX",
+    "LINK"
+  ],
+  "venue_set": [
+    "Hyperliquid",
+    "OKX"
+  ],
+  "contract_mapping": {
+    "Hyperliquid": "BTC, ETH, SOL, AVAX, LINK (coin name)",
+    "OKX": "BTC-USDT-SWAP, ETH-USDT-SWAP, SOL-USDT-SWAP, AVAX-USDT-SWAP, LINK-USDT-SWAP"
+  },
+  "contract_mapping_basis": "underlying symbol match only; instId derived from underlying; not independently verified via metadata/lifecycle; survivorship bias unmeasured",
+  "contract_identity_verified": false,
+  "contract_identity_evidence_level": "candidate",
+  "binding_constraint": "contract identity remains candidate-level (symbol-mapped only)",
+  "anchor": "FVD053",
+  "anchor_params": {
+    "dispersion_lookback_hours": 24,
+    "entry_percentile": 80,
+    "holding_hours": 24,
+    "minimum_eligible_venues": 2,
+    "portfolio_tail_fraction": 0.1
+  },
+  "anchor_exercised": true,
+  "anchor_result": "DESCRIPTIVE ONLY, NOT A PERFORMANCE CLAIM. Frozen FVD053 anchor re-executed with evidence_detail over the identical window 2026-07-20T00:00Z..2026-10-25T16:00Z: dates_total=97, dates_with_signal=23, dates_threshold_ineligible=61, dates_threshold_eligible_no_signal=13, underlying_dates_threshold_eligible=180, skipped_missing_candles=0, skipped_missing_funding=0. Same 23 signals and identical aggregate ledger values as FVD-EXPLORATORY-004 (total_net_pnl=-435.8828552191358), confirming deterministic reproduction on the historical window. The new artifact additionally persists the daily dispersion/threshold series (97 dates x 5 underlyings), 23 selected-window funding-observation sets, per-signal funding_evidence rows (621 settlement rows) and entry/exit candle_evidence rows, plus series digests. No performance metric is claimed and no uncertainty is estimable (overlapping 24h episodes).",
+  "cost_assumptions": {
+    "id": "base",
+    "fee_bps_per_side": 5,
+    "slippage_bps_per_side": 5,
+    "note": "frozen grid base scenario; sensitivity assumption, not a venue fee claim"
+  },
+  "gross_exposure_cap": "1.0x equity",
+  "sample_construction": "Verified historical intersection of 5 underlyings with funding settlements + 1h price history on 2 venues; no market-cap rank; shorter history than the >=3-year confirmatory requirement; contract identity by underlying symbol only.",
+  "threshold_history_eligibility": {
+    "common_days": 97,
+    "prior_daily_observations_available": 97,
+    "minimum_required": 30,
+    "eligible_for_threshold_computation": true,
+    "contract_identity_verified": false,
+    "contract_identity_evidence_level": "candidate",
+    "note": "The 90-day lookback and 30-observation floor are applied unchanged; structurally ineligible dates are reported, not relaxed."
+  },
+  "data_gate_result": "PARTIAL \u2014 funding + complete 1h price history verified for both venues over the ~97-day window; contract identity symbol-only/unverified; short history versus the 3-year confirmatory requirement.",
+  "historical_coverage_gate": "NOT_PASSED_BY_COVERAGE_PROBE",
+  "exclusion_rules": [
+    "no forward fill",
+    "no invented fills",
+    "settlement-timed funding only",
+    "gross exposure <= 1.0x equity",
+    "minimum 2 eligible venues",
+    "threshold excludes current signal date",
+    ">=90 prior daily observations required for threshold",
+    "no silent exclusion: missing candles are reported with exact timestamps"
+  ],
+  "implementation_gate_result": "Opt-in evidence_detail persistence and the independent auditor are covered by known-answer and adversarial tests (tests/test_run_fvd053_anchor.py::EvidenceDetailTests, tests/test_audit_fvd053_anchor.py). No backtest and no performance metric computed.",
+  "conclusion": "EXPLORATORY_ONLY / INCONCLUSIVE for inference. The audit-detail artifact closes the three persistence gaps that blocked the FVD-EXPLORATORY-004 audit: funding cash flow, the 80th-percentile prior-threshold selection and the entry/exit price provenance are now independently recomputable from the artifact alone. Contract identity remains candidate-level and the \u22653-year point-in-time market-cap gate remains structurally blocked. No edge, no performance metric and no gate clearance is claimed.",
+  "next_step": "Do not promote. The evidence-detail ledger is now fully auditable offline (identity, funding-row, selection and candle-provenance checks). Remaining limits are structural: contract identity is candidate-level, the window is ~97 days, and the confirmatory \u22653-year PIT market-cap gate is BLOCKED. Next measurable task: relink the next committed coverage probe after its cooldown and keep the confirmatory track frozen.",
+  "independent_audit": {
+    "audit_artifact": "research_state/fvd053_anchor_audit_2026-11-22.json",
+    "auditor": "scripts/audit_fvd053_anchor.py (does not import scripts/run_fvd053_anchor.py)",
+    "target_artifact": "research_state/fvd053_anchor_run_2026-11-22.json",
+    "target_sha256": "4f456b2b7b6c564c67e3e6f9bb5a3465e3cfe6988554039b444b9ff445b32782",
+    "verdict": "PASS",
+    "audit_artifact_sha256": "e37b6407064c4bb22e7d7a831a81c200019908237014bc575a333d82281d96e6",
+    "checks_passed": 25,
+    "checks_failed": 0
+  },
+  "reference_probe": "historical_overlap_probe_45019521782_attempt_1.json",
+  "reference_probe_sha256": "1d14d31012962e7974b03824f78946f4f308dec39f9cdab00d5bc376fa66b64d",
+  "parent_exploratory_manifest": "research_state/exploratory_run_manifest_2026-11-21.json",
+  "parent_exploratory_manifest_sha256": "b628f2948bffe23870901310067861d3c936f585fbd16c4cd2365769748e856e",
+  "parent_anchor_run": "research_state/fvd053_anchor_run_2026-11-21.json",
+  "parent_anchor_run_sha256": "ac6b51fe8f34463cf1db06c17c1b23cb32292b851db7ce6effdbcc53aa60b588",
+  "source_code_hashes": {
+    "scripts/run_fvd053_anchor.py": "c36f01918b7cd2b99c77412871bdd65563e91853c965c997ef9fd118f3c3a680",
+    "scripts/audit_fvd053_anchor.py": "7755bd5f8ed3ddae12e0c81359b91d8fcadb74bf6ea4018d8a1f89489debaeb3"
+  },
+  "config_hashes": {
+    "configs/cross_venue_funding_dispersion_grid_v1.json": "6be218bc84bf118cf67c238ad1c13ef1e445658db3b1346cd64ccaccc7aa5f07"
+  },
+  "output_artifacts": [
+    {
+      "path": "research_state/fvd053_anchor_run_2026-11-22.json",
+      "sha256": "4f456b2b7b6c564c67e3e6f9bb5a3465e3cfe6988554039b444b9ff445b32782"
+    },
+    {
+      "path": "research_state/fvd053_anchor_audit_2026-11-22.json",
+      "sha256": "e37b6407064c4bb22e7d7a831a81c200019908237014bc575a333d82281d96e6"
+    }
+  ],
+  "caveats": [
+    "Preregistered before execution; no outcome-informed parameter change.",
+    "Contract identity is candidate-level; the >=3-year point-in-time market-cap gate remains BLOCKED."
+  ]
+}

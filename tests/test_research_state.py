@@ -38,7 +38,8 @@ class ResearchStateValidatorTests(unittest.TestCase):
         import json
         for name in ("run_manifest.json", "exploratory_run_manifest_2026-10-24.json",
                       "exploratory_run_manifest_2026-10-25.json", "exploratory_run_manifest_2026-10-27.json",
-                      "exploratory_run_manifest_2026-11-21.json"):
+                      "exploratory_run_manifest_2026-11-21.json",
+                      "exploratory_run_manifest_2026-11-22.json"):
             data = json.loads((ROOT / "research_state" / name).read_text())
             self.assertEqual(validate_artifact_data(data, name), [], msg=name)
 

@@ -10,7 +10,7 @@
   "date_utc": "2026-10-27",
   "started_at_utc": "2026-10-27T02:19:25Z",
   "completed_at_utc": "2026-10-27T02:22:00Z",
-  "last_updated_utc": "2026-11-22T03:33:53.729364Z",
+  "last_updated_utc": "2026-11-22T11:59:09.512173Z",
   "purpose": "Exploratory registration of a distinct OKX+Binance (USDT) funding-dispersion estimand over the verified historical funding intersection of Binance USD-M futures and OKX USDT-swap perpetuals. This estimand is separately versioned from FVD-DISPERSION-V1, FVD-EXPLORATORY-001, and FVD-EXPLORATORY-002 (Hyperliquid+OKX). It does not modify the frozen grid, FVD001-FVD108, FVD053, or the original run_manifest.json.",
   "estimand": {
     "description": "Cross-venue funding-dispersion carry hypothesis restricted to the OKX|Binance USD-M pair, both of which settle funding in USDT. Distinct from the original FVD-DISPERSION-V1 estimand (market-cap-weighted universe) and from FVD-EXPLORATORY-002 (Hyperliquid+OKX, settlement unprovable).",
@@ -74,7 +74,7 @@
     "common_funding_start_utc": "2026-08-19T16:00:00Z",
     "contract_identity_evidence_level": "candidate",
     "contract_identity_verified": false,
-    "okx_funding_settlements": 284,
+    "okx_funding_settlements": 285,
     "okx_funding_retained_days": 94,
     "binance_funding_settlements": "2026-08/09/10 overlap months checksum-verified and parsed: 12 funding objects, 1104 funding settlements (276 per symbol, 8h interval) spanning 2026-08-01T00:00:00.001Z to 2026-10-31T16:00:00Z with 0 continuity gaps across month seams; 2026-10 alone was 372 settlements (93 per symbol). Archive depth 2020-01..2026-10 available; 2026-07/earlier months assessed only at CHECKSUM-object availability, not row content.",
     "binance_archive_start_utc": "2020-01-01T00:00:00Z",
@@ -93,10 +93,10 @@
     "binance_content_funding_last_utc": "2026-10-31T16:00:00Z",
     "binance_content_klines_last_utc": "2026-10-31T23:00:00Z",
     "okx_funding_settlements_by_symbol": {
-      "BTC": 284,
-      "ETH": 284,
-      "SOL": 284,
-      "AVAX": 284
+      "BTC": 285,
+      "ETH": 285,
+      "SOL": 285,
+      "AVAX": 285
     },
     "binance_overlap_content_proven": true,
     "binance_overlap_content_artifact": "research_state/binance_overlap_content_2026-08_to_2026-10_2026-11-17.json",
@@ -105,7 +105,7 @@
     "binance_overlap_union_start_utc": "2026-08-01T00:00:00.001Z",
     "binance_overlap_union_end_utc": "2026-10-31T16:00:00Z"
   },
-  "data_gate_result": "NOT_PASSED \u2014 settlement currency match is provable for OKX|Binance (both USDT), but contract identity is candidate-level (underlying-symbol mapped only, lifecycle/liquidity equivalence unproven) and the verified funding intersection is 73.0 days < 90 prior daily observations. Per exploratory_protocol_v1.md section 6 the anchor remains unexercised on this estimand. Latest linked probe: historical_overlap_probe_44981176353_attempt_1.json (4b24ce51b918770aa9d985307662e15ab110f814a2b6c5656c7b833ade1efc22).",
+  "data_gate_result": "NOT_PASSED \u2014 settlement currency match is provable for OKX|Binance (both USDT), but contract identity is candidate-level (underlying-symbol mapped only, lifecycle/liquidity equivalence unproven) and the verified funding intersection is 73.0 days < 90 prior daily observations. Per exploratory_protocol_v1.md section 6 the anchor remains unexercised on this estimand. Latest linked probe: historical_overlap_probe_45019521782_attempt_1.json (1d14d31012962e7974b03824f78946f4f308dec39f9cdab00d5bc376fa66b64d).",
   "historical_coverage_gate": "NOT_PASSED_BY_COVERAGE_PROBE",
   "threshold_history_eligibility": {
     "common_days": 72,
@@ -116,7 +116,7 @@
     "contract_identity_verified": false,
     "contract_identity_evidence_level": "candidate",
     "eligible_for_threshold_computation": false,
-    "eligible_reason": "Instrument identity not provable + funding intersection (73 days) below 90-day minimum (OKX rolling 3-month funding retention: probe 44981176353 (2026-11-22T03:33:53Z) returned 284 rows for all four symbols, earliest 2026-08-19T16:00Z and latest 2026-11-22T00:00Z, so optimistic and panel-binding starts coincide at 2026-08-19T16:00Z and retained duration is 94.33 days; Binance monthly archive verified available through 2026-10, bounding the intersection end at 2026-10-31; 2026-10 archive content checksum-verified and parsed (372 funding rows, 8h); the Binance side of the intersection is row-verified by the 2026-08/09/10 multi-month content audit (1104 funding rows, 276 per symbol, 0 continuity gaps))",
+    "eligible_reason": "Instrument identity not provable + funding intersection (73 days) below 90-day minimum (OKX rolling 3-month funding retention: probe 45019521782 (2026-11-22T11:59:09Z) returned 285 rows for all four symbols, earliest 2026-08-19T16:00Z and latest 2026-11-22T08:00Z, so optimistic and panel-binding starts coincide at 2026-08-19T16:00Z and retained duration is 94.67 days; Binance monthly archive verified available through 2026-10, bounding the intersection end at 2026-10-31; 2026-10 archive content checksum-verified and parsed (372 funding rows, 8h); the Binance side of the intersection is row-verified by the 2026-08/09/10 multi-month content audit (1104 funding rows, 276 per symbol, 0 continuity gaps))",
     "settlement_currency_match_provable": true,
     "minimum_prior_daily_observations_required": 90,
     "prior_daily_observations_available": 73,
@@ -138,9 +138,9 @@
   ],
   "implementation_gate_result": "Source-independent primitives covered by known-answer/adversarial tests and conformance validators; no real-data anchor run (data gate fails before anchor per exploratory protocol section 6 stop rule)",
   "conclusion": "EXPLORATORY_ONLY / INCONCLUSIVE for inference. The OKX+Binance (USDT) estimand registers a distinct exploratory estimand where the settlement-currency sub-component of contract identity IS provable (both venues settle in USDT). However, instrument/contract identity is NOT provable (symbol-mapped only, candidate-level) and the OKX+Binance funding intersection is 73.0 days (2026-08-19T16:00Z to 2026-10-31T16:00Z, after OKX's rolling 3-month funding window advanced again and the Binance 2026-10 monthly archive became available), below the 90-day prior-observation threshold for the FVD053 anchor. Because OKX retains only ~3 months of funding while Binance monthly archives publish with a lag, the maximum achievable overlap stays structurally under 90 days and is shrinking as OKX's retention window advances. Per exploratory_protocol_v1.md section 6, contract identity is a required eligibility criterion that is not established; the gates fail before anchor. The frozen FVD053 anchor was NOT exercised. No backtest, no performance metric, no economic edge claimed. Confirmatory gate BLOCKED_DATA_GATE preserved.",
-  "next_step": "Per exploratory_protocol_v1.md section 6 stop rule: instrument identity (contract identity) is the binding constraint, not settlement currency. The OKX+Binance funding intersection remains 73.0 days (2026-08-19T16:00Z to 2026-10-31T16:00Z) after OKX rolling ~3-month retention advanced to 284 rows per symbol (probe 44981176353, earliest 2026-08-19T16:00Z, latest 2026-11-22T00:00Z), still below the 90-day prior-observation threshold; the start bound is unchanged and the intersection cannot grow while OKX retains ~3 months and Binance archives lag ~1 month. Do not fabricate or substitute data; preserve the fail-closed eligibility flag. Next probe eligible after 2026-11-22T09:33:53.729364Z.",
-  "reference_probe": "historical_overlap_probe_44981176353_attempt_1.json",
-  "reference_probe_sha256": "4b24ce51b918770aa9d985307662e15ab110f814a2b6c5656c7b833ade1efc22",
+  "next_step": "Per exploratory_protocol_v1.md section 6 stop rule: instrument identity (contract identity) is the binding constraint, not settlement currency. The OKX+Binance funding intersection remains 73.0 days (2026-08-19T16:00Z to 2026-10-31T16:00Z) after OKX rolling ~3-month retention advanced to 285 rows per symbol (probe 45019521782, earliest 2026-08-19T16:00Z, latest 2026-11-22T08:00Z), still below the 90-day prior-observation threshold; the start bound is unchanged and the intersection cannot grow while OKX retains ~3 months and Binance archives lag ~1 month. Do not fabricate or substitute data; preserve the fail-closed eligibility flag. Next probe eligible after 2026-11-22T17:59:09.512173Z.",
+  "reference_probe": "historical_overlap_probe_45019521782_attempt_1.json",
+  "reference_probe_sha256": "1d14d31012962e7974b03824f78946f4f308dec39f9cdab00d5bc376fa66b64d",
   "parent_exploratory_manifest": "research_state/exploratory_run_manifest_2026-10-25.json",
   "parent_exploratory_manifest_sha256": "08bbecf10f80f46b3d56e62e5c82ce44915840b25612307c0d7026f7a9905f1f",
   "source_code_hashes": {
@@ -282,6 +282,10 @@
     {
       "path": "research_state/historical_overlap_probe_44981176353_attempt_1.json",
       "sha256": "4b24ce51b918770aa9d985307662e15ab110f814a2b6c5656c7b833ade1efc22"
+    },
+    {
+      "path": "research_state/historical_overlap_probe_45019521782_attempt_1.json",
+      "sha256": "1d14d31012962e7974b03824f78946f4f308dec39f9cdab00d5bc376fa66b64d"
     }
   ],
   "caveats": [
@@ -320,6 +324,7 @@
     "Probe 44250809810 (observed_at_utc 2026-11-18T06:22:38.072621Z, sha256 fb355f3419363e20e6bc28363a80acdd91e9489d384c60504a1e06ef8ada24fc, committed by controller CI in e214685) linked as reference_probe: 8/8 source responses HTTP 200, historical_coverage_gate=NOT_PASSED_BY_COVERAGE_PROBE, original_confirmatory_gate=BLOCKED_DATA_GATE. OKX funding-rate-history retained 278 rows (BTC/ETH/AVAX, earliest 2026-08-17T16:00Z) and 279 rows (SOL, earliest 2026-08-17T08:00Z), all ending 2026-11-18T00:00Z with stop_reason=page_not_full; the rolling ~3-month retention boundary advanced by one settlement and its per-symbol divergence moved from ETH to SOL. The scalar okx_funding_settlements is now the conservative per-symbol minimum 278 (was 277) and okx_funding_settlements_by_symbol is {BTC:278, ETH:278, SOL:279, AVAX:278}; okx_funding_retained_days stays 92 (recomputed 92.33 days from the panel-binding start, 92.67 from the optimistic start). Hyperliquid candles 2026-07-21T05:00Z to 2026-11-18T05:00Z (2881 rows, 0 gaps), HL funding 2880 rows hourly, OKX candles 2880 rows (0 gaps). Binance archive bound unchanged at 2026-10-31 (2026-11 archive not published), so the OKX+Binance funding intersection is unchanged: panel-binding 2026-08-17T16:00Z to 2026-10-31T16:00Z = 75.0 days exactly, optimistic min start 2026-08-17T08:00Z = 75.33 days; coverage_summary.common_days stays 75 and common_days_panel_binding is now 75 (the boundary is exact this probe) \u2014 still <90. contract_identity evidence_level=candidate for all four underlyings (hl_settle_known=false, settlement_match=false). No anchor, no backtest, no performance metric.",
     "Probe 44414191284 (observed_at_utc 2026-11-18T22:43:39.052604Z, sha256 d9a903633bdf18aa8f9808af9b2055f8d97b65f17d3abde66120a85d9b8d72bd, committed by controller CI in 7f508dd) linked as reference_probe: 8/8 source responses HTTP 200, historical_coverage_gate=NOT_PASSED_BY_COVERAGE_PROBE, original_confirmatory_gate=BLOCKED_DATA_GATE. OKX funding-rate-history retained 281 rows (BTC/SOL, earliest 2026-08-17T08:00Z) and 280 rows (ETH/AVAX, earliest 2026-08-17T16:00Z), all ending 2026-11-18T16:00Z with stop_reason=page_not_full; the rolling ~3-month retention boundary advanced by ~1 day and its per-symbol divergence moved from SOL to ETH/AVAX. The scalar okx_funding_settlements is now the conservative per-symbol minimum 280 (was 278) and okx_funding_settlements_by_symbol is {BTC:281, ETH:280, SOL:281, AVAX:280}; okx_funding_retained_days is now 93 (recomputed 93.33 days from the optimistic start, 93.00 from the panel-binding start). Hyperliquid candles 2026-07-21T21:00Z to 2026-11-18T21:00Z (2881 rows, 0 gaps), HL funding 2880 rows hourly; OKX candles 2880 rows for BTC/SOL/AVAX (0 gaps) but 0 rows for ETH-USDT-SWAP (page-1 TimeoutError, stop_reason=no_rows_or_request_failed) \u2014 a transient OKX candle-route failure that does not affect the funding intersection, which uses OKX funding not candles. Binance archive bound unchanged at 2026-10-31 (2026-11 archive not published), so the OKX+Binance funding intersection is unchanged: panel-binding 2026-08-17T16:00Z to 2026-10-31T16:00Z = 75.0 days exactly, optimistic min start 2026-08-17T08:00Z = 75.33 days; coverage_summary.common_days stays 75 and common_days_panel_binding stays 75 \u2014 still <90. contract_identity evidence_level=candidate for all four underlyings (hl_settle_known=false, settlement_match=false). No anchor, no backtest, no performance metric.",
     "Probe 44939691983 (observed_at_utc 2026-11-21T19:13:04.177127Z, sha256 1c9797c08eff83788799c90f550e38f7a42ed1169726e48759471395f37968eb) linked as reference_probe: 8/8 source responses HTTP 200, historical_coverage_gate=NOT_PASSED_BY_COVERAGE_PROBE, original_confirmatory_gate=BLOCKED_DATA_GATE. OKX funding-rate-history returned 283 rows for all four symbols (BTC/ETH/SOL/AVAX), earliest 2026-08-19T16:00Z and latest 2026-11-21T16:00Z, stop_reason page_not_full (retained_days=94). Optimistic and panel-binding starts coincide, so the OKX+Binance funding intersection is still 73.0 days (2026-08-19T16:00Z to 2026-10-31T16:00Z) and remains below the 90-day threshold; the start bound did not advance, so the intersection neither grew nor shrank this probe. Intermediate probe 44900752033 (observed_at_utc 2026-11-21T11:47:49.401451Z, sha256 f537989b300acb72b651938362fca35a66202bc8d8dda338c0814778be634693, 282 rows, same earliest/latest-start) was superseded before linkage and is recorded in output_artifacts for provenance only. Contract identity remains candidate-level (hl_settle_known=false, settlement_match=false) for all four. No anchor, no backtest, no performance metric; BLOCKED_DATA_GATE preserved.",
-    "Probe 44981176353 (observed_at_utc 2026-11-22T03:33:53.729364Z, sha256 4b24ce51b918770aa9d985307662e15ab110f814a2b6c5656c7b833ade1efc22) linked as reference_probe: 8/8 source responses HTTP 200, historical_coverage_gate=NOT_PASSED_BY_COVERAGE_PROBE, original_confirmatory_gate=BLOCKED_DATA_GATE. OKX funding-rate-history returned 284 rows for all four symbols, earliest 2026-08-19T16:00Z, latest 2026-11-22T00:00Z, stop_reason=page_not_full, 0 duplicate timestamps; retained duration recomputed = 94.33 days (manifest floor 94). The start bound did not advance, so the OKX+Binance intersection with the unchanged content-verified Binance bound 2026-10-31T16:00Z remains exactly 73.0 days (optimistic and panel-binding coincide) \u2014 still below 90. Waiting cannot grow this intersection while OKX retains ~3 months and the Binance archive lags ~1 month."
+    "Probe 44981176353 (observed_at_utc 2026-11-22T03:33:53.729364Z, sha256 4b24ce51b918770aa9d985307662e15ab110f814a2b6c5656c7b833ade1efc22) linked as reference_probe: 8/8 source responses HTTP 200, historical_coverage_gate=NOT_PASSED_BY_COVERAGE_PROBE, original_confirmatory_gate=BLOCKED_DATA_GATE. OKX funding-rate-history returned 284 rows for all four symbols, earliest 2026-08-19T16:00Z, latest 2026-11-22T00:00Z, stop_reason=page_not_full, 0 duplicate timestamps; retained duration recomputed = 94.33 days (manifest floor 94). The start bound did not advance, so the OKX+Binance intersection with the unchanged content-verified Binance bound 2026-10-31T16:00Z remains exactly 73.0 days (optimistic and panel-binding coincide) \u2014 still below 90. Waiting cannot grow this intersection while OKX retains ~3 months and the Binance archive lags ~1 month.",
+    "Probe 45019521782 (observed_at_utc 2026-11-22T11:59:09.512173Z, sha256 1d14d31012962e7974b03824f78946f4f308dec39f9cdab00d5bc376fa66b64d) linked as reference_probe: 8/8 source responses HTTP 200, historical_coverage_gate=NOT_PASSED_BY_COVERAGE_PROBE, original_confirmatory_gate=BLOCKED_DATA_GATE. OKX funding-rate-history returned 285 rows for all four symbols (BTC/ETH/SOL/AVAX), earliest 2026-08-19T16:00Z and latest 2026-11-22T08:00Z, stop_reason page_not_full (retained_days=94, floor of 94.67). Optimistic and panel-binding starts coincide, so the OKX+Binance funding intersection is still 73.0 days (2026-08-19T16:00Z to 2026-10-31T16:00Z) and remains below the 90-day threshold; the start bound did not advance, so the intersection neither grew nor shrank this probe. HL candles 2881 rows/symbol (0 gaps), HL funding 2880 rows (0 gaps), OKX candles 2880 rows/symbol (0 gaps)."
   ]
 }

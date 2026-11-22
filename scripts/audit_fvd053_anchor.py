@@ -61,12 +61,22 @@ def sha256_file(path: Path) -> str:
 
 
 def _parse_utc(text):
+    """Parse an ISO-8601 UTC string, including fractional-second venue timestamps.
+
+    Hyperliquid funding rows carry microsecond precision (e.g.
+    ``2026-09-18T23:00:00.009000Z``) while OKX rows are whole seconds, so a
+    fixed-format ``strptime`` would silently return None for half the panel.
+    """
     if not isinstance(text, str):
         return None
     try:
-        return datetime.strptime(text, "%Y-%m-%dT%H:%M:%SZ").replace(tzinfo=timezone.utc)
+        parsed = datetime.fromisoformat(text.replace("Z", "+00:00"))
     except ValueError:
         return None
+    if parsed.tzinfo is None:
+        # Fail closed: an offset-free string is not proof of a UTC observation.
+        return None
+    return parsed.astimezone(timezone.utc)
 
 
 def _is_num(value) -> bool:

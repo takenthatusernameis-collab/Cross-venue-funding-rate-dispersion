@@ -1,0 +1,292 @@
+{
+  "audit_type": "independent_fvd053_anchor_ledger_recomputation",
+  "auditor": "scripts/audit_fvd053_anchor.py (no import of scripts/run_fvd053_anchor.py)",
+  "checks": [
+    {
+      "check": "document_status",
+      "detail": {
+        "backtest_completed": false,
+        "confirmatory_status_preserved": "BLOCKED_DATA_GATE",
+        "performance_metrics_computed": false,
+        "status": "EXPLORATORY_ONLY"
+      },
+      "passed": true
+    },
+    {
+      "check": "row_count_invariants",
+      "detail": {
+        "dates_with_signal": 23,
+        "rows": 23,
+        "signal_count": 23
+      },
+      "passed": true
+    },
+    {
+      "check": "selection_partition",
+      "detail": {
+        "dates_threshold_eligible_no_signal": 13,
+        "dates_threshold_ineligible": 61,
+        "dates_total": 97,
+        "dates_with_no_signal": 74,
+        "dates_with_signal": 23
+      },
+      "passed": true
+    },
+    {
+      "check": "no_skipped_rows",
+      "detail": {
+        "skipped": 0
+      },
+      "passed": true
+    },
+    {
+      "check": "entry_exit_timing",
+      "detail": {
+        "count": 0,
+        "violations": []
+      },
+      "passed": true
+    },
+    {
+      "check": "one_signal_per_date",
+      "detail": {
+        "rows": 23,
+        "unique_entry_times": 23
+      },
+      "passed": true
+    },
+    {
+      "check": "funding_settlement_invariant",
+      "detail": {
+        "per_signal_settlements": [
+          27
+        ],
+        "total": 621
+      },
+      "passed": true
+    },
+    {
+      "check": "equal_notional_and_cap",
+      "detail": {
+        "count": 0,
+        "violations": []
+      },
+      "passed": true
+    },
+    {
+      "check": "price_basis_pnl_recomputed",
+      "detail": {
+        "count": 0,
+        "violations": []
+      },
+      "passed": true
+    },
+    {
+      "check": "fees_and_slippage_recomputed",
+      "detail": {
+        "count": 0,
+        "violations": []
+      },
+      "passed": true
+    },
+    {
+      "check": "per_signal_net_identity",
+      "detail": {
+        "count": 0,
+        "violations": []
+      },
+      "passed": true
+    },
+    {
+      "check": "aggregate_totals",
+      "detail": {
+        "total_fees": {
+          "recomputed": 230.0,
+          "recorded": 230.0
+        },
+        "total_funding_cash_flow": {
+          "recomputed": 21.8008897994265,
+          "recorded": 21.8008897994265
+        },
+        "total_net_pnl": {
+          "recomputed": -435.8828552191358,
+          "recorded": -435.8828552191358
+        },
+        "total_price_basis_pnl": {
+          "recomputed": 2.3162549814376607,
+          "recorded": 2.3162549814376607
+        },
+        "total_slippage": {
+          "recomputed": 230.0,
+          "recorded": 230.0
+        }
+      },
+      "passed": true
+    },
+    {
+      "check": "turnover_recomputed",
+      "detail": {
+        "recomputed": 460000.0,
+        "recorded": 460000.0
+      },
+      "passed": true
+    },
+    {
+      "check": "average_gross_exposure_recomputed",
+      "detail": {
+        "recomputed": 10000.0,
+        "recorded": 10000.0
+      },
+      "passed": true
+    },
+    {
+      "check": "return_identities",
+      "detail": {
+        "gross_price_return": {
+          "recomputed": 0.00023162549814376607,
+          "recorded": 0.00023162549814376607
+        },
+        "net_return": {
+          "recomputed": -0.04358828552191358,
+          "recorded": -0.04358828552191358
+        },
+        "peak_to_trough_decline": {
+          "recomputed_abs": 0.04358828552191358,
+          "recorded": 0.04358828552191358
+        }
+      },
+      "passed": true
+    },
+    {
+      "check": "cost_sensitivity_arithmetic",
+      "detail": {
+        "base": {
+          "recomputed": -0.04358828552191358,
+          "recorded": -0.04358828552191358
+        },
+        "optimistic": {
+          "recomputed": -0.01598828552191358,
+          "recorded": -0.015988285521913583
+        },
+        "stress": {
+          "recomputed": -0.08958828552191359,
+          "recorded": -0.08958828552191359
+        }
+      },
+      "passed": true
+    },
+    {
+      "check": "per_signal_volatility_definition",
+      "detail": {
+        "recomputed_sample_stdev": 0.00026882238550334625,
+        "recorded": 0.00026882238550334625
+      },
+      "passed": true
+    },
+    {
+      "check": "per_underlying_counts",
+      "detail": {
+        "manifest": null,
+        "recomputed": {
+          "AVAX": 7,
+          "BTC": 5,
+          "ETH": 4,
+          "LINK": 3,
+          "SOL": 4
+        }
+      },
+      "passed": true
+    },
+    {
+      "check": "venue_pair_membership",
+      "detail": {
+        "count": 0,
+        "venues": [
+          "Hyperliquid",
+          "OKX"
+        ],
+        "violations": []
+      },
+      "passed": true
+    },
+    {
+      "check": "evidence_funding_recomputed",
+      "detail": {
+        "count": 0,
+        "violations": []
+      },
+      "passed": true
+    },
+    {
+      "check": "evidence_candle_prices",
+      "detail": {
+        "count": 0,
+        "violations": []
+      },
+      "passed": true
+    },
+    {
+      "check": "evidence_dispersion_thresholds",
+      "detail": {
+        "count": 0,
+        "violations": []
+      },
+      "passed": true
+    },
+    {
+      "check": "evidence_selection_rule",
+      "detail": {
+        "count": 0,
+        "dates_total": 97,
+        "signal_dates": 23,
+        "violations": []
+      },
+      "passed": true
+    },
+    {
+      "check": "evidence_dispersion_from_observations",
+      "detail": {
+        "count": 0,
+        "violations": []
+      },
+      "passed": true
+    },
+    {
+      "check": "evidence_series_digests",
+      "detail": {
+        "count": 0,
+        "violations": []
+      },
+      "passed": true
+    }
+  ],
+  "economic_claim": "none: arithmetic/identity audit of descriptive exploratory accounting only",
+  "failed_checks": [],
+  "label_defects": [
+    {
+      "expected_percent_of_equity": 4.358828552191358,
+      "field": "peak_to_trough_decline_pct_of_equity",
+      "note": "recorded value is scaled by ~1e-4 relative to a percent-of-equity label; flagged here, not rewritten in the immutable ledger",
+      "recorded": 4.358828552191358e-06,
+      "severity": "derived_label_units"
+    }
+  ],
+  "limitations": [
+    "Settlement rows, daily dispersion/threshold series and selected-window funding observations are persisted, so funding cash flow, the 80th-percentile threshold rule, the top-10% selection and the dispersion values are independently recomputable from the artifact.",
+    "Only entry/exit candle rows are persisted, not the full 1h series; series content is bound by a recorded SHA-256 digest over (time, open, close) that cannot be re-derived without refetching the raw venue data.",
+    "Contract identity is underlying-symbol-mapped only (candidate level); lifecycle, multiplier and settlement-currency equivalence remain unproven.",
+    "No executable-fill, order-book depth or borrow/leverage constraint evidence is persisted; costs remain a frozen bps assumption.",
+    "The window is ~97 days and settlement episodes overlap within the 24h hold, so the descriptive totals are not an independent-sample estimate and no performance metric is claimed."
+  ],
+  "manifest_sha256_match": true,
+  "passed_checks": 25,
+  "performance_metrics_computed": false,
+  "recomputed_at_utc": "2026-11-22T12:03:17.827485Z",
+  "schema_version": "1.0",
+  "target_artifact": "research_state/fvd053_anchor_run_2026-11-22.json",
+  "target_experiment_id": "FVD-EXPLORATORY-005",
+  "target_observed_at_utc": "2026-11-22T12:02:12.439926Z",
+  "target_sha256": "4f456b2b7b6c564c67e3e6f9bb5a3465e3cfe6988554039b444b9ff445b32782",
+  "tolerance_abs": 1e-06,
+  "verdict": "PASS"
+}

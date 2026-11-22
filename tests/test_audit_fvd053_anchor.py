@@ -203,9 +203,33 @@ class AuditorAdversarialTests(unittest.TestCase):
         self.assertNotIn("aggregate_totals", clean["failed_checks"])
 
 
+class AuditorTimestampParsingTests(unittest.TestCase):
+    """Venue timestamps differ in precision; a silent drop would void evidence checks."""
+
+    def test_whole_second_timestamp_parses(self):
+        parsed = auditor._parse_utc("2026-09-20T16:00:00Z")
+        self.assertIsNotNone(parsed)
+        self.assertEqual(parsed.isoformat(), "2026-09-20T16:00:00+00:00")
+
+    def test_fractional_second_timestamp_parses(self):
+        parsed = auditor._parse_utc("2026-09-18T23:00:00.009000Z")
+        self.assertIsNotNone(parsed)
+        self.assertEqual(parsed.microsecond, 9000)
+        self.assertEqual(parsed.hour, 23)
+
+    def test_invalid_or_missing_timestamp_is_none(self):
+        self.assertIsNone(auditor._parse_utc(None))
+        self.assertIsNone(auditor._parse_utc("2026-09-20T16:00:00"))
+        self.assertIsNone(auditor._parse_utc("not-a-timestamp"))
+
+
 class AuditorScriptContractTests(unittest.TestCase):
     def test_default_run_is_offline_and_does_not_import_producer(self):
-        self.assertNotIn("run_fvd053_anchor", sys.modules)
+        # Order-independent contract: inspect the auditor's own source instead of
+        # the process-wide sys.modules, which other test modules populate.
+        source = Path(auditor.__file__).read_text(encoding="utf-8")
+        self.assertNotIn("import run_fvd053_anchor", source)
+        self.assertNotIn("from run_fvd053_anchor", source)
         self.assertFalse(hasattr(auditor, "run_fvd053_anchor"))
 
     def test_artifact_is_valid_json_shape(self):

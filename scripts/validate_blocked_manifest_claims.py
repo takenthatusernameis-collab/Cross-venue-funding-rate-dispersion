@@ -15,6 +15,7 @@ DEFAULT_PATHS = [
     ROOT / "research_state/exploratory_run_manifest_2026-10-25.json",
     ROOT / "research_state/exploratory_run_manifest_2026-10-27.json",
     ROOT / "research_state/exploratory_run_manifest_2026-11-21.json",
+    ROOT / "research_state/exploratory_run_manifest_2026-11-22.json",
 ]
 
 BLOCKED_STATUSES = {
