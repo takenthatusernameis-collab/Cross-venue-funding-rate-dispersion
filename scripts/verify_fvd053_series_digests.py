@@ -60,6 +60,107 @@ def _window(rows: list[dict]) -> dict:
     return {"first_time_utc": _iso(min(times)), "last_time_utc": _iso(max(times))}
 
 
+def _candle_index(rows: list[dict]) -> dict[str, dict]:
+    """Map ISO open-time -> candle row so evidence timestamps resolve exactly."""
+    return {_iso(row["time"]): row for row in rows if "time" in row}
+
+
+def execution_price_checks(signals: list[dict], candles_by_venue: dict[tuple[str, str], list[dict]]) -> dict:
+    """Compare every recorded entry/exit candle against the refetched candle rows.
+
+    ``candles_by_venue`` is keyed by ``(underlying, venue)``. Each signal carries
+    its own ``underlying`` and four ``candle_evidence`` rows (long/short x
+    entry/exit). A row passes only when the refetched candle at that exact
+    timestamp has identical ``open`` and ``close`` values (tolerance 0).
+    """
+    index = {key: _candle_index(rows) for key, rows in candles_by_venue.items()}
+    rows: list[dict] = []
+    for signal_index, signal in enumerate(signals):
+        underlying = signal.get("underlying")
+        entry_time = signal.get("entry_time_utc")
+        exit_time = signal.get("exit_time_utc")
+        for evidence in signal.get("candle_evidence") or []:
+            venue = evidence.get("venue")
+            timestamp = evidence.get("timestamp_utc")
+            role = "entry" if timestamp == entry_time else ("exit" if timestamp == exit_time else "unknown")
+            candle = (index.get((underlying, venue)) or {}).get(timestamp)
+            row = {
+                "signal_index": signal_index,
+                "underlying": underlying,
+                "venue": venue,
+                "side": evidence.get("side"),
+                "role": role,
+                "timestamp_utc": timestamp,
+                "recorded_open": evidence.get("open"),
+                "recorded_close": evidence.get("close"),
+                "refetched_open": candle.get("open") if candle else None,
+                "refetched_close": candle.get("close") if candle else None,
+                "found": candle is not None,
+            }
+            row["passed"] = bool(
+                candle is not None
+                and row["refetched_open"] == row["recorded_open"]
+                and row["refetched_close"] == row["recorded_close"]
+            )
+            rows.append(row)
+
+    internal: list[dict] = []
+    for signal_index, signal in enumerate(signals):
+        entry_time = signal.get("entry_time_utc")
+        exit_time = signal.get("exit_time_utc")
+        long_venue = signal.get("long_venue")
+        short_venue = signal.get("short_venue")
+        for role, expected_time, price_key in (
+            ("entry", entry_time, "entry_price_long"),
+            ("exit", exit_time, "exit_price_long"),
+        ):
+            match = next(
+                (e for e in (signal.get("candle_evidence") or [])
+                 if e.get("venue") == long_venue and e.get("timestamp_utc") == expected_time),
+                None,
+            )
+            internal.append({
+                "signal_index": signal_index,
+                "underlying": signal.get("underlying"),
+                "venue": long_venue,
+                "role": role,
+                "timestamp_utc": expected_time,
+                "recorded_signal_price": signal.get(price_key),
+                "recorded_candle_open": match.get("open") if match else None,
+                "passed": bool(match is not None and match.get("open") == signal.get(price_key)),
+            })
+            price_key = "entry_price_short" if role == "entry" else "exit_price_short"
+            match = next(
+                (e for e in (signal.get("candle_evidence") or [])
+                 if e.get("venue") == short_venue and e.get("timestamp_utc") == expected_time),
+                None,
+            )
+            internal.append({
+                "signal_index": signal_index,
+                "underlying": signal.get("underlying"),
+                "venue": short_venue,
+                "role": role,
+                "timestamp_utc": expected_time,
+                "recorded_signal_price": signal.get(price_key),
+                "recorded_candle_open": match.get("open") if match else None,
+                "passed": bool(match is not None and match.get("open") == signal.get(price_key)),
+            })
+
+    failed = [r for r in rows if not r["passed"]]
+    internal_failed = [r for r in internal if not r["passed"]]
+    return {
+        "rows_expected": len(rows),
+        "rows_matched": len(rows) - len(failed),
+        "rows_failed": len(failed),
+        "rows_not_found": sum(1 for r in failed if not r["found"]),
+        "internal_price_checks": len(internal),
+        "internal_price_failed": len(internal_failed),
+        "all_matched": not failed and not internal_failed,
+        "rows": rows,
+        "internal_checks": internal,
+    }
+
+
 def verify(artifact_path: Path, output_path: Path, underlyings: list[str] | None = None) -> dict:
     artifact = json.loads(artifact_path.read_text(encoding="utf-8"))
     recorded = artifact.get("series_digests") or {}
@@ -68,11 +169,14 @@ def verify(artifact_path: Path, output_path: Path, underlyings: list[str] | None
     targets = underlyings or list(recorded)
 
     series: dict[str, dict] = {}
+    candles_by_venue: dict[tuple[str, str], list[dict]] = {}
     for u in targets:
         hl_candles, hl_meta = fetch_hl_candles(u, start_ms, end_ms)
         hl_funding, hl_funding_meta = fetch_hl_funding(u, start_ms, end_ms)
         okx_candles, okx_meta = fetch_okx_candles(OKX_INST_ID[u], start_ms, end_ms)
         okx_funding, okx_funding_meta = fetch_okx_funding(OKX_INST_ID[u], start_ms, end_ms)
+        candles_by_venue[(u, "Hyperliquid")] = hl_candles
+        candles_by_venue[(u, "OKX")] = okx_candles
 
         per_venue = {}
         for venue, candles, funding, cmeta, fmeta in (
@@ -124,6 +228,8 @@ def verify(artifact_path: Path, output_path: Path, underlyings: list[str] | None
 
     failed = [c for c in checks if not c["passed"]]
     truncated = [o for o in funding_observations if not o["reproduced"]]
+    execution = execution_price_checks(artifact.get("signals") or [], candles_by_venue)
+    verdict = "PASS" if not failed and execution["all_matched"] else "FAIL"
     return {
         "schema_version": "fvd053-series-digest-verification-v1",
         "run_type": "SOURCE_REPRODUCIBILITY_VERIFICATION",
@@ -142,7 +248,11 @@ def verify(artifact_path: Path, output_path: Path, underlyings: list[str] | None
         "passed_checks": len(checks) - len(failed),
         "failed_checks": len(failed),
         "failed_check_names": [c["check"] for c in failed],
-        "verdict": "PASS" if not failed else "FAIL",
+        "execution_price_provenance": execution,
+        "execution_price_rows_matched": execution["rows_matched"],
+        "execution_price_rows_expected": execution["rows_expected"],
+        "execution_price_rows_failed": execution["rows_failed"],
+        "verdict": verdict,
         "backtest_completed": False,
         "performance_metrics_computed": False,
         "confirmatory_status_preserved": artifact.get("confirmatory_status_preserved"),
@@ -151,6 +261,8 @@ def verify(artifact_path: Path, output_path: Path, underlyings: list[str] | None
             "Coverage/provenance verification only: no signal, outcome, or performance metric is computed.",
             "A matching digest proves the recorded candle series reproduces from the current public venue API bytes; "
             "it does not prove the venue never revised history.",
+            "Execution-price checks compare recorded entry/exit candle open/close values to refetched rows with "
+            "tolerance 0; they prove price provenance only, not that the trades were executable at those prices.",
             "Funding row counts are reported separately from the candle digests because OKX publishes a rolling "
             "~3-month funding history: rows older than the retention boundary cannot be refetched even though they "
             "remain persisted in the target artifact's settlement and selection evidence.",
@@ -177,11 +289,25 @@ def main(argv: list[str] | None = None) -> int:
 
     result = verify(Path(args.artifact), Path(args.output), args.underlyings)
     Path(args.output).write_text(json.dumps(result, indent=2, sort_keys=True) + "\n", encoding="utf-8")
+    execution = result["execution_price_provenance"]
     print(f"SERIES_DIGEST_VERIFICATION={result['verdict']} "
           f"candle_checks={len(result['checks'])} failed={result['failed_checks']} "
-          f"funding_row_mismatches={result['funding_row_count_mismatches']}")
+          f"funding_row_mismatches={result['funding_row_count_mismatches']} "
+          f"execution_price_rows={execution['rows_matched']}/{execution['rows_expected']} "
+          f"failed={execution['rows_failed']} "
+          f"internal_price_failed={execution['internal_price_failed']}")
     for name in result["failed_check_names"]:
         print(f"  FAILED {name}")
+    for row in execution["rows"]:
+        if not row["passed"]:
+            print(f"  PRICE_MISMATCH signal={row['signal_index']} {row['underlying']} {row['venue']} "
+                  f"{row['role']} {row['timestamp_utc']} recorded=({row['recorded_open']},{row['recorded_close']}) "
+                  f"refetched=({row['refetched_open']},{row['refetched_close']})")
+    for row in execution["internal_checks"]:
+        if not row["passed"]:
+            print(f"  INTERNAL_PRICE_MISMATCH signal={row['signal_index']} {row['underlying']} {row['venue']} "
+                  f"{row['role']} {row['timestamp_utc']} signal={row['recorded_signal_price']} "
+                  f"candle={row['recorded_candle_open']}")
     return 0 if result["verdict"] == "PASS" else 1
 
 
