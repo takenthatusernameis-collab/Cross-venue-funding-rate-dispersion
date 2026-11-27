@@ -4,7 +4,13 @@ from pathlib import Path
 
 sys.path.insert(0, str(Path(__file__).resolve().parents[1] / "scripts"))
 
-from verify_fvd053_series_digests import canonical_digest, _window, execution_price_checks  # noqa: E402
+from verify_fvd053_series_digests import (  # noqa: E402
+    canonical_digest,
+    _window,
+    _iso,
+    execution_price_checks,
+    funding_settlement_checks,
+)
 
 
 def _rows():
@@ -123,6 +129,87 @@ class ExecutionPriceProvenanceTests(unittest.TestCase):
         self.assertFalse(result["all_matched"])
         self.assertEqual(result["rows_failed"], 0)
         self.assertEqual(result["internal_price_failed"], 1)
+
+
+class FundingSettlementProvenanceTests(unittest.TestCase):
+    OKX_MS = 1_700_000_000_000
+    HL_MS = 1_700_003_600_000
+
+    def _signals(self):
+        okx_rate = 0.0002
+        hl_rate = -0.00005
+        return [{
+            "underlying": "BTC",
+            "funding_evidence": [
+                {
+                    "venue": "OKX", "side": 1, "settlement_time_utc": _iso(self.OKX_MS),
+                    "original_rate": okx_rate, "interval_hours": 8.0,
+                    "rate_8h": okx_rate, "notional": 5000.0,
+                    "cash_flow": -1 * 5000.0 * okx_rate,
+                },
+                {
+                    "venue": "Hyperliquid", "side": -1, "settlement_time_utc": _iso(self.HL_MS),
+                    "original_rate": hl_rate, "interval_hours": 1.0,
+                    "rate_8h": hl_rate * 8.0, "notional": 5000.0,
+                    "cash_flow": 1 * 5000.0 * hl_rate,
+                },
+            ],
+        }]
+
+    def _funding(self, okx_rate=0.0002):
+        return {
+            ("BTC", "OKX"): [{"time": self.OKX_MS, "rate": okx_rate}],
+            ("BTC", "Hyperliquid"): [{"time": self.HL_MS, "rate": -0.00005}],
+        }
+
+    def test_all_rows_match_with_tolerance_zero(self):
+        result = funding_settlement_checks(self._signals(), self._funding())
+        self.assertTrue(result["all_matched"])
+        self.assertEqual(result["rows_expected"], 2)
+        self.assertEqual(result["rows_matched"], 2)
+        self.assertEqual(result["rows_failed"], 0)
+
+    def test_changed_refetched_rate_fails(self):
+        result = funding_settlement_checks(self._signals(), self._funding(okx_rate=0.00020001))
+        self.assertFalse(result["all_matched"])
+        self.assertEqual(result["rows_failed"], 1)
+        failed = [r for r in result["rows"] if not r["passed"]][0]
+        self.assertEqual((failed["underlying"], failed["venue"]), ("BTC", "OKX"))
+        self.assertEqual(failed["recorded_rate"], 0.0002)
+        self.assertEqual(failed["refetched_rate"], 0.00020001)
+
+    def test_cash_flow_arithmetic_defect_fails(self):
+        signals = self._signals()
+        signals[0]["funding_evidence"][0]["cash_flow"] += 0.01
+        result = funding_settlement_checks(signals, self._funding())
+        self.assertFalse(result["all_matched"])
+        self.assertEqual(result["rows_failed"], 1)
+
+    def test_interval_not_matching_venue_fails(self):
+        signals = self._signals()
+        signals[0]["funding_evidence"][1]["interval_hours"] = 8.0
+        result = funding_settlement_checks(signals, self._funding())
+        self.assertFalse(result["all_matched"])
+        self.assertEqual(result["rows_failed"], 1)
+
+    def test_settlement_older_than_truncated_refetch_is_labelled_outside_retention(self):
+        signals = self._signals()
+        funding = {("BTC", "OKX"): [{"time": self.OKX_MS + 3_600_000, "rate": 0.0002}],
+                   ("BTC", "Hyperliquid"): [{"time": self.HL_MS, "rate": -0.00005}]}
+        result = funding_settlement_checks(
+            signals, funding, {("BTC", "OKX"): True, ("BTC", "Hyperliquid"): False}
+        )
+        self.assertTrue(result["all_matched"])
+        self.assertEqual(result["rows_outside_retention"], 1)
+        self.assertEqual(result["rows_not_found"], 0)
+
+    def test_missing_settlement_within_retention_is_a_failure(self):
+        signals = self._signals()
+        funding = {("BTC", "OKX"): [], ("BTC", "Hyperliquid"): [{"time": self.HL_MS, "rate": -0.00005}]}
+        result = funding_settlement_checks(signals, funding)
+        self.assertFalse(result["all_matched"])
+        self.assertEqual(result["rows_not_found"], 1)
+        self.assertEqual(result["rows_failed"], 1)
 
 
 if __name__ == "__main__":

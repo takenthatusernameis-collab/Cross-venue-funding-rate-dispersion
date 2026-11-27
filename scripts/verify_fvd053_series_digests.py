@@ -65,6 +65,130 @@ def _candle_index(rows: list[dict]) -> dict[str, dict]:
     return {_iso(row["time"]): row for row in rows if "time" in row}
 
 
+def _funding_index(rows: list[dict]) -> dict[str, float]:
+    """Map ISO settlement-time -> original funding rate from a refetched series."""
+    return {_iso(row["time"]): float(row["rate"]) for row in rows if "time" in row}
+
+
+def _to_ms(timestamp_utc: str | None) -> int | None:
+    if not timestamp_utc:
+        return None
+    try:
+        return int(datetime.fromisoformat(timestamp_utc.replace("Z", "+00:00")).timestamp() * 1000 + 0.5)
+    except ValueError:
+        return None
+
+
+def funding_settlement_checks(
+    signals: list[dict],
+    funding_by_venue: dict[tuple[str, str], list[dict]],
+    retention_truncated: dict[tuple[str, str], bool] | None = None,
+) -> dict:
+    """Compare every recorded settlement cash-flow input against refetched funding rows.
+
+    Each ``funding_evidence`` row stores the venue, side, settlement timestamp, the
+    original venue rate, the documented settlement interval, the 8h-normalized rate
+    and the cash flow. A row passes only when the refetched funding series still
+    serves that exact settlement timestamp with an identical rate (tolerance 0) and
+    the recorded normalization/cash-flow arithmetic reproduces exactly.
+
+    A settlement older than the venue's refetched history is labelled
+    ``outside_retention`` (a documented vendor retention limit, not a failure) only
+    when the fetch itself proves the venue truncated the series. Any other missing
+    timestamp is a failure and is never silently skipped.
+    """
+    retention_truncated = retention_truncated or {}
+    index = {key: _funding_index(rows) for key, rows in funding_by_venue.items()}
+    windows: dict[tuple[str, str], tuple[int | None, int | None]] = {}
+    for key, rows in funding_by_venue.items():
+        times = [int(r["time"]) for r in rows if "time" in r]
+        windows[key] = (min(times), max(times)) if times else (None, None)
+
+    expected_interval = {"Hyperliquid": 1.0, "OKX": 8.0}
+    rows_out: list[dict] = []
+    for signal_index, signal in enumerate(signals):
+        underlying = signal.get("underlying")
+        for evidence in signal.get("funding_evidence") or []:
+            venue = evidence.get("venue")
+            timestamp = evidence.get("settlement_time_utc")
+            rate = evidence.get("original_rate")
+            interval = evidence.get("interval_hours")
+            notional = evidence.get("notional")
+            side = evidence.get("side")
+            cash_flow = evidence.get("cash_flow")
+            rate_8h = evidence.get("rate_8h")
+
+            refetched_rate = (index.get((underlying, venue)) or {}).get(timestamp)
+            interval_expected = expected_interval.get(venue)
+            interval_ok = (
+                interval_expected is None
+                or (isinstance(interval, (int, float)) and float(interval) == interval_expected)
+            )
+            arithmetic_ok = True
+            cash_expected = rate_8h_expected = None
+            if isinstance(rate, (int, float)) and isinstance(interval, (int, float)) and interval > 0:
+                rate_8h_expected = rate * 8.0 / interval
+            if (isinstance(rate, (int, float)) and isinstance(notional, (int, float))
+                    and side in (-1, 1)):
+                cash_expected = -side * notional * rate
+            if cash_expected is not None and cash_expected != cash_flow:
+                arithmetic_ok = False
+            if rate_8h_expected is not None and rate_8h_expected != rate_8h:
+                arithmetic_ok = False
+
+            row = {
+                "signal_index": signal_index,
+                "underlying": underlying,
+                "venue": venue,
+                "side": side,
+                "settlement_time_utc": timestamp,
+                "recorded_rate": rate,
+                "refetched_rate": refetched_rate,
+                "recorded_interval_hours": interval,
+                "recorded_cash_flow": cash_flow,
+                "recomputed_cash_flow": cash_expected,
+                "interval_matches_venue": interval_ok,
+                "arithmetic_reproduces": arithmetic_ok,
+                "found": refetched_rate is not None,
+            }
+            if refetched_rate is None:
+                start, _ = windows.get((underlying, venue), (None, None))
+                ms = _to_ms(timestamp)
+                outside = (
+                    ms is not None
+                    and start is not None
+                    and ms < start
+                    and bool(retention_truncated.get((underlying, venue)))
+                )
+                row["status"] = "outside_retention" if outside else "not_found"
+                row["passed"] = outside and arithmetic_ok and interval_ok
+            else:
+                rate_ok = float(refetched_rate) == float(rate)
+                row["rate_matches"] = rate_ok
+                row["status"] = "matched" if (rate_ok and arithmetic_ok and interval_ok) else "mismatch"
+                row["passed"] = row["status"] == "matched"
+            rows_out.append(row)
+
+    failed = [r for r in rows_out if not r["passed"]]
+    return {
+        "rows_expected": len(rows_out),
+        "rows_matched": sum(1 for r in rows_out if r["status"] == "matched"),
+        "rows_outside_retention": sum(1 for r in rows_out if r["status"] == "outside_retention"),
+        "rows_not_found": sum(1 for r in rows_out if r["status"] == "not_found"),
+        "rows_failed": len(failed),
+        "recorded_cash_flow_total": sum(
+            float(r["recorded_cash_flow"]) for r in rows_out
+            if isinstance(r["recorded_cash_flow"], (int, float))
+        ),
+        "recomputed_cash_flow_total": sum(
+            float(r["recomputed_cash_flow"]) for r in rows_out
+            if isinstance(r["recomputed_cash_flow"], (int, float))
+        ),
+        "all_matched": not failed,
+        "rows": rows_out,
+    }
+
+
 def execution_price_checks(signals: list[dict], candles_by_venue: dict[tuple[str, str], list[dict]]) -> dict:
     """Compare every recorded entry/exit candle against the refetched candle rows.
 
@@ -170,6 +294,8 @@ def verify(artifact_path: Path, output_path: Path, underlyings: list[str] | None
 
     series: dict[str, dict] = {}
     candles_by_venue: dict[tuple[str, str], list[dict]] = {}
+    funding_by_venue: dict[tuple[str, str], list[dict]] = {}
+    retention_truncated: dict[tuple[str, str], bool] = {}
     for u in targets:
         hl_candles, hl_meta = fetch_hl_candles(u, start_ms, end_ms)
         hl_funding, hl_funding_meta = fetch_hl_funding(u, start_ms, end_ms)
@@ -177,6 +303,10 @@ def verify(artifact_path: Path, output_path: Path, underlyings: list[str] | None
         okx_funding, okx_funding_meta = fetch_okx_funding(OKX_INST_ID[u], start_ms, end_ms)
         candles_by_venue[(u, "Hyperliquid")] = hl_candles
         candles_by_venue[(u, "OKX")] = okx_candles
+        funding_by_venue[(u, "Hyperliquid")] = hl_funding
+        funding_by_venue[(u, "OKX")] = okx_funding
+        retention_truncated[(u, "Hyperliquid")] = False
+        retention_truncated[(u, "OKX")] = okx_funding_meta.get("stop_reason") == "page_not_full"
 
         per_venue = {}
         for venue, candles, funding, cmeta, fmeta in (
@@ -229,7 +359,10 @@ def verify(artifact_path: Path, output_path: Path, underlyings: list[str] | None
     failed = [c for c in checks if not c["passed"]]
     truncated = [o for o in funding_observations if not o["reproduced"]]
     execution = execution_price_checks(artifact.get("signals") or [], candles_by_venue)
-    verdict = "PASS" if not failed and execution["all_matched"] else "FAIL"
+    funding = funding_settlement_checks(
+        artifact.get("signals") or [], funding_by_venue, retention_truncated
+    )
+    verdict = "PASS" if not failed and execution["all_matched"] and funding["all_matched"] else "FAIL"
     return {
         "schema_version": "fvd053-series-digest-verification-v1",
         "run_type": "SOURCE_REPRODUCIBILITY_VERIFICATION",
@@ -252,6 +385,11 @@ def verify(artifact_path: Path, output_path: Path, underlyings: list[str] | None
         "execution_price_rows_matched": execution["rows_matched"],
         "execution_price_rows_expected": execution["rows_expected"],
         "execution_price_rows_failed": execution["rows_failed"],
+        "funding_settlement_provenance": funding,
+        "funding_settlement_rows_expected": funding["rows_expected"],
+        "funding_settlement_rows_matched": funding["rows_matched"],
+        "funding_settlement_rows_outside_retention": funding["rows_outside_retention"],
+        "funding_settlement_rows_failed": funding["rows_failed"],
         "verdict": verdict,
         "backtest_completed": False,
         "performance_metrics_computed": False,
@@ -266,6 +404,10 @@ def verify(artifact_path: Path, output_path: Path, underlyings: list[str] | None
             "Funding row counts are reported separately from the candle digests because OKX publishes a rolling "
             "~3-month funding history: rows older than the retention boundary cannot be refetched even though they "
             "remain persisted in the target artifact's settlement and selection evidence.",
+            "Funding settlement checks compare each recorded venue/side/settlement-timestamp rate, interval, 8h "
+            "normalization and cash flow against refetched rows with tolerance 0. Settlements older than a venue's "
+            "refetched history are labelled outside_retention only when the fetch itself proves truncation "
+            "(OKX stop_reason=page_not_full); they are not counted as matched source observations.",
             "Contract identity remains underlying-symbol-mapped candidate level.",
         ],
         "recomputed_at_utc": datetime.now(tz=timezone.utc).isoformat().replace("+00:00", "Z"),
@@ -290,12 +432,16 @@ def main(argv: list[str] | None = None) -> int:
     result = verify(Path(args.artifact), Path(args.output), args.underlyings)
     Path(args.output).write_text(json.dumps(result, indent=2, sort_keys=True) + "\n", encoding="utf-8")
     execution = result["execution_price_provenance"]
+    funding = result["funding_settlement_provenance"]
     print(f"SERIES_DIGEST_VERIFICATION={result['verdict']} "
           f"candle_checks={len(result['checks'])} failed={result['failed_checks']} "
           f"funding_row_mismatches={result['funding_row_count_mismatches']} "
           f"execution_price_rows={execution['rows_matched']}/{execution['rows_expected']} "
           f"failed={execution['rows_failed']} "
-          f"internal_price_failed={execution['internal_price_failed']}")
+          f"internal_price_failed={execution['internal_price_failed']} "
+          f"funding_settlements={funding['rows_matched']}/{funding['rows_expected']} "
+          f"outside_retention={funding['rows_outside_retention']} "
+          f"failed={funding['rows_failed']}")
     for name in result["failed_check_names"]:
         print(f"  FAILED {name}")
     for row in execution["rows"]:
@@ -308,6 +454,12 @@ def main(argv: list[str] | None = None) -> int:
             print(f"  INTERNAL_PRICE_MISMATCH signal={row['signal_index']} {row['underlying']} {row['venue']} "
                   f"{row['role']} {row['timestamp_utc']} signal={row['recorded_signal_price']} "
                   f"candle={row['recorded_candle_open']}")
+    for row in funding["rows"]:
+        if not row["passed"]:
+            print(f"  FUNDING_MISMATCH signal={row['signal_index']} {row['underlying']} {row['venue']} "
+                  f"{row['settlement_time_utc']} status={row['status']} "
+                  f"recorded_rate={row['recorded_rate']} refetched_rate={row['refetched_rate']} "
+                  f"interval_matches={row['interval_matches_venue']} arithmetic={row['arithmetic_reproduces']}")
     return 0 if result["verdict"] == "PASS" else 1
 
 

@@ -93,7 +93,7 @@
   ],
   "implementation_gate_result": "Opt-in evidence_detail persistence and the independent auditor are covered by known-answer and adversarial tests (tests/test_run_fvd053_anchor.py::EvidenceDetailTests, tests/test_audit_fvd053_anchor.py). No backtest and no performance metric computed.",
   "conclusion": "EXPLORATORY_ONLY / INCONCLUSIVE for inference. The audit-detail artifact closes the three persistence gaps that blocked the FVD-EXPLORATORY-004 audit: funding cash flow, the 80th-percentile prior-threshold selection and the entry/exit price provenance are now independently recomputable from the artifact alone. Contract identity remains candidate-level and the \u22653-year point-in-time market-cap gate remains structurally blocked. No edge, no performance metric and no gate clearance is claimed.",
-  "next_step": "Do not promote. Candle-series digests (10/10) and execution-price rows (92/92, tolerance 0) now reproduce from fresh free-source fetches, so price and funding provenance are independently recomputable offline. Remaining limits are structural: contract identity is candidate-level, the window is ~97 days, and the confirmatory >=3-year PIT market-cap gate is BLOCKED. Next measurable task: port the same zero-tolerance provenance check to the funding settlement rows that are still inside venue retention, asserting each of the 621 recorded settlement cash-flow inputs (rate, interval, timestamp, venue, side) matches a refetched settlement exactly where the venue still serves the date, and separately labeling settlements outside retention. No promotion, no gate relaxation, no performance metric.",
+  "next_step": "Do not promote. Candle-series digests (10/10), execution-price rows (92/92, tolerance 0) and funding settlement rows (621/621, tolerance 0, 0 outside retention) now reproduce from fresh free-source fetches, so price, funding and settlement provenance are independently recomputable offline. Remaining limits are structural: contract identity is candidate-level, the window is ~97 days, and the confirmatory >=3-year PIT market-cap gate is BLOCKED. Next measurable task: extend the zero-tolerance provenance verifier to the 97-date dispersion/threshold series, recomputing each date's cross-venue dispersion and prior-90-date 80th-percentile threshold from the refetched 1h funding rows and asserting equality with the persisted dispersion_evidence and selection_evidence values. No promotion, no gate relaxation, no performance metric.",
   "independent_audit": {
     "audit_artifact": "research_state/fvd053_anchor_audit_2026-11-22.json",
     "auditor": "scripts/audit_fvd053_anchor.py (does not import scripts/run_fvd053_anchor.py)",
@@ -114,6 +114,19 @@
       "funding_row_count_mismatches": 5,
       "verdict": "PASS",
       "note": "All 10 persisted (time, open, close) candle-series digests reproduce exactly from a fresh fetch. The 5 funding row-count mismatches are OKX-only (205 recorded -> 190 refetched per symbol) because OKX truncates funding history at a rolling ~3-month boundary; Hyperliquid funding rows reproduce exactly (2368). The recorded settlement rows remain persisted in the target artifact and the prior audit."
+    },
+    "funding_settlement_verification": {
+      "artifact": "research_state/fvd053_funding_settlement_verification_2026-11-27.json",
+      "sha256": "e2ca999e7203d6ee38a0b391604134615f75f54c1c7d9a95cb369b0ea9bc7a9c",
+      "verifier": "scripts/verify_fvd053_series_digests.py --funding settlement checks (independent recomputation; refetches free public funding history only)",
+      "rows_expected": 621,
+      "rows_matched": 621,
+      "rows_outside_retention": 0,
+      "rows_failed": 0,
+      "recorded_cash_flow_total": 21.8008897994265,
+      "recomputed_cash_flow_total": 21.8008897994265,
+      "verdict": "PASS",
+      "note": "Every recorded settlement-timed funding input (venue, side, settlement timestamp, original rate, interval, 8h normalization, cash flow) matches a refetched settlement row exactly (tolerance 0): 552 Hyperliquid hourly + 69 OKX 8-hourly = 621. No settlement fell outside current venue retention because the earliest signal settlement is 2026-09-20T23:00Z, inside OKX's rolling ~3-month funding window. The independently recomputed cash-flow total equals the anchor attribution total exactly. This proves funding provenance only, not executable liquidity or any performance metric."
     }
   },
   "reference_probe": "historical_overlap_probe_45019521782_attempt_1.json",
@@ -146,12 +159,17 @@
   {
     "path": "research_state/fvd053_execution_price_verification_2026-11-27.json",
     "sha256": "ad8e5c14f3ffae7ea67ac1c0fa867428a0ebad53e40ac4c04c50e54ad7fab20b"
+  },
+  {
+    "path": "research_state/fvd053_funding_settlement_verification_2026-11-27.json",
+    "sha256": "e2ca999e7203d6ee38a0b391604134615f75f54c1c7d9a95cb369b0ea9bc7a9c"
   }
 ],
   "caveats": [
     "Preregistered before execution; no outcome-informed parameter change.",
     "Contract identity is candidate-level; the >=3-year point-in-time market-cap gate remains BLOCKED.",
  "2026-11-26: series digests re-verified against fresh free public candle data \u2014 10/10 candle digests reproduce exactly (sha256 e6be2746ca26a0c37deb2abc0daac8febe547132163bfe17038032e33f219e57). OKX funding row counts cannot be re-derived for the frozen window (205 recorded -> 190 refetched per symbol) because OKX publishes a rolling ~3-month funding history; the affected settlement rows remain persisted in the artifact and were independently audited, so this is a vendor retention limit, not a data-integrity defect.",
- "2026-11-27: execution-price provenance re-verified (sha256 ad8e5c14f3ffae7ea67ac1c0fa867428a0ebad53e40ac4c04c50e54ad7fab20b): all 92 recorded entry/exit candle rows (23 signals x 2 legs x entry/exit) match the refetched Hyperliquid/OKX 1h candles exactly (open and close, tolerance 0), and all 92 signal-level entry/exit prices equal their own recorded candle open. This closes the audited limitation that execution prices could not be tied to source rows; it proves price provenance only, not executability or any performance metric."
+ "2026-11-27: execution-price provenance re-verified (sha256 ad8e5c14f3ffae7ea67ac1c0fa867428a0ebad53e40ac4c04c50e54ad7fab20b): all 92 recorded entry/exit candle rows (23 signals x 2 legs x entry/exit) match the refetched Hyperliquid/OKX 1h candles exactly (open and close, tolerance 0), and all 92 signal-level entry/exit prices equal their own recorded candle open. This closes the audited limitation that execution prices could not be tied to source rows; it proves price provenance only, not executability or any performance metric.",
+ "2026-11-27: funding settlement provenance verified (artifact research_state/fvd053_funding_settlement_verification_2026-11-27.json, sha256 e2ca999e7203d6ee38a0b391604134615f75f54c1c7d9a95cb369b0ea9bc7a9c) by the extended scripts/verify_fvd053_series_digests.py: all 621 recorded settlement cash-flow inputs reproduce exactly from refetched venue funding rows (552 Hyperliquid hourly + 69 OKX 8-hourly, tolerance 0; recorded and independently recomputed cash-flow totals both 21.8008897994265), 0 settlements outside retention and 0 mismatches. The verifier extension post-dates the -11-26/-11-27 execution runs, so its current hash (448f4fe6c2e679b5ca9a282ba987c76f21dfe998eb259a61e1e792ece37bc395) is recorded here rather than rewriting the earlier source_code_hashes entry."
 ]
 }
