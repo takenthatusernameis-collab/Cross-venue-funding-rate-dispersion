@@ -1,6 +1,8 @@
 import sys
 import unittest
+from datetime import datetime, timedelta, timezone
 from pathlib import Path
+from statistics import pstdev
 
 sys.path.insert(0, str(Path(__file__).resolve().parents[1] / "scripts"))
 
@@ -10,6 +12,10 @@ from verify_fvd053_series_digests import (  # noqa: E402
     _iso,
     execution_price_checks,
     funding_settlement_checks,
+    dispersion_threshold_checks,
+    selection_observation_checks,
+    linear_quantile,
+    prior_daily_threshold,
 )
 
 
@@ -210,6 +216,249 @@ class FundingSettlementProvenanceTests(unittest.TestCase):
         self.assertFalse(result["all_matched"])
         self.assertEqual(result["rows_not_found"], 1)
         self.assertEqual(result["rows_failed"], 1)
+
+
+class QuantileAndThresholdTests(unittest.TestCase):
+    def test_type7_linear_quantile(self):
+        self.assertAlmostEqual(linear_quantile([1.0, 2.0, 3.0, 4.0], 80, minimum_observations=4), 3.4)
+
+    def test_insufficient_observations_returns_none(self):
+        self.assertIsNone(linear_quantile([1.0, 2.0], 80, minimum_observations=3))
+
+    def test_current_date_is_excluded_and_lookback_respected(self):
+        samples = [
+            {"date": "2023-11-10", "snapshot_time_utc": "23:00:00", "dispersion": 1.0},
+            {"date": "2023-11-11", "snapshot_time_utc": "23:00:00", "dispersion": 2.0},
+            {"date": "2023-11-12", "snapshot_time_utc": "23:00:00", "dispersion": 100.0},
+            {"date": "2023-08-01", "snapshot_time_utc": "23:00:00", "dispersion": 500.0},
+        ]
+        self.assertEqual(
+            prior_daily_threshold(
+                samples, "2023-11-12", 80, lookback_days=90, minimum_observations=2
+            ),
+            1.8,
+        )
+
+    def test_snapshot_after_cutoff_is_ignored(self):
+        samples = [
+            {"date": "2023-11-10", "snapshot_time_utc": "23:00:00", "dispersion": 1.0},
+            {"date": "2023-11-10", "snapshot_time_utc": "23:30:00", "dispersion": 99.0},
+        ]
+        self.assertEqual(
+            prior_daily_threshold(
+                samples, "2023-11-12", 80, lookback_days=90, minimum_observations=1
+            ),
+            1.0,
+        )
+
+
+class _SyntheticMarket:
+    """Constant per-venue funding so every covered date has one known dispersion."""
+
+    HL_RATE = 0.0001
+    OKX_RATE = 0.0003
+    DISPERSION = pstdev([0.0008, 0.0003])
+
+    @staticmethod
+    def _ms(text):
+        return int(datetime.fromisoformat(text + "+00:00").timestamp() * 1000)
+
+    def hl_rows(self, start="2023-11-06T00:00:00", end="2023-11-12T23:00:00"):
+        rows, cursor = [], datetime.fromisoformat(start + "+00:00")
+        stop = datetime.fromisoformat(end + "+00:00")
+        while cursor <= stop:
+            rows.append({"time": int(cursor.timestamp() * 1000), "rate": self.HL_RATE})
+            cursor += timedelta(hours=1)
+        return rows
+
+    def okx_rows(self, start="2023-11-06T00:00:00", end="2023-11-12T16:00:00"):
+        rows, cursor = [], datetime.fromisoformat(start + "+00:00")
+        stop = datetime.fromisoformat(end + "+00:00")
+        while cursor <= stop:
+            rows.append({"time": int(cursor.timestamp() * 1000), "rate": self.OKX_RATE})
+            cursor += timedelta(hours=8)
+        return rows
+
+    def observations(self, rows, interval_hours, start, end):
+        begin = self._ms(start)
+        finish = self._ms(end)
+        return [
+            {
+                "timestamp": _iso(row["time"]),
+                "interval_hours": interval_hours,
+                "original_rate": row["rate"],
+                "rate_8h": row["rate"] * 8.0 / interval_hours,
+            }
+            for row in rows
+            if begin <= row["time"] <= finish
+        ]
+
+
+class DispersionAndThresholdWiringTests(unittest.TestCase):
+    DATES = ["2023-11-07", "2023-11-08", "2023-11-09", "2023-11-10", "2023-11-11", "2023-11-12"]
+
+    def setUp(self):
+        self.market = _SyntheticMarket()
+        self.funding = {
+            ("BTC", "Hyperliquid"): self.market.hl_rows(),
+            ("BTC", "OKX"): self.market.okx_rows(),
+        }
+
+    def _artifact(self):
+        evidence = []
+        for index, day in enumerate(self.DATES):
+            prior_samples = index
+            threshold = self.market.DISPERSION if prior_samples >= 4 else None
+            evidence.append({
+                "date_utc": day,
+                "underlyings": {
+                    "BTC": {
+                        "dispersion": self.market.DISPERSION,
+                        "prior_threshold": threshold,
+                        "threshold_eligible": threshold is not None,
+                        "selected": threshold is not None,
+                    }
+                },
+            })
+        return {
+            "window_start_utc": "2023-11-06T00:00:00Z",
+            "window_end_utc": "2023-11-12T23:00:00Z",
+            "underlyings": ["BTC"],
+            "anchor_params": {
+                "dispersion_lookback_hours": 24,
+                "entry_percentile": 80,
+                "threshold_lookback_days": 90,
+                "threshold_minimum_observations": 4,
+                "portfolio_tail_fraction": 0.1,
+            },
+            "dispersion_evidence": evidence,
+            "selection_evidence": [],
+        }
+
+    def test_every_dispersion_threshold_and_selection_row_matches(self):
+        result = dispersion_threshold_checks(self._artifact(), self.funding)
+        self.assertTrue(result["all_matched"])
+        self.assertEqual(result["dispersion_rows_matched"], len(self.DATES))
+        self.assertEqual(result["threshold_rows_failed"], 0)
+        self.assertEqual(result["selection_rows_failed"], 0)
+
+    def test_changed_refetched_rate_breaks_dispersion(self):
+        funding = dict(self.funding)
+        funding[("BTC", "OKX")] = [
+            {"time": row["time"], "rate": row["rate"] * 1.01} for row in self.market.okx_rows()
+        ]
+        result = dispersion_threshold_checks(self._artifact(), funding)
+        self.assertFalse(result["all_matched"])
+        self.assertGreater(result["dispersion_rows_failed"], 0)
+
+    def test_changed_recorded_threshold_fails(self):
+        artifact = self._artifact()
+        artifact["dispersion_evidence"][-1]["underlyings"]["BTC"]["prior_threshold"] *= 1.000001
+        result = dispersion_threshold_checks(artifact, self.funding)
+        self.assertFalse(result["all_matched"])
+        self.assertEqual(result["threshold_rows_failed"], 1)
+
+    def test_changed_selection_flag_fails(self):
+        artifact = self._artifact()
+        artifact["dispersion_evidence"][-1]["underlyings"]["BTC"]["selected"] = False
+        result = dispersion_threshold_checks(artifact, self.funding)
+        self.assertFalse(result["all_matched"])
+        self.assertEqual(result["selection_rows_failed"], 1)
+
+    def test_null_dispersion_matches_when_both_venues_absent(self):
+        artifact = self._artifact()
+        artifact["dispersion_evidence"] = [{
+            "date_utc": "2023-11-07",
+            "underlyings": {"BTC": {"dispersion": None, "prior_threshold": None,
+                                    "threshold_eligible": False, "selected": False}},
+        }]
+        funding = {("BTC", "Hyperliquid"): [], ("BTC", "OKX"): []}
+        result = dispersion_threshold_checks(artifact, funding)
+        self.assertTrue(result["all_matched"])
+        self.assertEqual(result["dispersion_rows_matched"], 1)
+
+    def test_okx_retention_gap_is_labelled_not_matched(self):
+        artifact = self._artifact()
+        funding = {
+            ("BTC", "Hyperliquid"): self.market.hl_rows(),
+            ("BTC", "OKX"): self.market.okx_rows(start="2023-11-12T00:00:00"),
+        }
+        result = dispersion_threshold_checks(
+            artifact, funding, {("BTC", "OKX"): True}
+        )
+        self.assertTrue(result["all_matched"])
+        self.assertGreater(result["dispersion_rows_outside_retention"], 0)
+
+
+class SelectionObservationTests(unittest.TestCase):
+    def setUp(self):
+        self.market = _SyntheticMarket()
+
+    def _artifact(self, okx_rate=None):
+        hl = self.market.hl_rows()
+        okx = self.market.okx_rows()
+        if okx_rate is not None:
+            okx = [{"time": row["time"], "rate": okx_rate} for row in okx]
+        entry = {
+            "date_utc": "2023-11-12",
+            "signal_time_utc": "2023-11-12T23:00:00Z",
+            "window_start_utc": "2023-11-11T23:00:00Z",
+            "underlyings": {
+                "BTC": {
+                    "dispersion": self.market.DISPERSION,
+                    "observations": {
+                        "Hyperliquid": self.market.observations(
+                            hl, 1.0, "2023-11-10T23:00:00", "2023-11-12T23:00:00"),
+                        "OKX": self.market.observations(
+                            okx, 8.0, "2023-11-10T23:00:00", "2023-11-12T23:00:00"),
+                    },
+                }
+            },
+        }
+        return {
+            "underlyings": ["BTC"],
+            "anchor_params": {"dispersion_lookback_hours": 24},
+            "dispersion_evidence": [{
+                "date_utc": "2023-11-12",
+                "underlyings": {"BTC": {"dispersion": self.market.DISPERSION}},
+            }],
+            "selection_evidence": [entry],
+        }
+
+    def test_selection_observations_and_dispersion_reproduce(self):
+        funding = {
+            ("BTC", "Hyperliquid"): self.market.hl_rows(),
+            ("BTC", "OKX"): self.market.okx_rows(),
+        }
+        result = selection_observation_checks(self._artifact(), funding)
+        self.assertTrue(result["all_matched"])
+        self.assertEqual(result["observation_rows_failed"], 0)
+        self.assertEqual(result["underlying_windows_matched"], 1)
+
+    def test_changed_refetched_observation_rate_fails(self):
+        artifact = self._artifact()
+        funding = {
+            ("BTC", "Hyperliquid"): self.market.hl_rows(),
+            ("BTC", "OKX"): self.market.okx_rows(),
+        }
+        funding[("BTC", "OKX")] = [
+            {"time": row["time"], "rate": row["rate"] + 1e-9}
+            for row in self.market.okx_rows()
+        ]
+        result = selection_observation_checks(artifact, funding)
+        self.assertFalse(result["all_matched"])
+        self.assertGreater(result["observation_rows_failed"], 0)
+
+    def test_selection_dispersion_must_match_evidence_series(self):
+        artifact = self._artifact()
+        artifact["dispersion_evidence"][0]["underlyings"]["BTC"]["dispersion"] *= 2
+        funding = {
+            ("BTC", "Hyperliquid"): self.market.hl_rows(),
+            ("BTC", "OKX"): self.market.okx_rows(),
+        }
+        result = selection_observation_checks(artifact, funding)
+        self.assertFalse(result["all_matched"])
+        self.assertEqual(result["underlying_windows_failed"], 1)
 
 
 if __name__ == "__main__":
